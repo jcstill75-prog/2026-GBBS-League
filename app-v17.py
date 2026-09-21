@@ -209,6 +209,29 @@ def calculate_season_score(predictions, actuals):
             
     return score
 
+
+def load_baker_image(baker_name):
+    """Smart case-insensitive and multi-extension image loader."""
+    if not os.path.exists("assets"):
+        return None
+    
+    # Target stem (e.g. 'clara')
+    target = baker_name.lower().strip()
+    
+    # Scan assets directory
+    try:
+        for filename in os.listdir("assets"):
+            stem, ext = os.path.splitext(filename)
+            if stem.lower().strip() == target and ext.lower() in ['.jpg', '.jpeg', '.png', '.webp']:
+                full_path = os.path.join("assets", filename)
+                try:
+                    return Image.open(full_path)
+                except Exception:
+                    pass
+    except Exception:
+        pass
+    return None
+
 # --- 3. CORE BAKERS LIST & DATABASE INITIALIZATION ---
 ALL_BAKERS = [
     "Clara", "Connie", "Danni", "Gabe", "Gary", "Mo", 
@@ -276,7 +299,7 @@ if "league_members" not in st.session_state:
 # Check for AI Brian's custom profile picture
 import os
 brian_avatar_img = None
-for brian_path in ["ai_brian.jpg", "AI Brian.jpg", "assets/ai_brian.jpg", "assets/AI_Brian.jpg"]:
+for brian_path in ["ai_brian.jpg", "AI Brian.jpg", "assets/ai_brian.jpg", "assets/AI_Brian.jpg", "assets/ai_brian.png", "assets/AI_Brian.png"]:
     if os.path.exists(brian_path):
         try:
             brian_avatar_img = Image.open(brian_path)
@@ -610,11 +633,10 @@ with tab_submit:
             info = BAKER_INFO.get(baker, {"url": "#"})
             with cols[idx % 4]:
                 st.markdown(f"**{baker}**")
-                local_img_path = f"assets/{baker.lower()}.jpg"
-                try:
-                    img = Image.open(local_img_path)
+                img = load_baker_image(baker)
+                if img is not None:
                     st.image(img, use_container_width=True)
-                except Exception:
+                else:
                     st.info(f"📸 Photograph of {baker}")
                     st.markdown(f"[🔗 View {baker}'s Photo Page]({info['url']})")
                 st.markdown("<br>", unsafe_allow_html=True)
