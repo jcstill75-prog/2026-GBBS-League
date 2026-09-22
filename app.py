@@ -1,11 +1,10 @@
 import os
-from PIL import Image
-import streamlit as st
-import pandas as pd
-import random
-from PIL import Image, ImageDraw
 import io
 import base64
+import random
+import pandas as pd
+import streamlit as st
+from PIL import Image, ImageDraw
 
 # --- 1. SETUP & PAGE CONFIG ---
 st.set_page_config(
