@@ -3,6 +3,7 @@ import pandas as pd
 import random
 from PIL import Image, ImageDraw
 import io
+import base64
 
 # --- 1. SETUP & PAGE CONFIG ---
 st.set_page_config(
