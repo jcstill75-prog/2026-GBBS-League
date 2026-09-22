@@ -210,6 +210,44 @@ def calculate_season_score(predictions, actuals):
     return score
 
 
+def load_ai_brian_avatar():
+    """Smart image loader for AI Brian's avatar (prioritizes assets/aibrian.jpg)."""
+    priority_paths = [
+        "assets/aibrian.jpg",
+        "assets/aibrian.jpeg",
+        "assets/aibrian.png",
+        "assets/aibrian.webp",
+        "assets/ai_brian.jpg",
+        "assets/ai_brian.png",
+        "assets/AIBrian.jpg",
+        "assets/AI_Brian.jpg",
+        "assets/AI Brian.jpg",
+        "aibrian.jpg",
+        "aibrian.png",
+        "ai_brian.jpg",
+        "AI Brian.jpg"
+    ]
+    for p in priority_paths:
+        if os.path.exists(p):
+            try:
+                return Image.open(p)
+            except Exception:
+                pass
+
+    if os.path.exists("assets"):
+        try:
+            for filename in os.listdir("assets"):
+                stem, ext = os.path.splitext(filename)
+                clean_stem = stem.lower().replace("_", "").replace(" ", "").strip()
+                if clean_stem in ["aibrian", "brian"] and ext.lower() in ['.jpg', '.jpeg', '.png', '.webp']:
+                    try:
+                        return Image.open(os.path.join("assets", filename))
+                    except Exception:
+                        pass
+        except Exception:
+            pass
+    return None
+
 def load_baker_image(baker_name):
     """Smart case-insensitive and multi-extension image loader."""
     if not os.path.exists("assets"):
@@ -297,16 +335,7 @@ if "league_members" not in st.session_state:
     }
 
 # Check for AI Brian's custom profile picture
-import os
-brian_avatar_img = None
-for brian_path in ["ai_brian.jpg", "AI Brian.jpg", "assets/ai_brian.jpg", "assets/AI_Brian.jpg", "assets/ai_brian.png", "assets/AI_Brian.png"]:
-    if os.path.exists(brian_path):
-        try:
-            brian_avatar_img = Image.open(brian_path)
-            break
-        except Exception:
-            pass
-
+brian_avatar_img = load_ai_brian_avatar()
 if brian_avatar_img is not None:
     st.session_state.league_members["AI Brian"]["avatar"] = brian_avatar_img
 
@@ -510,7 +539,12 @@ with tab_lead:
     for member_name, data in st.session_state.league_members.items():
         avatar_display = "🍪"
         if member_name == "AI Brian":
-            if isinstance(data["avatar"], Image.Image):
+            brian_img = data["avatar"]
+            if not isinstance(brian_img, Image.Image):
+                brian_img = load_ai_brian_avatar()
+                if brian_img is not None:
+                    data["avatar"] = brian_img
+            if isinstance(brian_img, Image.Image):
                 avatar_display = "📸 AI Brian Photo"
             else:
                 avatar_display = "🤖"
@@ -532,6 +566,11 @@ with tab_lead:
     
     st.subheader("🍪 AI Brian's Automated Profile")
     brian_avatar = st.session_state.league_members["AI Brian"]["avatar"]
+    if not isinstance(brian_avatar, Image.Image):
+        brian_avatar = load_ai_brian_avatar()
+        if brian_avatar is not None:
+            st.session_state.league_members["AI Brian"]["avatar"] = brian_avatar
+
     if isinstance(brian_avatar, Image.Image):
         st.image(brian_avatar, caption="AI Brian", width=150)
     else:
