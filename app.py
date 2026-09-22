@@ -455,7 +455,6 @@ def load_ai_brian_avatar():
                 return Image.open(p)
             except Exception:
                 pass
-    return None
 
     if os.path.exists("assets"):
         try:
@@ -1108,7 +1107,32 @@ with tab_submit:
 # --- TAB 3: ADMIN PANEL ---
 with tab_admin:
     st.header("👑 League Administrator Console")
-    st.write("Use this tab to input the actual results from the broadcast. Submitting actual results will score the predictions and update the leaderboard!")
+    
+    ADMIN_PIN = "6284"
+    if "admin_authenticated" not in st.session_state:
+        st.session_state.admin_authenticated = False
+        
+    if not st.session_state.admin_authenticated:
+        st.subheader("🔒 Administrator Lock Screen")
+        st.info("This tab is restricted to the League Administrator. Please enter your Admin PIN to unlock the broadcast input console.")
+        input_pin = st.text_input("Enter Admin PIN:", type="password", key="admin_pin_input")
+        if st.button("Unlock Admin Panel"):
+            if input_pin == ADMIN_PIN:
+                st.session_state.admin_authenticated = True
+                st.success("Access Granted! Unlocking Admin Console...")
+                st.rerun()
+            else:
+                st.error("❌ Incorrect PIN. Access denied.")
+    else:
+        col_lock1, col_lock2 = st.columns([4, 1])
+        with col_lock1:
+            st.caption("🔓 Authenticated as League Administrator")
+        with col_lock2:
+            if st.button("🔒 Lock Console"):
+                st.session_state.admin_authenticated = False
+                st.rerun()
+                
+        st.write("Use this tab to input the actual results from the broadcast. Submitting actual results will score the predictions and update the leaderboard!")
     
     current_eliminated = eliminated_bakers_by_week.get(st.session_state.current_week, [])
     active_bakers = [b for b in ALL_BAKERS if b not in current_eliminated]
