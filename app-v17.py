@@ -1,3 +1,5 @@
+import os
+from PIL import Image
 import streamlit as st
 import pandas as pd
 import random
@@ -227,12 +229,13 @@ def load_ai_brian_avatar():
         "ai_brian.jpg",
         "AI Brian.jpg"
     ]
-    for p in priority_paths:
+for p in priority_paths:
         if os.path.exists(p):
             try:
                 return Image.open(p)
             except Exception:
                 pass
+    return None
 
     if os.path.exists("assets"):
         try:
