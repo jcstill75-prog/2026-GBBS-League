@@ -228,15 +228,17 @@ def load_ai_brian_avatar():
         "aibrian.png",
         "ai_brian.jpg",
         "AI Brian.jpg"
-    ]
-for p in priority_paths:
+]
+
+    # 1. Check exact priority paths first
+    for p in priority_paths:
         if os.path.exists(p):
             try:
                 return Image.open(p)
             except Exception:
                 pass
-    return None
 
+    # 2. Fallback: scan assets folder for any variation of aibrian/brian
     if os.path.exists("assets"):
         try:
             for filename in os.listdir("assets"):
@@ -249,6 +251,7 @@ for p in priority_paths:
                         pass
         except Exception:
             pass
+
     return None
 
 def load_baker_image(baker_name):
