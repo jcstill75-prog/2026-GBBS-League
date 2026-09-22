@@ -1,3 +1,5 @@
+import os
+from PIL import Image
 import streamlit as st
 import pandas as pd
 import random
@@ -438,7 +440,7 @@ def get_avatar_data_uri(avatar_obj, default_symbol='🍪'):
     except Exception:
         return ""
 
-def load_ai_brian_avatar():
+  def load_ai_brian_avatar():
     """Smart image loader for AI Brian's avatar (prioritizes assets/aibrian.jpg)."""
     priority_paths = [
         "assets/aibrian.jpg", "assets/aibrian.JPG", "assets/aibrian.jpeg", "assets/aibrian.JPEG",
@@ -454,6 +456,7 @@ def load_ai_brian_avatar():
                 return Image.open(p)
             except Exception:
                 pass
+    return None
 
     if os.path.exists("assets"):
         try:
