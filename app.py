@@ -1,4 +1,5 @@
 import streamlit as st
+import json
 import pandas as pd
 import random
 from PIL import Image, ImageDraw
@@ -501,11 +502,11 @@ ELIMINATED_BAKERS_BY_WEEK = {
 
 def get_current_eliminated_bakers(week_num):
     """Get list of eliminated bakers up to the current week."""
-    elim = []
-    if "weekly_results" in st.session_state and st.session_state.weekly_results:
-        for w in range(1, week_num + 1):
-            if w in st.session_state.weekly_results:
-                act_el = st.session_state.weekly_results[w].get("eliminated")
+    elim = list(ELIMINATED_BAKERS_BY_WEEK.get(week_num, []))
+    if "weekly_results" in st.session_state:
+        for w, res in st.session_state.weekly_results.items():
+            if w <= week_num:
+                act_el = res.get("eliminated")
                 if isinstance(act_el, list):
                     for b in act_el:
                         if b != "None" and b not in elim:
@@ -513,11 +514,44 @@ def get_current_eliminated_bakers(week_num):
                 elif isinstance(act_el, str) and act_el != "None":
                     if act_el not in elim:
                         elim.append(act_el)
-    
-    if not elim:
-        elim = list(ELIMINATED_BAKERS_BY_WEEK.get(week_num, []))
-        
     return elim
+
+
+
+
+DATA_FILE = "league_data.json"
+
+def save_league_data(league_members, weekly_results, season_results):
+    """Saves league session state data to persistent league_data.json file."""
+    try:
+        members_copy = {}
+        for name, data in league_members.items():
+            m_dict = dict(data)
+            if "avatar" in m_dict and not isinstance(m_dict["avatar"], (str, type(None))):
+                m_dict["avatar"] = None
+            members_copy[name] = m_dict
+            
+        payload = {
+            "league_members": members_copy,
+            "weekly_results": weekly_results,
+            "season_results": season_results
+        }
+        with open(DATA_FILE, "w") as f:
+            json.dump(payload, f, indent=2)
+    except Exception:
+        pass
+
+
+def load_league_data():
+    """Loads saved league session state from league_data.json if present."""
+    if os.path.exists(DATA_FILE):
+        try:
+            with open(DATA_FILE, "r") as f:
+                payload = json.load(f)
+                return payload.get("league_members", {}), payload.get("weekly_results", {}), payload.get("season_results", {})
+        except Exception:
+            pass
+    return None, None, None
 
 
 # --- 3. CORE BAKERS LIST & DATABASE INITIALIZATION ---
@@ -547,26 +581,31 @@ DEFAULT_ROSTER = [
     "Taliah", "Tressa"
 ]
 
+loaded_members, loaded_weekly, loaded_season = load_league_data()
+
 if "league_members" not in st.session_state:
-    st.session_state.league_members = {
-        "AI Brian": {
-            "avatar": "🤖",
-            "weekly_picks": {},
-            "season_picks": {},
-            "total_score": 0,
-            "weekly_breakdown": {},
-            "pin": None
+    if loaded_members:
+        st.session_state.league_members = loaded_members
+    else:
+        st.session_state.league_members = {
+            "AI Brian": {
+                "avatar": "🤖",
+                "weekly_picks": {},
+                "season_picks": {},
+                "total_score": 0,
+                "weekly_breakdown": {},
+                "pin": None
+            }
         }
-    }
-    for p_name in DEFAULT_ROSTER:
-        st.session_state.league_members[p_name] = {
-            "avatar": None,
-            "weekly_picks": {},
-            "season_picks": {},
-            "total_score": 0,
-            "weekly_breakdown": {},
-            "pin": None
-        }
+        for p_name in DEFAULT_ROSTER:
+            st.session_state.league_members[p_name] = {
+                "avatar": None,
+                "weekly_picks": {},
+                "season_picks": {},
+                "total_score": 0,
+                "weekly_breakdown": {},
+                "pin": None
+            }
 else:
     for p_name in DEFAULT_ROSTER:
         if p_name not in st.session_state.league_members:
@@ -587,13 +626,13 @@ if brian_avatar_img is not None:
     st.session_state.league_members["AI Brian"]["avatar"] = brian_avatar_img
 
 if "current_week" not in st.session_state:
-    st.session_state.current_week = 1
+    st.session_state.current_week = 2
 
 if "weekly_results" not in st.session_state:
-    st.session_state.weekly_results = {}
+    st.session_state.weekly_results = loaded_weekly if loaded_weekly is not None else {}
 
 if "season_results" not in st.session_state:
-    st.session_state.season_results = {}
+    st.session_state.season_results = loaded_season if loaded_season is not None else {}
 
 if "disputes" not in st.session_state:
     st.session_state.disputes = []
@@ -711,7 +750,7 @@ with st.sidebar:
             
     st.markdown("---")
     st.header("⚙️ Game Controls")
-    selected_week = st.slider("Select App Active Week", min_value=1, max_value=10, value=st.session_state.current_week)
+    selected_week = st.slider("Select App Active Week", min_value=2, max_value=10, value=st.session_state.current_week)
     st.session_state.current_week = selected_week
 
     st.markdown("---")
@@ -1130,7 +1169,7 @@ with tab_submit:
             st.markdown(f"### Weekly Ballot for {active_sub_player}")
             
             if st.session_state.current_week == 1:
-                st.info("👀 **Week 1: The Scouting Period (Sept 25 Premiere)**\n\nWatch Episode 1 on Friday to evaluate all 12 bakers! No prediction ballots are submitted or scored for Week 1. League members do not make any predictions until Week 2!")
+                st.info("👀 **Week 1: The Scouting Period (Sept 25 Premiere)**\n\nWatch Episode 1 on Friday to evaluate all 12 bakers! No weekly prediction ballots are submitted or scored for Week 1. Lock in your Season-Long Predictions above before Episode 2 airs!")
             else:
                 is_double_elim = False
                 if st.session_state.current_week < 10:
@@ -1357,24 +1396,7 @@ with tab_admin:
             st.subheader(f"Input Broadcast Results for Week {st.session_state.current_week}")
             actuals = {}
             
-            if st.session_state.current_week == 1:
-                st.subheader("Input Broadcast Results for Week 1 (Episode 1 Premiere)")
-                st.write("After Friday's premiere episode airs, select the first baker eliminated from the competition and enter any episode broadcast counts.")
-                
-                col_w1_1, col_w1_2 = st.columns(2)
-                with col_w1_1:
-                    act_sb_opts = ["-- Select Star Baker --", "None (No Star Baker)"] + active_bakers
-                    act_sb_w1 = st.selectbox("Actual Star Baker (Episode 1)", act_sb_opts, index=0)
-                    actuals["star_baker"] = act_sb_w1 if act_sb_w1 not in ["-- Select Star Baker --", "None (No Star Baker)"] else "None"
-                with col_w1_2:
-                    act_elim_opts = ["-- Select Eliminated Baker --"] + active_bakers
-                    act_elim_w1 = st.selectbox("Actual Eliminated Baker (Episode 1)", act_elim_opts, index=0)
-                    actuals["eliminated"] = act_elim_w1 if act_elim_w1 != "-- Select Eliminated Baker --" else "None"
-                actuals["tech_rank"] = []
-                actuals["tech_top_3"] = []
-                actuals["tech_bottom_3"] = []
-                
-            elif st.session_state.current_week == 10:
+            if st.session_state.current_week == 10:
                 actuals["show_champion"] = st.selectbox("Actual Show Champion", active_bakers)
                 st.write("Actual Technical Challenge Rankings:")
                 act_t1 = st.selectbox("Actual Technical 1st Place", active_bakers, index=0)
@@ -1517,6 +1539,7 @@ with tab_admin:
                 st.session_state.weekly_results[st.session_state.current_week] = actuals
                 if st.session_state.current_week == 10:
                     st.session_state.season_results = actuals_season
+                save_league_data(st.session_state.league_members, st.session_state.weekly_results, st.session_state.season_results)
                     
                 # TRIGGER RECALCULATION
                 for member_name in st.session_state.league_members:
