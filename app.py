@@ -487,7 +487,6 @@ def apply_elimination_overlay(img):
 
 
 ELIMINATED_BAKERS_BY_WEEK = {
-    1: [],
     2: ["Yannis"],
     3: ["Yannis", "Nikki"],
     4: ["Yannis", "Nikki", "Connie"],
@@ -584,7 +583,7 @@ if brian_avatar_img is not None:
     st.session_state.league_members["AI Brian"]["avatar"] = brian_avatar_img
 
 if "current_week" not in st.session_state:
-    st.session_state.current_week = 1
+    st.session_state.current_week = 2
 
 if "weekly_results" not in st.session_state:
     st.session_state.weekly_results = {}
@@ -708,7 +707,7 @@ with st.sidebar:
             
     st.markdown("---")
     st.header("⚙️ Game Controls")
-    selected_week = st.slider("Select App Active Week", min_value=1, max_value=10, value=st.session_state.current_week)
+    selected_week = st.slider("Select App Active Week", min_value=2, max_value=10, value=st.session_state.current_week)
     st.session_state.current_week = selected_week
 
     st.markdown("---")
@@ -970,7 +969,7 @@ with tab_submit:
     sub_player_choice = st.selectbox("Select Player Profile Submitting Predictions:", player_options)
     
     if sub_player_choice == "➕ Register New Player":
-        new_name = st.text_input("Enter New Player Name:").strip()
+        new_name = st.text_input("Enter New Player Name:", autocomplete="off").strip()
         active_sub_player = new_name if new_name else None
     elif sub_player_choice != "-- Select Your Name --":
         active_sub_player = sub_player_choice
@@ -1001,7 +1000,7 @@ with tab_submit:
             with st.form(f"pin_setup_form_{active_sub_player}"):
                 c1, c2 = st.columns([2, 1])
                 with c1:
-                    new_pin = st.text_input("Create 4-Digit PIN", type="password", max_chars=4, placeholder="e.g. 1234")
+                    new_pin = st.text_input("Create 4-Digit PIN", type="password", max_chars=4, placeholder="e.g. 1234", autocomplete="new-password")
                 with c2:
                     st.markdown("<br>", unsafe_allow_html=True)
                     set_pin_btn = st.form_submit_button("Set My Security PIN")
@@ -1019,7 +1018,7 @@ with tab_submit:
             with st.form(f"pin_verify_form_{active_sub_player}"):
                 c1, c2 = st.columns([2, 1])
                 with c1:
-                    input_pin = st.text_input("Enter 4-Digit PIN", type="password", max_chars=4)
+                    input_pin = st.text_input("Enter 4-Digit PIN", type="password", max_chars=4, autocomplete="new-password")
                 with c2:
                     st.markdown("<br>", unsafe_allow_html=True)
                     verify_btn = st.form_submit_button("Unlock Ballot")
@@ -1051,17 +1050,12 @@ with tab_submit:
             
             st.info(f"Submitting ballot for: **{active_sub_player}** | Active Bakers in Tent (Week {st.session_state.current_week}): " + ", ".join(active_bakers))
             
-            if st.session_state.current_week == 1:
-                st.info("👀 **Week 1: The Scouting Period (Sept 25 Premiere)**\n\nWatch Episode 1 on Friday to evaluate all 12 bakers! No predictions are scored for Week 1.\n\nAfter Friday's episode, the Commissioner will publish the Week 1 elimination in the Admin panel. You can then submit your **Week 2 Predictions** and **Season-Long Projections** (which lock before Episode 2) below!")
-            
-            target_pred_week = 2 if st.session_state.current_week == 1 else st.session_state.current_week
-            
             is_double_elim = False
             if st.session_state.current_week < 10:
                 is_double_elim = st.checkbox("📢 Is this a Double-Elimination Week?", value=prev_week_was_grace, help="Automatically checked if the previous week was a sickness grace week with no elimination!")
             
             # 1. Season long entry if week is 2
-            if st.session_state.current_week in [1, 2]:
+            if st.session_state.current_week == 2:
                 with st.expander(f"🌟 Submit Post-Week 1 Season-Long Predictions for {active_sub_player} (Locks Now! | 130 pts total at stake)", expanded=True):
                     user_winner = st.selectbox("Predict Season Winner [40 pts if winner, 15 pts if runner-up consolation]", active_bakers, key=f"{active_sub_player}_win_pick")
                     remaining_for_semis = [b for b in active_bakers if b != user_winner]
@@ -1085,11 +1079,11 @@ with tab_submit:
                             st.success(f"Season long predictions saved successfully for {active_sub_player}!")
 
             # 2. Weekly Form based on active week
-            st.markdown(f"### Weekly Ballot for {active_sub_player} (Week {target_pred_week})")
+            st.markdown(f"### Weekly Ballot for {active_sub_player}")
             with st.form("weekly_predictions_form"):
                 weekly_picks = {}
                 
-                if target_pred_week == 10:
+                if st.session_state.current_week == 10:
                     weekly_picks["show_champion"] = st.selectbox("Predict Show Champion [15 pts at stake]", active_bakers)
                     st.write("Predict Technical Challenge Final Rank [Perfect 3-for-3 Sweep = flat 15 pts; otherwise exact matches: 1st=3pts, 2nd/3rd=2pts]:")
                     tech_1st = st.selectbox("Technical 1st Place [3 pts]", active_bakers, index=0)
@@ -1180,12 +1174,12 @@ with tab_submit:
                     
                 submitted = st.form_submit_button("Submit Predictions")
                 if submitted:
-                    st.session_state.league_members[active_sub_player]["weekly_picks"][target_pred_week] = weekly_picks
+                    st.session_state.league_members[active_sub_player]["weekly_picks"][st.session_state.current_week] = weekly_picks
                     
                     ai_picks = generate_ai_brian_weekly_picks(st.session_state.current_week, active_bakers, is_double_elim=is_double_elim)
-                    st.session_state.league_members["AI Brian"]["weekly_picks"][target_pred_week] = ai_picks
+                    st.session_state.league_members["AI Brian"]["weekly_picks"][st.session_state.current_week] = ai_picks
                     
-                    st.success(f"Predictions submitted for Week {target_pred_week} under profile '{active_sub_player}'! AI Brian has also submitted his randomized picks.")
+                    st.success(f"Predictions submitted for Week {st.session_state.current_week} under profile '{active_sub_player}'! AI Brian has also submitted his randomized picks.")
 
 # --- TAB 3: ADMIN PANEL (PIN PROTECTED) ---
 with tab_admin:
@@ -1196,7 +1190,7 @@ with tab_admin:
         st.write("This section is restricted to the League Administrator. Please enter your Admin PIN to unlock the broadcast input controls.")
         
         with st.form("admin_login_form"):
-            pin_input = st.text_input("Enter Admin PIN", type="password")
+            pin_input = st.text_input("Enter Admin PIN", type="password", autocomplete="new-password")
             login_btn = st.form_submit_button("Unlock Admin Panel")
             if login_btn:
                 if pin_input == "6284":
@@ -1238,20 +1232,7 @@ with tab_admin:
             st.subheader(f"Input Broadcast Results for Week {st.session_state.current_week}")
             actuals = {}
             
-            if st.session_state.current_week == 1:
-                st.subheader("Input Broadcast Results for Week 1 (Episode 1 Premiere)")
-                st.write("After Friday's premiere episode airs, select the first baker eliminated from the competition and enter any episode broadcast counts.")
-                
-                col_w1_1, col_w1_2 = st.columns(2)
-                with col_w1_1:
-                    act_sb_w1 = st.selectbox("Actual Star Baker (Episode 1)", ["None"] + ALL_BAKERS, index=0)
-                    actuals["star_baker"] = act_sb_w1
-                with col_w1_2:
-                    act_elim_w1 = st.selectbox("Actual Eliminated Baker (Episode 1)", ALL_BAKERS, index=0)
-                    actuals["eliminated"] = act_elim_w1
-                actuals["tech_rank"] = []
-                
-            elif st.session_state.current_week == 10:
+            if st.session_state.current_week == 10:
                 actuals["show_champion"] = st.selectbox("Actual Show Champion", active_bakers)
                 st.write("Actual Technical Challenge Rankings:")
                 act_t1 = st.selectbox("Actual Technical 1st Place", active_bakers, index=0)
@@ -1357,10 +1338,10 @@ with tab_admin:
             st.markdown("---")
             st.markdown("### 🤝 Hollywood Handshakes & Video Timestamps")
             act_handshake_bakers = st.multiselect("Bakers Receiving Hollywood Handshakes This Week", active_bakers, key=f"handshake_bakers_w{st.session_state.current_week}")
-            act_handshake_stamps = st.text_input("Handshake Video Timestamps & Context (e.g. 'Clara @ 14:22 Signature, Tom @ 42:10 Showstopper')", value="", key=f"handshake_stamps_w{st.session_state.current_week}")
+            act_handshake_stamps = st.text_input("Handshake Video Timestamps & Context (e.g. 'Clara @ 14:22 Signature, Tom @ 42:10 Showstopper')", value="", key=f"handshake_stamps_w{st.session_state.current_week}", autocomplete="off")
 
             st.markdown("### 😢 Crying Incidents & Video Timestamps")
-            act_crying_stamps = st.text_input("Crying Scene Video Timestamps & Context (e.g. 'Gabe @ 24:15 Technical, Molly @ 54:02 Elimination')", value="", key=f"crying_stamps_w{st.session_state.current_week}")
+            act_crying_stamps = st.text_input("Crying Scene Video Timestamps & Context (e.g. 'Gabe @ 24:15 Technical, Molly @ 54:02 Elimination')", value="", key=f"crying_stamps_w{st.session_state.current_week}", autocomplete="off")
 
             st.markdown("### 💬 Weekly Sexual Innuendos Count")
             act_innuendo_cnt = st.number_input("Sexual Innuendos Count in Episode", min_value=0, value=0, key=f"innuendo_cnt_w{st.session_state.current_week}")
@@ -1394,6 +1375,7 @@ with tab_admin:
                 st.session_state.weekly_results[st.session_state.current_week] = actuals
                 if st.session_state.current_week == 10:
                     st.session_state.season_results = actuals_season
+                    
                 # TRIGGER RECALCULATION
                 for member_name in st.session_state.league_members:
                     st.session_state.league_members[member_name]["total_score"] = 0
