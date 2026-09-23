@@ -487,6 +487,7 @@ def apply_elimination_overlay(img):
 
 
 ELIMINATED_BAKERS_BY_WEEK = {
+    1: [],
     2: ["Yannis"],
     3: ["Yannis", "Nikki"],
     4: ["Yannis", "Nikki", "Connie"],
@@ -583,7 +584,7 @@ if brian_avatar_img is not None:
     st.session_state.league_members["AI Brian"]["avatar"] = brian_avatar_img
 
 if "current_week" not in st.session_state:
-    st.session_state.current_week = 2
+    st.session_state.current_week = 1
 
 if "weekly_results" not in st.session_state:
     st.session_state.weekly_results = {}
@@ -707,7 +708,7 @@ with st.sidebar:
             
     st.markdown("---")
     st.header("⚙️ Game Controls")
-    selected_week = st.slider("Select App Active Week", min_value=2, max_value=10, value=st.session_state.current_week)
+    selected_week = st.slider("Select App Active Week", min_value=1, max_value=10, value=st.session_state.current_week)
     st.session_state.current_week = selected_week
 
     st.markdown("---")
@@ -1048,24 +1049,19 @@ with tab_submit:
             prev_week_results = st.session_state.weekly_results.get(prev_week_num, {})
             prev_week_was_grace = (prev_week_results.get("eliminated") == "None")
             
-            st.info(f"Submitting ballot for: **{active_sub_player}** | Active Bakers in Tent (Week {st.session_state.current_week}): " + ", ".join(active_bakers))
-            
-            is_double_elim = False
-            if st.session_state.current_week < 10:
-                is_double_elim = st.checkbox("📢 Is this a Double-Elimination Week?", value=prev_week_was_grace, help="Automatically checked if the previous week was a sickness grace week with no elimination!")
-            
-            # 1. Season long entry if week is 2
-            if st.session_state.current_week == 2:
-                with st.expander(f"🌟 Submit Post-Week 1 Season-Long Predictions for {active_sub_player} (Locks Now! | 130 pts total at stake)", expanded=True):
-                    user_winner = st.selectbox("Predict Season Winner [40 pts if winner, 15 pts if runner-up consolation]", active_bakers, key=f"{active_sub_player}_win_pick")
-                    remaining_for_semis = [b for b in active_bakers if b != user_winner]
-                    user_semis = st.multiselect("Predict Other 3 Semifinalists [10 pts each | 30 pts max]", remaining_for_semis, max_selections=3, key=f"{active_sub_player}_semis_pick")
+            if st.session_state.current_week == 1:
+                st.info("👀 **Week 1: The Scouting Period (Sept 25 Premiere)**\n\nWatch Episode 1 on Friday to evaluate all 12 bakers! No weekly predictions are made or scored for Week 1.\n\nYou can lock in your **Season-Long Predictions** below before Episode 2 airs on Tuesday!")
+                
+                with st.expander(f"🌟 Submit Pre-Week 2 Season-Long Predictions for {active_sub_player} (Locks Before Week 2! | 130 pts total at stake)", expanded=not bool(st.session_state.league_members[active_sub_player].get("season_picks"))):
+                    user_winner = st.selectbox("Predict Season Winner [40 pts if winner, 15 pts if runner-up consolation]", ALL_BAKERS, key=f"{active_sub_player}_win_pick_w1")
+                    remaining_for_semis = [b for b in ALL_BAKERS if b != user_winner]
+                    user_semis = st.multiselect("Predict Other 3 Semifinalists [10 pts each | 30 pts max]", remaining_for_semis, max_selections=3, key=f"{active_sub_player}_semis_pick_w1")
                     
-                    user_handshakes = st.number_input("Predict Seasonal Handshakes [Spot-on = 20 pts, +/-1 = 10 pts]", min_value=0, value=5, key=f"{active_sub_player}_hs_pick")
-                    user_crying = st.number_input("Predict Seasonal Crying [Spot-on = 20 pts, +/-5 = 10 pts]", min_value=0, value=10, key=f"{active_sub_player}_cry_pick")
-                    user_innuendos = st.number_input("Predict Seasonal Innuendos [Spot-on = 20 pts, +/-5 = 10 pts]", min_value=0, value=40, key=f"{active_sub_player}_inn_pick")
+                    user_handshakes = st.number_input("Predict Seasonal Handshakes [Spot-on = 20 pts, +/-1 = 10 pts]", min_value=0, value=5, key=f"{active_sub_player}_hs_pick_w1")
+                    user_crying = st.number_input("Predict Seasonal Crying [Spot-on = 20 pts, +/-5 = 10 pts]", min_value=0, value=10, key=f"{active_sub_player}_cry_pick_w1")
+                    user_innuendos = st.number_input("Predict Seasonal Innuendos [Spot-on = 20 pts, +/-5 = 10 pts]", min_value=0, value=40, key=f"{active_sub_player}_inn_pick_w1")
                     
-                    if st.button(f"Lock Season-Long Predictions for {active_sub_player}"):
+                    if st.button(f"Lock Season-Long Predictions for {active_sub_player}", key=f"btn_lock_season_{active_sub_player}_w1"):
                         if len(user_semis) != 3:
                             st.error("Please select exactly 3 other semifinalists.")
                         else:
@@ -1077,110 +1073,140 @@ with tab_submit:
                                 "innuendos": user_innuendos
                             }
                             st.success(f"Season long predictions saved successfully for {active_sub_player}!")
-
-            # 2. Weekly Form based on active week
-            st.markdown(f"### Weekly Ballot for {active_sub_player}")
-            with st.form("weekly_predictions_form"):
-                weekly_picks = {}
+            else:
+                st.info(f"Submitting ballot for: **{active_sub_player}** | Active Bakers in Tent (Week {st.session_state.current_week}): " + ", ".join(active_bakers))
                 
-                if st.session_state.current_week == 10:
-                    weekly_picks["show_champion"] = st.selectbox("Predict Show Champion [15 pts at stake]", active_bakers)
-                    st.write("Predict Technical Challenge Final Rank [Perfect 3-for-3 Sweep = flat 15 pts; otherwise exact matches: 1st=3pts, 2nd/3rd=2pts]:")
-                    tech_1st = st.selectbox("Technical 1st Place [3 pts]", active_bakers, index=0)
-                    tech_2nd = st.selectbox("Technical 2nd Place [2 pts]", [b for b in active_bakers if b != tech_1st], index=0)
-                    tech_3rd = st.selectbox("Technical 3rd Place [2 pts]", [b for b in active_bakers if b not in [tech_1st, tech_2nd]], index=0)
-                    weekly_picks["tech_rank"] = [tech_1st, tech_2nd, tech_3rd]
-                    
-                elif st.session_state.current_week == 9:
-                    weekly_picks["star_baker"] = st.selectbox("Predict Star Baker [5 pts at stake]", active_bakers)
-                    if is_double_elim:
-                        elim_1 = st.selectbox("Predict Eliminated Baker #1 [5 pts at stake]", [b for b in active_bakers if b != weekly_picks.get("star_baker")], key="pred_elim_1_w9")
-                        elim_2 = st.selectbox("Predict Eliminated Baker #2 [5 pts at stake]", [b for b in active_bakers if b not in [weekly_picks.get("star_baker"), elim_1]], key="pred_elim_2_w9")
-                        weekly_picks["eliminated"] = [elim_1, elim_2]
-                    else:
-                        weekly_picks["eliminated"] = st.selectbox("Predict Eliminated Baker [5 pts at stake]", [b for b in active_bakers if b != weekly_picks.get("star_baker")])
-                    
-                    st.write("Predict Technical Challenge Final Rank [Perfect 4-for-4 Sweep = flat 20 pts; otherwise exact matches: 1st/4th=3pts, 2nd/3rd=2pts]:")
-                    t1 = st.selectbox("Technical 1st Place [3 pts]", active_bakers, index=0)
-                    t2 = st.selectbox("Technical 2nd Place [2 pts]", [b for b in active_bakers if b != t1], index=0)
-                    t3 = st.selectbox("Technical 3rd Place [2 pts]", [b for b in active_bakers if b not in [t1, t2]], index=0)
-                    t4 = st.selectbox("Technical 4th Place [3 pts]", [b for b in active_bakers if b not in [t1, t2, t3]], index=0)
-                    weekly_picks["tech_rank"] = [t1, t2, t3, t4]
-
-                elif st.session_state.current_week == 8:
-                    col1, col2 = st.columns(2)
-                    with col1:
-                        weekly_picks["star_baker"] = st.selectbox("Predict Star Baker [5 pts at stake]", active_bakers)
-                        weekly_picks["in_line_sb"] = st.selectbox("Predict In Line for Star Baker [2 pts if nominated but doesn't win]", [b for b in active_bakers if b != weekly_picks.get("star_baker")])
-                    with col2:
-                        if is_double_elim:
-                            elim_1 = st.selectbox("Predict Eliminated Baker #1 [5 pts at stake]", active_bakers, key="pred_elim_1_w8")
-                            elim_2 = st.selectbox("Predict Eliminated Baker #2 [5 pts at stake]", [b for b in active_bakers if b != elim_1], key="pred_elim_2_w8")
-                            weekly_picks["eliminated"] = [elim_1, elim_2]
-                            weekly_picks["in_trouble"] = st.selectbox("Predict In Trouble of Elimination [2 pts if bottom nominated but saved]", [b for b in active_bakers if b not in weekly_picks["eliminated"]])
-                        else:
-                            weekly_picks["eliminated"] = st.selectbox("Predict Eliminated Baker [5 pts at stake]", active_bakers)
-                            weekly_picks["in_trouble"] = st.selectbox("Predict In Trouble of Elimination [2 pts if bottom nominated but saved]", [b for b in active_bakers if b != weekly_picks.get("eliminated")])
-                    
-                    st.write("Predict Technical Challenge Final Rank [Perfect 5-for-5 Sweep = flat 25 pts; otherwise exact matches: 1st/5th=3pts, 2nd/3rd/4th=2pts]:")
-                    t1 = st.selectbox("Technical 1st Place [3 pts]", active_bakers, index=0, key="t1_w8")
-                    t2 = st.selectbox("Technical 2nd Place [2 pts]", [b for b in active_bakers if b != t1], index=0, key="t2_w8")
-                    t3 = st.selectbox("Technical 3rd Place [2 pts]", [b for b in active_bakers if b not in [t1, t2]], index=0, key="t3_w8")
-                    t4 = st.selectbox("Technical 4th Place [2 pts]", [b for b in active_bakers if b not in [t1, t2, t3]], index=0, key="t4_w8")
-                    t5 = st.selectbox("Technical 5th Place [3 pts]", [b for b in active_bakers if b not in [t1, t2, t3, t4]], index=0, key="t5_w8")
-                    weekly_picks["tech_rank"] = [t1, t2, t3, t4, t5]
-                    
-                else:
-                    col1, col2 = st.columns(2)
-                    with col1:
-                        weekly_picks["star_baker"] = st.selectbox("Predict Star Baker [5 pts at stake]", active_bakers)
-                        weekly_picks["in_line_sb"] = st.selectbox("Predict In Line for Star Baker [2 pts if nominated but doesn't win]", [b for b in active_bakers if b != weekly_picks.get("star_baker")])
-                    with col2:
-                        if is_double_elim:
-                            elim_1 = st.selectbox("Predict Eliminated Baker #1 [5 pts at stake]", active_bakers, key="pred_elim_1_std")
-                            elim_2 = st.selectbox("Predict Eliminated Baker #2 [5 pts at stake]", [b for b in active_bakers if b != elim_1], key="pred_elim_2_std")
-                            weekly_picks["eliminated"] = [elim_1, elim_2]
-                            weekly_picks["in_trouble"] = st.selectbox("Predict In Trouble of Elimination [2 pts if bottom nominated but saved]", [b for b in active_bakers if b not in weekly_picks["eliminated"]])
-                        else:
-                            weekly_picks["eliminated"] = st.selectbox("Predict Eliminated Baker [5 pts at stake]", active_bakers)
-                            weekly_picks["in_trouble"] = st.selectbox("Predict In Trouble of Elimination [2 pts if bottom nominated but saved]", [b for b in active_bakers if b != weekly_picks.get("eliminated")])
+                is_double_elim = False
+                if st.session_state.current_week < 10:
+                    is_double_elim = st.checkbox("📢 Is this a Double-Elimination Week?", value=prev_week_was_grace, help="Automatically checked if the previous week was a sickness grace week with no elimination!")
+                
+                # 1. Season long entry if week is 2
+                if st.session_state.current_week == 2:
+                    with st.expander(f"🌟 Submit Post-Week 1 Season-Long Predictions for {active_sub_player} (Locks Now! | 130 pts total at stake)", expanded=not bool(st.session_state.league_members[active_sub_player].get("season_picks"))):
+                        user_winner = st.selectbox("Predict Season Winner [40 pts if winner, 15 pts if runner-up consolation]", active_bakers, key=f"{active_sub_player}_win_pick_w2")
+                        remaining_for_semis = [b for b in active_bakers if b != user_winner]
+                        user_semis = st.multiselect("Predict Other 3 Semifinalists [10 pts each | 30 pts max]", remaining_for_semis, max_selections=3, key=f"{active_sub_player}_semis_pick_w2")
                         
-                    st.markdown("---")
-                    st.write("Predict Top 3 Technical Placements [Exact Match: 1st=3pts, 2nd=2pts, 3rd=2pts, wrong spot=1pt; Perfect Top 3 sequence = 10 pts flat!]:")
-                    col_t1, col_t2, col_t3 = st.columns(3)
-                    with col_t1:
-                        t1 = st.selectbox("1st Place [3 pts]", active_bakers, index=0, key="std_t1")
-                    with col_t2:
-                        t2_opts = [b for b in active_bakers if b != t1]
-                        t2 = st.selectbox("2nd Place [2 pts]", t2_opts, index=0 if t2_opts else 0, key="std_t2")
-                    with col_t3:
-                        t3_opts = [b for b in active_bakers if b not in [t1, t2]]
-                        t3 = st.selectbox("3rd Place [2 pts]", t3_opts, index=0 if t3_opts else 0, key="std_t3")
-                    
-                    st.write("Predict Bottom 3 Technical Placements [Exact Match: 3rd-to-last=2pts, 2nd-to-last=2pts, Last=3pts, wrong spot=1pt; Perfect Bottom 3 sequence = 10 pts flat!]:")
-                    col_b1, col_b2, col_b3 = st.columns(3)
-                    avail_bottom = [b for b in active_bakers if b not in [t1, t2, t3]]
-                    with col_b1:
-                        b_3rd_last = st.selectbox("3rd-to-last Place [2 pts]", avail_bottom, index=0 if avail_bottom else 0, key="std_b3")
-                    with col_b2:
-                        b_2nd_opts = [b for b in avail_bottom if b != b_3rd_last]
-                        b_2nd_last = st.selectbox("2nd-to-last Place [2 pts]", b_2nd_opts, index=0 if b_2nd_opts else 0, key="std_b2")
-                    with col_b3:
-                        b_last_opts = [b for b in avail_bottom if b not in [b_3rd_last, b_2nd_last]]
-                        b_last = st.selectbox("Last Place [3 pts]", b_last_opts, index=0 if b_last_opts else 0, key="std_b1")
-                    
-                    weekly_picks["tech_top_3"] = [t1, t2, t3]
-                    weekly_picks["tech_bottom_3"] = [b_3rd_last, b_2nd_last, b_last]
-                    
-                submitted = st.form_submit_button("Submit Predictions")
-                if submitted:
-                    st.session_state.league_members[active_sub_player]["weekly_picks"][st.session_state.current_week] = weekly_picks
-                    
-                    ai_picks = generate_ai_brian_weekly_picks(st.session_state.current_week, active_bakers, is_double_elim=is_double_elim)
-                    st.session_state.league_members["AI Brian"]["weekly_picks"][st.session_state.current_week] = ai_picks
-                    
-                    st.success(f"Predictions submitted for Week {st.session_state.current_week} under profile '{active_sub_player}'! AI Brian has also submitted his randomized picks.")
+                        user_handshakes = st.number_input("Predict Seasonal Handshakes [Spot-on = 20 pts, +/-1 = 10 pts]", min_value=0, value=5, key=f"{active_sub_player}_hs_pick_w2")
+                        user_crying = st.number_input("Predict Seasonal Crying [Spot-on = 20 pts, +/-5 = 10 pts]", min_value=0, value=10, key=f"{active_sub_player}_cry_pick_w2")
+                        user_innuendos = st.number_input("Predict Seasonal Innuendos [Spot-on = 20 pts, +/-5 = 10 pts]", min_value=0, value=40, key=f"{active_sub_player}_inn_pick_w2")
+                        
+                        if st.button(f"Lock Season-Long Predictions for {active_sub_player}", key=f"btn_lock_season_{active_sub_player}_w2"):
+                            if len(user_semis) != 3:
+                                st.error("Please select exactly 3 other semifinalists.")
+                            else:
+                                st.session_state.league_members[active_sub_player]["season_picks"] = {
+                                    "winner": user_winner,
+                                    "semifinalists": user_semis,
+                                    "handshakes": user_handshakes,
+                                    "crying": user_crying,
+                                    "innuendos": user_innuendos
+                                }
+                                st.success(f"Season long predictions saved successfully for {active_sub_player}!")
 
+                # 2. Weekly Form based on active week
+                st.markdown(f"### Weekly Ballot for {active_sub_player} (Week {st.session_state.current_week})")
+                with st.form("weekly_predictions_form"):
+                    weekly_picks = {}
+                    
+                    if st.session_state.current_week == 10:
+                        weekly_picks["show_champion"] = st.selectbox("Predict Show Champion [15 pts at stake]", active_bakers)
+                        st.write("Predict Technical Challenge Final Rank [Perfect 3-for-3 Sweep = flat 15 pts; otherwise exact matches: 1st=3pts, 2nd/3rd=2pts]:")
+                        tech_1st = st.selectbox("Technical 1st Place [3 pts]", active_bakers, index=0)
+                        tech_2nd = st.selectbox("Technical 2nd Place [2 pts]", [b for b in active_bakers if b != tech_1st], index=0)
+                        tech_3rd = st.selectbox("Technical 3rd Place [2 pts]", [b for b in active_bakers if b not in [tech_1st, tech_2nd]], index=0)
+                        weekly_picks["tech_rank"] = [tech_1st, tech_2nd, tech_3rd]
+                        
+                    elif st.session_state.current_week == 9:
+                        weekly_picks["star_baker"] = st.selectbox("Predict Star Baker [5 pts at stake]", active_bakers)
+                        if is_double_elim:
+                            elim_1 = st.selectbox("Predict Eliminated Baker #1 [5 pts at stake]", [b for b in active_bakers if b != weekly_picks.get("star_baker")], key="pred_elim_1_w9")
+                            elim_2 = st.selectbox("Predict Eliminated Baker #2 [5 pts at stake]", [b for b in active_bakers if b not in [weekly_picks.get("star_baker"), elim_1]], key="pred_elim_2_w9")
+                            weekly_picks["eliminated"] = [elim_1, elim_2]
+                        else:
+                            weekly_picks["eliminated"] = st.selectbox("Predict Eliminated Baker [5 pts at stake]", [b for b in active_bakers if b != weekly_picks.get("star_baker")])
+                        
+                        st.write("Predict Technical Challenge Final Rank [Perfect 4-for-4 Sweep = flat 20 pts; otherwise exact matches: 1st/4th=3pts, 2nd/3rd=2pts]:")
+                        t1 = st.selectbox("Technical 1st Place [3 pts]", active_bakers, index=0)
+                        t2 = st.selectbox("Technical 2nd Place [2 pts]", [b for b in active_bakers if b != t1], index=0)
+                        t3 = st.selectbox("Technical 3rd Place [2 pts]", [b for b in active_bakers if b not in [t1, t2]], index=0)
+                        t4 = st.selectbox("Technical 4th Place [3 pts]", [b for b in active_bakers if b not in [t1, t2, t3]], index=0)
+                        weekly_picks["tech_rank"] = [t1, t2, t3, t4]
+    
+                    elif st.session_state.current_week == 8:
+                        col1, col2 = st.columns(2)
+                        with col1:
+                            weekly_picks["star_baker"] = st.selectbox("Predict Star Baker [5 pts at stake]", active_bakers)
+                            weekly_picks["in_line_sb"] = st.selectbox("Predict In Line for Star Baker [2 pts if nominated but doesn't win]", [b for b in active_bakers if b != weekly_picks.get("star_baker")])
+                        with col2:
+                            if is_double_elim:
+                                elim_1 = st.selectbox("Predict Eliminated Baker #1 [5 pts at stake]", active_bakers, key="pred_elim_1_w8")
+                                elim_2 = st.selectbox("Predict Eliminated Baker #2 [5 pts at stake]", [b for b in active_bakers if b != elim_1], key="pred_elim_2_w8")
+                                weekly_picks["eliminated"] = [elim_1, elim_2]
+                                weekly_picks["in_trouble"] = st.selectbox("Predict In Trouble of Elimination [2 pts if bottom nominated but saved]", [b for b in active_bakers if b not in weekly_picks["eliminated"]])
+                            else:
+                                weekly_picks["eliminated"] = st.selectbox("Predict Eliminated Baker [5 pts at stake]", active_bakers)
+                                weekly_picks["in_trouble"] = st.selectbox("Predict In Trouble of Elimination [2 pts if bottom nominated but saved]", [b for b in active_bakers if b != weekly_picks.get("eliminated")])
+                        
+                        st.write("Predict Technical Challenge Final Rank [Perfect 5-for-5 Sweep = flat 25 pts; otherwise exact matches: 1st/5th=3pts, 2nd/3rd/4th=2pts]:")
+                        t1 = st.selectbox("Technical 1st Place [3 pts]", active_bakers, index=0, key="t1_w8")
+                        t2 = st.selectbox("Technical 2nd Place [2 pts]", [b for b in active_bakers if b != t1], index=0, key="t2_w8")
+                        t3 = st.selectbox("Technical 3rd Place [2 pts]", [b for b in active_bakers if b not in [t1, t2]], index=0, key="t3_w8")
+                        t4 = st.selectbox("Technical 4th Place [2 pts]", [b for b in active_bakers if b not in [t1, t2, t3]], index=0, key="t4_w8")
+                        t5 = st.selectbox("Technical 5th Place [3 pts]", [b for b in active_bakers if b not in [t1, t2, t3, t4]], index=0, key="t5_w8")
+                        weekly_picks["tech_rank"] = [t1, t2, t3, t4, t5]
+                        
+                    else:
+                        col1, col2 = st.columns(2)
+                        with col1:
+                            weekly_picks["star_baker"] = st.selectbox("Predict Star Baker [5 pts at stake]", active_bakers)
+                            weekly_picks["in_line_sb"] = st.selectbox("Predict In Line for Star Baker [2 pts if nominated but doesn't win]", [b for b in active_bakers if b != weekly_picks.get("star_baker")])
+                        with col2:
+                            if is_double_elim:
+                                elim_1 = st.selectbox("Predict Eliminated Baker #1 [5 pts at stake]", active_bakers, key="pred_elim_1_std")
+                                elim_2 = st.selectbox("Predict Eliminated Baker #2 [5 pts at stake]", [b for b in active_bakers if b != elim_1], key="pred_elim_2_std")
+                                weekly_picks["eliminated"] = [elim_1, elim_2]
+                                weekly_picks["in_trouble"] = st.selectbox("Predict In Trouble of Elimination [2 pts if bottom nominated but saved]", [b for b in active_bakers if b not in weekly_picks["eliminated"]])
+                            else:
+                                weekly_picks["eliminated"] = st.selectbox("Predict Eliminated Baker [5 pts at stake]", active_bakers)
+                                weekly_picks["in_trouble"] = st.selectbox("Predict In Trouble of Elimination [2 pts if bottom nominated but saved]", [b for b in active_bakers if b != weekly_picks.get("eliminated")])
+                            
+                        st.markdown("---")
+                        st.write("Predict Top 3 Technical Placements [Exact Match: 1st=3pts, 2nd=2pts, 3rd=2pts, wrong spot=1pt; Perfect Top 3 sequence = 10 pts flat!]:")
+                        col_t1, col_t2, col_t3 = st.columns(3)
+                        with col_t1:
+                            t1 = st.selectbox("1st Place [3 pts]", active_bakers, index=0, key="std_t1")
+                        with col_t2:
+                            t2_opts = [b for b in active_bakers if b != t1]
+                            t2 = st.selectbox("2nd Place [2 pts]", t2_opts, index=0 if t2_opts else 0, key="std_t2")
+                        with col_t3:
+                            t3_opts = [b for b in active_bakers if b not in [t1, t2]]
+                            t3 = st.selectbox("3rd Place [2 pts]", t3_opts, index=0 if t3_opts else 0, key="std_t3")
+                        
+                        st.write("Predict Bottom 3 Technical Placements [Exact Match: 3rd-to-last=2pts, 2nd-to-last=2pts, Last=3pts, wrong spot=1pt; Perfect Bottom 3 sequence = 10 pts flat!]:")
+                        col_b1, col_b2, col_b3 = st.columns(3)
+                        avail_bottom = [b for b in active_bakers if b not in [t1, t2, t3]]
+                        with col_b1:
+                            b_3rd_last = st.selectbox("3rd-to-last Place [2 pts]", avail_bottom, index=0 if avail_bottom else 0, key="std_b3")
+                        with col_b2:
+                            b_2nd_opts = [b for b in avail_bottom if b != b_3rd_last]
+                            b_2nd_last = st.selectbox("2nd-to-last Place [2 pts]", b_2nd_opts, index=0 if b_2nd_opts else 0, key="std_b2")
+                        with col_b3:
+                            b_last_opts = [b for b in avail_bottom if b not in [b_3rd_last, b_2nd_last]]
+                            b_last = st.selectbox("Last Place [3 pts]", b_last_opts, index=0 if b_last_opts else 0, key="std_b1")
+                        
+                        weekly_picks["tech_top_3"] = [t1, t2, t3]
+                        weekly_picks["tech_bottom_3"] = [b_3rd_last, b_2nd_last, b_last]
+                        
+                    submitted = st.form_submit_button("Submit Predictions")
+                    if submitted:
+                        st.session_state.league_members[active_sub_player]["weekly_picks"][st.session_state.current_week] = weekly_picks
+                        
+                        ai_picks = generate_ai_brian_weekly_picks(st.session_state.current_week, active_bakers, is_double_elim=is_double_elim)
+                        st.session_state.league_members["AI Brian"]["weekly_picks"][st.session_state.current_week] = ai_picks
+                        
+                        st.success(f"Predictions submitted for Week {st.session_state.current_week} under profile '{active_sub_player}'! AI Brian has also submitted his randomized picks.")
+    
 # --- TAB 3: ADMIN PANEL (PIN PROTECTED) ---
 with tab_admin:
     st.header("👑 League Administrator Console")
@@ -1229,10 +1255,22 @@ with tab_admin:
         active_bakers = [b for b in ALL_BAKERS if b not in current_eliminated]
         
         with st.form("admin_actuals_form"):
-            st.subheader(f"Input Broadcast Results for Week {st.session_state.current_week}")
             actuals = {}
             
-            if st.session_state.current_week == 10:
+            if st.session_state.current_week == 1:
+                st.subheader("Input Broadcast Results for Week 1 (Episode 1 Premiere)")
+                st.write("After Friday's premiere episode airs, select the first baker eliminated from the competition and enter any episode broadcast counts.")
+                
+                col_w1_1, col_w1_2 = st.columns(2)
+                with col_w1_1:
+                    act_sb_w1 = st.selectbox("Actual Star Baker (Episode 1)", ["None"] + ALL_BAKERS, index=0)
+                    actuals["star_baker"] = act_sb_w1
+                with col_w1_2:
+                    act_elim_w1 = st.selectbox("Actual Eliminated Baker (Episode 1)", ALL_BAKERS, index=0)
+                    actuals["eliminated"] = act_elim_w1
+                actuals["tech_rank"] = []
+                
+            elif st.session_state.current_week == 10:
                 actuals["show_champion"] = st.selectbox("Actual Show Champion", active_bakers)
                 st.write("Actual Technical Challenge Rankings:")
                 act_t1 = st.selectbox("Actual Technical 1st Place", active_bakers, index=0)
