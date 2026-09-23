@@ -501,11 +501,11 @@ ELIMINATED_BAKERS_BY_WEEK = {
 
 def get_current_eliminated_bakers(week_num):
     """Get list of eliminated bakers up to the current week."""
-    elim = list(ELIMINATED_BAKERS_BY_WEEK.get(week_num, []))
-    if "weekly_results" in st.session_state:
-        for w, res in st.session_state.weekly_results.items():
-            if w <= week_num:
-                act_el = res.get("eliminated")
+    elim = []
+    if "weekly_results" in st.session_state and st.session_state.weekly_results:
+        for w in range(1, week_num + 1):
+            if w in st.session_state.weekly_results:
+                act_el = st.session_state.weekly_results[w].get("eliminated")
                 if isinstance(act_el, list):
                     for b in act_el:
                         if b != "None" and b not in elim:
@@ -513,6 +513,10 @@ def get_current_eliminated_bakers(week_num):
                 elif isinstance(act_el, str) and act_el != "None":
                     if act_el not in elim:
                         elim.append(act_el)
+    
+    if not elim:
+        elim = list(ELIMINATED_BAKERS_BY_WEEK.get(week_num, []))
+        
     return elim
 
 
@@ -583,7 +587,7 @@ if brian_avatar_img is not None:
     st.session_state.league_members["AI Brian"]["avatar"] = brian_avatar_img
 
 if "current_week" not in st.session_state:
-    st.session_state.current_week = 2
+    st.session_state.current_week = 1
 
 if "weekly_results" not in st.session_state:
     st.session_state.weekly_results = {}
@@ -707,7 +711,7 @@ with st.sidebar:
             
     st.markdown("---")
     st.header("⚙️ Game Controls")
-    selected_week = st.slider("Select App Active Week", min_value=2, max_value=10, value=st.session_state.current_week)
+    selected_week = st.slider("Select App Active Week", min_value=1, max_value=10, value=st.session_state.current_week)
     st.session_state.current_week = selected_week
 
     st.markdown("---")
@@ -1126,7 +1130,7 @@ with tab_submit:
             st.markdown(f"### Weekly Ballot for {active_sub_player}")
             
             if st.session_state.current_week == 1:
-                st.info("👀 **Week 1: The Scouting Period (Sept 25 Premiere)**\n\nWatch Episode 1 on Friday to evaluate all 12 bakers! No weekly prediction ballots are submitted or scored for Week 1. Lock in your Season-Long Predictions above before Episode 2 airs!")
+                st.info("👀 **Week 1: The Scouting Period (Sept 25 Premiere)**\n\nWatch Episode 1 on Friday to evaluate all 12 bakers! No prediction ballots are submitted or scored for Week 1. League members do not make any predictions until Week 2!")
             else:
                 is_double_elim = False
                 if st.session_state.current_week < 10:
@@ -1353,7 +1357,24 @@ with tab_admin:
             st.subheader(f"Input Broadcast Results for Week {st.session_state.current_week}")
             actuals = {}
             
-            if st.session_state.current_week == 10:
+            if st.session_state.current_week == 1:
+                st.subheader("Input Broadcast Results for Week 1 (Episode 1 Premiere)")
+                st.write("After Friday's premiere episode airs, select the first baker eliminated from the competition and enter any episode broadcast counts.")
+                
+                col_w1_1, col_w1_2 = st.columns(2)
+                with col_w1_1:
+                    act_sb_opts = ["-- Select Star Baker --", "None (No Star Baker)"] + active_bakers
+                    act_sb_w1 = st.selectbox("Actual Star Baker (Episode 1)", act_sb_opts, index=0)
+                    actuals["star_baker"] = act_sb_w1 if act_sb_w1 not in ["-- Select Star Baker --", "None (No Star Baker)"] else "None"
+                with col_w1_2:
+                    act_elim_opts = ["-- Select Eliminated Baker --"] + active_bakers
+                    act_elim_w1 = st.selectbox("Actual Eliminated Baker (Episode 1)", act_elim_opts, index=0)
+                    actuals["eliminated"] = act_elim_w1 if act_elim_w1 != "-- Select Eliminated Baker --" else "None"
+                actuals["tech_rank"] = []
+                actuals["tech_top_3"] = []
+                actuals["tech_bottom_3"] = []
+                
+            elif st.session_state.current_week == 10:
                 actuals["show_champion"] = st.selectbox("Actual Show Champion", active_bakers)
                 st.write("Actual Technical Challenge Rankings:")
                 act_t1 = st.selectbox("Actual Technical 1st Place", active_bakers, index=0)
