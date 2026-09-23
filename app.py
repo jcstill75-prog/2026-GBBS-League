@@ -626,7 +626,7 @@ if brian_avatar_img is not None:
     st.session_state.league_members["AI Brian"]["avatar"] = brian_avatar_img
 
 if "current_week" not in st.session_state:
-    st.session_state.current_week = 1
+    st.session_state.current_week = 2
 
 if "weekly_results" not in st.session_state:
     st.session_state.weekly_results = loaded_weekly if loaded_weekly is not None else {}
@@ -750,7 +750,7 @@ with st.sidebar:
             
     st.markdown("---")
     st.header("⚙️ Game Controls")
-    selected_week = st.slider("Select App Active Week", min_value=1, max_value=10, value=st.session_state.current_week)
+    selected_week = st.slider("Select App Active Week", min_value=2, max_value=10, value=st.session_state.current_week)
     st.session_state.current_week = selected_week
 
     st.markdown("---")
@@ -1152,6 +1152,8 @@ with tab_submit:
                             st.error("Please select a Season Winner prediction.")
                         elif len(user_semis) != 3:
                             st.error("Please select exactly 3 other semifinalists.")
+                        elif user_winner in user_semis:
+                            st.error(f"⚠️ **Duplicate Selection Error:** You cannot select **'{user_winner}'** as both the Season Winner AND one of the other 3 semifinalists!")
                         elif user_handshakes is None or user_crying is None or user_innuendos is None:
                             st.error("Please type in estimated counts for Handshakes, Crying, and Innuendos.")
                         else:
@@ -1325,7 +1327,7 @@ with tab_submit:
                         
                     submitted = st.form_submit_button("Submit Predictions")
                     if submitted:
-                        # Validation: check for any unselected categories
+                        # 1. Validation: check for any unselected categories
                         has_missing = False
                         for k, v in weekly_picks.items():
                             if v is None:
@@ -1336,13 +1338,66 @@ with tab_submit:
                         if has_missing:
                             st.error("⚠️ Please select a baker for all prediction categories before submitting!")
                         else:
-                            st.session_state.league_members[active_sub_player]["weekly_picks"][st.session_state.current_week] = weekly_picks
+                            # 2. Validation: Check for duplicate bakers in main episodic categories
+                            main_episodic_picks = []
+                            if weekly_picks.get("star_baker"):
+                                main_episodic_picks.append(("Star Baker", weekly_picks["star_baker"]))
+                            if weekly_picks.get("in_line_sb"):
+                                main_episodic_picks.append(("In Line for Star Baker", weekly_picks["in_line_sb"]))
+                            if weekly_picks.get("eliminated"):
+                                if isinstance(weekly_picks["eliminated"], list):
+                                    for idx, b in enumerate(weekly_picks["eliminated"]):
+                                        if b: main_episodic_picks.append((f"Eliminated Baker #{idx+1}", b))
+                                elif isinstance(weekly_picks["eliminated"], str):
+                                    main_episodic_picks.append(("Eliminated Baker", weekly_picks["eliminated"]))
+                            if weekly_picks.get("in_trouble"):
+                                main_episodic_picks.append(("In Trouble of Elimination", weekly_picks["in_trouble"]))
                             
-                            ai_picks = generate_ai_brian_weekly_picks(st.session_state.current_week, active_bakers, is_double_elim=is_double_elim)
-                            st.session_state.league_members["AI Brian"]["weekly_picks"][st.session_state.current_week] = ai_picks
-                            
-                            save_league_data(st.session_state.league_members, st.session_state.weekly_results, st.session_state.season_results)
-                            st.success(f"Predictions submitted for Week {st.session_state.current_week} under profile '{active_sub_player}'! You can update your predictions anytime prior to the Tuesday at 2:00 p.m. submission deadline.")
+                            seen_main = {}
+                            duplicate_main = None
+                            for cat, baker in main_episodic_picks:
+                                if baker in seen_main:
+                                    duplicate_main = (baker, seen_main[baker], cat)
+                                    break
+                                seen_main[baker] = cat
+                                
+                            # 3. Validation: Check for duplicate bakers in technical challenge spots
+                            tech_picks = []
+                            if "tech_top_3" in weekly_picks and "tech_bottom_3" in weekly_picks:
+                                t_top = weekly_picks["tech_top_3"]
+                                t_bot = weekly_picks["tech_bottom_3"]
+                                labels_top = ["Technical 1st Place", "Technical 2nd Place", "Technical 3rd Place"]
+                                labels_bot = ["Technical 3rd-to-last Place", "Technical 2nd-to-last Place", "Technical Last Place"]
+                                for idx, b in enumerate(t_top):
+                                    if b: tech_picks.append((labels_top[idx], b))
+                                for idx, b in enumerate(t_bot):
+                                    if b: tech_picks.append((labels_bot[idx], b))
+                            elif "tech_rank" in weekly_picks:
+                                t_rank = weekly_picks["tech_rank"]
+                                labels_rank = ["Technical 1st Place", "Technical 2nd Place", "Technical 3rd Place", "Technical 4th Place", "Technical 5th Place"]
+                                for idx, b in enumerate(t_rank):
+                                    if b: tech_picks.append((labels_rank[idx], b))
+                                    
+                            seen_tech = {}
+                            duplicate_tech = None
+                            for slot, baker in tech_picks:
+                                if baker in seen_tech:
+                                    duplicate_tech = (baker, seen_tech[baker], slot)
+                                    break
+                                seen_tech[baker] = slot
+                                
+                            if duplicate_main:
+                                st.error(f"⚠️ **Duplicate Selection Error:** You selected **'{duplicate_main[0]}'** in multiple episodic categories (**{duplicate_main[1]}** AND **{duplicate_main[2]}**). Each episodic category must be a different baker!")
+                            elif duplicate_tech:
+                                st.error(f"⚠️ **Duplicate Technical Selection Error:** You selected **'{duplicate_tech[0]}'** in multiple technical challenge spots (**{duplicate_tech[1]}** AND **{duplicate_tech[2]}**). Every spot in the Technical Challenge must be a different baker!")
+                            else:
+                                st.session_state.league_members[active_sub_player]["weekly_picks"][st.session_state.current_week] = weekly_picks
+                                
+                                ai_picks = generate_ai_brian_weekly_picks(st.session_state.current_week, active_bakers, is_double_elim=is_double_elim)
+                                st.session_state.league_members["AI Brian"]["weekly_picks"][st.session_state.current_week] = ai_picks
+                                
+                                save_league_data(st.session_state.league_members, st.session_state.weekly_results, st.session_state.season_results)
+                                st.success(f"Predictions submitted for Week {st.session_state.current_week} under profile '{active_sub_player}'! You can update your predictions anytime prior to the Tuesday at 2:00 p.m. submission deadline.")
 
 
 # --- TAB 3: ADMIN PANEL (PIN PROTECTED) ---
@@ -1396,21 +1451,8 @@ with tab_admin:
             st.subheader(f"Input Broadcast Results for Week {st.session_state.current_week}")
             actuals = {}
             
-            if st.session_state.current_week == 1:
-                st.subheader("Input Broadcast Results for Week 1 (Episode 1 Premiere)")
-                st.write("Select the first baker eliminated from Friday's premiere episode and enter any broadcast counts:")
-                col_w1_1, col_w1_2 = st.columns(2)
-                with col_w1_1:
-                    act_sb_w1 = st.selectbox("Actual Star Baker (Episode 1)", active_bakers, index=None, placeholder="-- Select Star Baker (or None) --")
-                    actuals["star_baker"] = act_sb_w1 if act_sb_w1 else "None"
-                with col_w1_2:
-                    act_elim_w1 = st.selectbox("Actual Eliminated Baker (Episode 1)", active_bakers, index=None, placeholder="-- Select Eliminated Baker --")
-                    actuals["eliminated"] = act_elim_w1 if act_elim_w1 else "None"
-                actuals["tech_rank"] = []
-                actuals["tech_top_3"] = []
-                actuals["tech_bottom_3"] = []
-            elif st.session_state.current_week == 10:
-                actuals["show_champion"] = st.selectbox("Actual Show Champion", active_bakers, index=None, placeholder="-- Select Show Champion --")
+            if st.session_state.current_week == 10:
+                actuals["show_champion"] = st.selectbox("Actual Show Champion", active_bakers)
                 st.write("Actual Technical Challenge Rankings:")
                 act_t1 = st.selectbox("Actual Technical 1st Place", active_bakers, index=0)
                 act_t2 = st.selectbox("Actual Technical 2nd Place", [b for b in active_bakers if b != act_t1], index=0)
@@ -1418,7 +1460,7 @@ with tab_admin:
                 actuals["tech_rank"] = [act_t1, act_t2, act_t3]
                 
             elif st.session_state.current_week == 9:
-                actuals["star_baker"] = st.selectbox("Actual Star Baker", active_bakers, index=None, placeholder="-- Select Star Baker --")
+                actuals["star_baker"] = st.selectbox("Actual Star Baker", active_bakers)
                 elim_type = st.radio("Elimination Status", ["Single Elimination", "No Elimination (Sickness/Grace Week)", "Double Elimination"], horizontal=True, key="admin_elim_type_w9")
                 if elim_type == "Single Elimination":
                     actuals["eliminated"] = st.selectbox("Actual Eliminated Baker", [b for b in active_bakers if b != actuals.get("star_baker")])
@@ -1440,7 +1482,7 @@ with tab_admin:
             elif st.session_state.current_week == 8:
                 col1, col2 = st.columns(2)
                 with col1:
-                    actuals["star_baker"] = st.selectbox("Actual Star Baker", active_bakers, index=None, placeholder="-- Select Star Baker --")
+                    actuals["star_baker"] = st.selectbox("Actual Star Baker", active_bakers)
                     actuals["in_line_sb"] = st.multiselect("Actual 'In Line' Nominees", [b for b in active_bakers if b != actuals.get("star_baker")])
                 with col2:
                     elim_type = st.radio("Elimination Status", ["Single Elimination", "No Elimination (Sickness/Grace Week)", "Double Elimination"], horizontal=True, key="admin_elim_type_w8")
@@ -1468,7 +1510,7 @@ with tab_admin:
             else:
                 col1, col2 = st.columns(2)
                 with col1:
-                    actuals["star_baker"] = st.selectbox("Actual Star Baker", active_bakers, index=None, placeholder="-- Select Star Baker --")
+                    actuals["star_baker"] = st.selectbox("Actual Star Baker", active_bakers)
                     actuals["in_line_sb"] = st.multiselect("Actual 'In Line' Nominees", [b for b in active_bakers if b != actuals.get("star_baker")])
                 with col2:
                     elim_type = st.radio("Elimination Status", ["Single Elimination", "No Elimination (Sickness/Grace Week)", "Double Elimination"], horizontal=True, key="admin_elim_type_std")
