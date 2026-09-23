@@ -626,7 +626,7 @@ if brian_avatar_img is not None:
     st.session_state.league_members["AI Brian"]["avatar"] = brian_avatar_img
 
 if "current_week" not in st.session_state:
-    st.session_state.current_week = 2
+    st.session_state.current_week = 1
 
 if "weekly_results" not in st.session_state:
     st.session_state.weekly_results = loaded_weekly if loaded_weekly is not None else {}
@@ -750,7 +750,7 @@ with st.sidebar:
             
     st.markdown("---")
     st.header("⚙️ Game Controls")
-    selected_week = st.slider("Select App Active Week", min_value=2, max_value=10, value=st.session_state.current_week)
+    selected_week = st.slider("Select App Active Week", min_value=1, max_value=10, value=st.session_state.current_week)
     st.session_state.current_week = selected_week
 
     st.markdown("---")
@@ -1396,8 +1396,21 @@ with tab_admin:
             st.subheader(f"Input Broadcast Results for Week {st.session_state.current_week}")
             actuals = {}
             
-            if st.session_state.current_week == 10:
-                actuals["show_champion"] = st.selectbox("Actual Show Champion", active_bakers)
+            if st.session_state.current_week == 1:
+                st.subheader("Input Broadcast Results for Week 1 (Episode 1 Premiere)")
+                st.write("Select the first baker eliminated from Friday's premiere episode and enter any broadcast counts:")
+                col_w1_1, col_w1_2 = st.columns(2)
+                with col_w1_1:
+                    act_sb_w1 = st.selectbox("Actual Star Baker (Episode 1)", active_bakers, index=None, placeholder="-- Select Star Baker (or None) --")
+                    actuals["star_baker"] = act_sb_w1 if act_sb_w1 else "None"
+                with col_w1_2:
+                    act_elim_w1 = st.selectbox("Actual Eliminated Baker (Episode 1)", active_bakers, index=None, placeholder="-- Select Eliminated Baker --")
+                    actuals["eliminated"] = act_elim_w1 if act_elim_w1 else "None"
+                actuals["tech_rank"] = []
+                actuals["tech_top_3"] = []
+                actuals["tech_bottom_3"] = []
+            elif st.session_state.current_week == 10:
+                actuals["show_champion"] = st.selectbox("Actual Show Champion", active_bakers, index=None, placeholder="-- Select Show Champion --")
                 st.write("Actual Technical Challenge Rankings:")
                 act_t1 = st.selectbox("Actual Technical 1st Place", active_bakers, index=0)
                 act_t2 = st.selectbox("Actual Technical 2nd Place", [b for b in active_bakers if b != act_t1], index=0)
@@ -1405,7 +1418,7 @@ with tab_admin:
                 actuals["tech_rank"] = [act_t1, act_t2, act_t3]
                 
             elif st.session_state.current_week == 9:
-                actuals["star_baker"] = st.selectbox("Actual Star Baker", active_bakers)
+                actuals["star_baker"] = st.selectbox("Actual Star Baker", active_bakers, index=None, placeholder="-- Select Star Baker --")
                 elim_type = st.radio("Elimination Status", ["Single Elimination", "No Elimination (Sickness/Grace Week)", "Double Elimination"], horizontal=True, key="admin_elim_type_w9")
                 if elim_type == "Single Elimination":
                     actuals["eliminated"] = st.selectbox("Actual Eliminated Baker", [b for b in active_bakers if b != actuals.get("star_baker")])
@@ -1427,7 +1440,7 @@ with tab_admin:
             elif st.session_state.current_week == 8:
                 col1, col2 = st.columns(2)
                 with col1:
-                    actuals["star_baker"] = st.selectbox("Actual Star Baker", active_bakers)
+                    actuals["star_baker"] = st.selectbox("Actual Star Baker", active_bakers, index=None, placeholder="-- Select Star Baker --")
                     actuals["in_line_sb"] = st.multiselect("Actual 'In Line' Nominees", [b for b in active_bakers if b != actuals.get("star_baker")])
                 with col2:
                     elim_type = st.radio("Elimination Status", ["Single Elimination", "No Elimination (Sickness/Grace Week)", "Double Elimination"], horizontal=True, key="admin_elim_type_w8")
@@ -1455,7 +1468,7 @@ with tab_admin:
             else:
                 col1, col2 = st.columns(2)
                 with col1:
-                    actuals["star_baker"] = st.selectbox("Actual Star Baker", active_bakers)
+                    actuals["star_baker"] = st.selectbox("Actual Star Baker", active_bakers, index=None, placeholder="-- Select Star Baker --")
                     actuals["in_line_sb"] = st.multiselect("Actual 'In Line' Nominees", [b for b in active_bakers if b != actuals.get("star_baker")])
                 with col2:
                     elim_type = st.radio("Elimination Status", ["Single Elimination", "No Elimination (Sickness/Grace Week)", "Double Elimination"], horizontal=True, key="admin_elim_type_std")
