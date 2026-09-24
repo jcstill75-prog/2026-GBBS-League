@@ -570,12 +570,52 @@ with st.sidebar:
     st.session_state.current_week = st.slider("Select Episode Week:", 1, 10, st.session_state.current_week)
     
     st.markdown("---")
-    st.markdown("""
-        <div class='status-box'>
-            <h4>💡 Scoring Reminder</h4>
-            <p>Predicting <strong>Star Baker</strong> or <strong>Eliminated Baker</strong> earns <strong>5 pts</strong>. Predicting <strong>In Line</strong> or <strong>In Trouble</strong> consolations earns <strong>2 pts</strong>!</p>
-        </div>
-    """, unsafe_allow_html=True)
+    st.header("🎯 Points Reference Guide")
+    st.write("A persistent reference of what points are at stake for each prediction!")
+    st.warning("⏰ **Weekly voting window closes Tuesdays at 2:00 PM CT (Houston) / 8:00 PM BST right before the UK broadcast.**")
+    
+    with st.expander("🌟 Season-Long Projections (130 Max Pts)", expanded=False):
+        st.markdown("""
+        * **Season Winner:** 40 pts *(Finalist Consolation: 15 pts if picked winner makes Top 3/Finale but loses)*
+        * **Other 3 Semifinalists:** 10 pts each *(30 pts max)*
+        * **Hollywood Handshakes:** 20 pts spot-on / 10 pts within ±1
+        * **Crying Scenes:** 20 pts spot-on / 10 pts within ±5
+        * **Sexual Innuendos:** 20 pts spot-on / 10 pts within ±5
+        """)
+        
+    with st.expander("📅 Standard Weeks (Weeks 2-7)", expanded=False):
+        st.markdown("""
+        * **Star Baker:** 5 pts
+        * **Eliminated Baker:** 5 pts
+        * **In Line (Star Baker consolation):** 2 pts *(if nominated but doesn't win)*
+        * **In Trouble (Elimination consolation):** 2 pts *(if bottom nominated but saved)*
+        * **Top 3 Technical Challenge:**
+            * *Exact Position:* 3 pts for 1st, 2 pts for 2nd/3rd
+            * *Wrong Spot:* 1 pt for any correct Top 3 baker
+            * *Perfect 3-for-3 Sweep:* **10 pts** *(flat total)*
+        * **Bottom 3 Technical Challenge:**
+            * *Exact Position:* 2 pts for 3rd-to-last/2nd-to-last, 3 pts for Last
+            * *Wrong Spot:* 1 pt for any correct Bottom 3 baker
+            * *Perfect 3-for-3 Sweep:* **10 pts** *(flat total)*
+        * **Star League Member Bonus:** +5 pts *(weekly high scorer)*
+        """)
+        
+    with st.expander("🏁 Weeks 8, 9 & 10 (Dynamic Scaling)", expanded=False):
+        st.markdown("""
+        * **Week 8 (Quarterfinals - 5 bakers):**
+            * *Star Baker:* 5 pts | *Eliminated:* 5 pts
+            * *Technical:* Exact positions 1st/5th (3 pts), 2nd/3rd/4th (2 pts)
+            * *Perfect 5-for-5 Sweep:* **25 pts** *(flat total)*
+        * **Week 9 (Semifinals - 4 bakers):**
+            * *Star Baker:* 5 pts | *Eliminated:* 5 pts
+            * *Technical:* Exact positions 1st/4th (3 pts), 2nd/3rd (2 pts)
+            * *Perfect 4-for-4 Sweep:* **20 pts** *(flat total)*
+        * **Week 10 (Grand Finale - 3 bakers):**
+            * *Show Champion:* 15 pts
+            * *Technical:* Exact positions 1st (3 pts), 2nd/3rd (2 pts)
+            * *Perfect 3-for-3 Sweep:* **15 pts** *(flat total)*
+        * **Star League Member Bonus:** +5 pts *(weekly high scorer)*
+        """)
 
 
 # --- MAIN TABS ---
