@@ -439,6 +439,37 @@ def load_ai_brian_avatar():
     return None
 
 
+
+def load_gbbs_logo():
+    """Smart image loader for the Great British Baking Show logo (assets/gbbslogo.jpg)."""
+    priority_paths = [
+        "assets/gbbslogo.jpg", "assets/gbbslogo.JPG", "assets/gbbslogo.jpeg", "assets/gbbslogo.JPEG",
+        "assets/gbbslogo.png", "assets/gbbslogo.PNG", "assets/gbbslogo.webp",
+        "assets/gbbs_logo.jpg", "assets/gbbs_logo.png", "assets/gbbs-logo.jpg",
+        "assets/GBBSLogo.jpg", "assets/GBBS_Logo.jpg", "gbbslogo.jpg", "gbbslogo.JPG", "gbbslogo.png"
+    ]
+    for p in priority_paths:
+        if os.path.exists(p):
+            try:
+                return Image.open(p)
+            except Exception:
+                pass
+
+    if os.path.exists("assets"):
+        try:
+            for filename in os.listdir("assets"):
+                stem, ext = os.path.splitext(filename)
+                clean_stem = stem.lower().replace("_", "").replace("-", "").replace(" ", "").strip()
+                if "gbbslogo" in clean_stem or ("gbbs" in clean_stem and "logo" in clean_stem):
+                    if ext.lower() in ['.jpg', '.jpeg', '.png', '.webp']:
+                        try:
+                            return Image.open(os.path.join("assets", filename))
+                        except Exception:
+                            pass
+        except Exception:
+            pass
+    return None
+
 def load_baker_image(baker_name):
     """Smart case-insensitive and multi-extension image loader."""
     if not os.path.exists("assets"):
@@ -694,7 +725,15 @@ if not st.session_state.league_members["AI Brian"]["season_picks"]:
     st.session_state.league_members["AI Brian"]["season_picks"] = generate_ai_brian_season_picks()
 
 # --- 5. APP INTERFACE LAYOUT ---
-st.title("🧁 Great British Baking Show Fantasy League 2026")
+logo_img = load_gbbs_logo()
+if logo_img is not None:
+    col_logo, col_title = st.columns([1, 5])
+    with col_logo:
+        st.image(logo_img, width=100)
+    with col_title:
+        st.title("Great British Baking Show Fantasy League 2026")
+else:
+    st.title("🧁 Great British Baking Show Fantasy League 2026")
 
 
 # --- SIDEBAR: PLAYER PROFILE, AVATAR UPLOAD & PERSISTENT POINTS REMINDER ---
