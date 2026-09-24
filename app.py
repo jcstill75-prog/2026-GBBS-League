@@ -440,8 +440,8 @@ def load_ai_brian_avatar():
 
 
 
-def load_gbbs_logo():
-    """Smart image loader for the Great British Baking Show logo (assets/gbbslogo.jpg)."""
+def get_gbbs_logo_base64():
+    """Smart image loader that returns base64 encoding of the GBBS logo for inline flex alignment."""
     priority_paths = [
         "assets/gbbslogo.jpg", "assets/gbbslogo.JPG", "assets/gbbslogo.jpeg", "assets/gbbslogo.JPEG",
         "assets/gbbslogo.png", "assets/gbbslogo.PNG", "assets/gbbslogo.webp",
@@ -451,7 +451,8 @@ def load_gbbs_logo():
     for p in priority_paths:
         if os.path.exists(p):
             try:
-                return Image.open(p)
+                with open(p, "rb") as image_file:
+                    return base64.b64encode(image_file.read()).decode("utf-8")
             except Exception:
                 pass
 
@@ -459,16 +460,17 @@ def load_gbbs_logo():
         try:
             for filename in os.listdir("assets"):
                 stem, ext = os.path.splitext(filename)
-                clean_stem = stem.lower().replace("_", "").replace("-", "").replace(" ", "").strip()
-                if "gbbslogo" in clean_stem or ("gbbs" in clean_stem and "logo" in clean_stem):
-                    if ext.lower() in ['.jpg', '.jpeg', '.png', '.webp']:
-                        try:
-                            return Image.open(os.path.join("assets", filename))
-                        except Exception:
-                            pass
+                clean_stem = stem.lower().replace("_", "").replace("-", "").strip()
+                if clean_stem in ["gbbslogo", "gbbs", "logo"] and ext.lower() in ['.jpg', '.jpeg', '.png', '.webp']:
+                    try:
+                        with open(os.path.join("assets", filename), "rb") as image_file:
+                            return base64.b64encode(image_file.read()).decode("utf-8")
+                    except Exception:
+                        pass
         except Exception:
             pass
     return None
+
 
 def load_baker_image(baker_name):
     """Smart case-insensitive and multi-extension image loader."""
@@ -725,13 +727,16 @@ if not st.session_state.league_members["AI Brian"]["season_picks"]:
     st.session_state.league_members["AI Brian"]["season_picks"] = generate_ai_brian_season_picks()
 
 # --- 5. APP INTERFACE LAYOUT ---
-logo_img = load_gbbs_logo()
-if logo_img is not None:
-    col_logo, col_title = st.columns([1, 5])
-    with col_logo:
-        st.image(logo_img, width=100)
-    with col_title:
-        st.title("Great British Baking Show Fantasy League 2026")
+logo_b64 = get_gbbs_logo_base64()
+if logo_b64:
+    st.markdown(f"""
+        <div style="display: flex; align-items: center; gap: 16px; margin-bottom: 24px; padding-top: 5px;">
+            <img src="data:image/jpeg;base64,{logo_b64}" style="height: 60px; width: auto; max-width: 100px; object-fit: contain; border-radius: 6px;">
+            <h1 style="margin: 0; padding: 0; font-size: 2.1rem; font-weight: 700; color: #2C3E50; line-height: 1.2;">
+                Great British Baking Show Fantasy League 2026
+            </h1>
+        </div>
+    """, unsafe_allow_html=True)
 else:
     st.title("🧁 Great British Baking Show Fantasy League 2026")
 
