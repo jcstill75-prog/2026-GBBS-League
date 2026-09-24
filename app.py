@@ -792,7 +792,7 @@ with st.sidebar:
         """)
 
 # --- MAIN TABS ---
-tab_lead, tab_submit, tab_admin = st.tabs(["📊 Leaderboard & Standings", "📝 Submit Predictions", "👑 Admin Panel"])
+tab_lead, tab_submit, tab_analytics, tab_admin = st.tabs(["📊 Leaderboard & Standings", "📝 Submit Predictions", "📈 Baker Analytics", "👑 Admin Panel"])
 
 # --- TAB 1: LEADERBOARD & STANDINGS ---
 with tab_lead:
@@ -1363,6 +1363,179 @@ with tab_submit:
                             st.success(f"Predictions submitted for Week {st.session_state.current_week} under profile '{active_sub_player}'! You can update your predictions anytime prior to the Tuesday at 2:00 p.m. submission deadline.")
 
 
+
+# --- TAB 3: BAKER ANALYTICS ---
+with tab_analytics:
+    st.header("📈 Baker Analytics & Performance Trends")
+    st.write("Track technical challenge trajectories, judge nomination patterns, and episode chaos events for all 12 bakers!")
+    
+    if not st.session_state.weekly_results:
+        st.info("👀 **No Broadcast Results Published Yet**\n\nLive performance analytics, technical rank trajectories, and judge nomination counts will automatically populate here once Episode 1 broadcast results are published in the Admin Panel!")
+    else:
+        # Calculate stats per baker across published weeks
+        all_weeks = sorted(list(st.session_state.weekly_results.keys()))
+        curr_elim = get_current_eliminated_bakers(st.session_state.current_week)
+        
+        baker_stats = {}
+        for b in ALL_BAKERS:
+            baker_stats[b] = {
+                "status": "❌ Eliminated" if b in curr_elim else "🧁 Active",
+                "star_baker_cnt": 0,
+                "in_line_cnt": 0,
+                "in_trouble_cnt": 0,
+                "handshake_cnt": 0,
+                "tech_ranks": [],
+                "tech_rank_pcts": []
+            }
+            
+        for w in all_weeks:
+            res = st.session_state.weekly_results[w]
+            # Star baker
+            sb = res.get("star_baker")
+            if sb in baker_stats:
+                baker_stats[sb]["star_baker_cnt"] += 1
+            # In line
+            for inl in res.get("in_line_sb", []):
+                if inl in baker_stats:
+                    baker_stats[inl]["in_line_cnt"] += 1
+            # In trouble
+            for trb in res.get("in_trouble", []):
+                if trb in baker_stats:
+                    baker_stats[trb]["in_trouble_cnt"] += 1
+            # Handshakes
+            for hs in res.get("handshake_bakers", []):
+                if hs in baker_stats:
+                    baker_stats[hs]["handshake_cnt"] += 1
+            # Technical ranks
+            tr = res.get("tech_rank", [])
+            field_size = len(tr)
+            if field_size > 0:
+                for rank_idx, b in enumerate(tr):
+                    if b in baker_stats:
+                        finish_pos = rank_idx + 1
+                        baker_stats[b]["tech_ranks"].append((w, finish_pos))
+                        pct = round(((field_size - rank_idx) / field_size) * 100, 1)
+                        baker_stats[b]["tech_rank_pcts"].append(pct)
+            else:
+                # Handle top3 / bottom3 fallback
+                t3 = res.get("tech_top_3", [])
+                b3 = res.get("tech_bottom_3", [])
+                for rank_idx, b in enumerate(t3):
+                    if b in baker_stats:
+                        baker_stats[b]["tech_ranks"].append((w, rank_idx + 1))
+                for rank_idx, b in enumerate(b3):
+                    if b in baker_stats:
+                        baker_stats[b]["tech_ranks"].append((w, 12 - (2 - rank_idx)))
+
+        # A. Summary Table
+        st.subheader("📊 Baker Comparison Matrix")
+        matrix_data = []
+        for b in ALL_BAKERS:
+            s = baker_stats[b]
+            avg_finish = round(sum(pos for _, pos in s["tech_ranks"]) / len(s["tech_ranks"]), 1) if s["tech_ranks"] else "N/A"
+            avg_pct = round(sum(s["tech_rank_pcts"]) / len(s["tech_rank_pcts"]), 1) if s["tech_rank_pcts"] else "N/A"
+            avg_pct_str = f"{avg_pct}%" if avg_pct != "N/A" else "N/A"
+            
+            matrix_data.append({
+                "Baker": b,
+                "Status": s["status"],
+                "Avg Tech Rank %": avg_pct_str,
+                "Avg Tech Finish": str(avg_finish),
+                "Star Bakers 🌟": s["star_baker_cnt"],
+                "In Line 📈": s["in_line_cnt"],
+                "In Trouble ⚠️": s["in_trouble_cnt"],
+                "Handshakes 🤝": s["handshake_cnt"]
+            })
+            
+        df_matrix = pd.DataFrame(matrix_data)
+        st.dataframe(df_matrix, use_container_width=True, hide_index=True)
+        st.caption("ℹ️ **Avg Tech Rank %** calculates a baker's average performance relative to total field size each week (100% = 1st place).")
+        
+        st.markdown("---")
+        
+        # B. Individual Baker Deep Dive with Photo next to stats
+        st.subheader("🔍 Individual Baker Performance Deep-Dive")
+        selected_ana_baker = st.selectbox("Select Baker to Inspect:", ALL_BAKERS, key="ana_baker_select")
+        
+        ana_s = baker_stats[selected_ana_baker]
+        is_baker_elim = (selected_ana_baker in curr_elim)
+        
+        col_photo, col_perf = st.columns([1, 2])
+        
+        with col_photo:
+            st.markdown(f"### **{selected_ana_baker}**" + (" *(Eliminated)*" if is_baker_elim else ""))
+            b_img = load_baker_image(selected_ana_baker)
+            if b_img is not None:
+                if is_baker_elim:
+                    b_img_disp = apply_elimination_overlay(b_img)
+                    st.image(b_img_disp, use_container_width=True, caption=f"❌ {selected_ana_baker} (ELIMINATED)")
+                else:
+                    st.image(b_img, use_container_width=True, caption=f"🧁 {selected_ana_baker}")
+            else:
+                if is_baker_elim:
+                    st.error(f"❌ {selected_ana_baker} (ELIMINATED)")
+                else:
+                    st.info(f"📸 Photograph of {selected_ana_baker}")
+                    
+        with col_perf:
+            st.markdown(f"#### 🏅 {selected_ana_baker}'s Career Accolades")
+            m1, m2, m3, m4 = st.columns(4)
+            with m1:
+                st.metric("Star Baker", f"{ana_s['star_baker_cnt']} 🌟")
+            with m2:
+                st.metric("In Line", f"{ana_s['in_line_cnt']} 📈")
+            with m3:
+                st.metric("In Trouble", f"{ana_s['in_trouble_cnt']} ⚠️")
+            with m4:
+                st.metric("Handshakes", f"{ana_s['handshake_cnt']} 🤝")
+                
+            st.markdown("---")
+            avg_fin_val = round(sum(pos for _, pos in ana_s["tech_ranks"]) / len(ana_s["tech_ranks"]), 1) if ana_s["tech_ranks"] else "N/A"
+            avg_pct_val = round(sum(ana_s["tech_rank_pcts"]) / len(ana_s["tech_rank_pcts"]), 1) if ana_s["tech_rank_pcts"] else "N/A"
+            
+            st.markdown(f"**Average Technical Finish:** `{avg_fin_val}` | **Technical Relative Rank %:** `{avg_pct_val}%`")
+            
+            if ana_s["tech_ranks"]:
+                st.markdown("##### 📈 Technical Placement Trajectory")
+                df_chart = pd.DataFrame({
+                    "Week": [f"W{w}" for w, _ in ana_s["tech_ranks"]],
+                    "Technical Position": [pos for _, pos in ana_s["tech_ranks"]]
+                }).set_index("Week")
+                st.line_chart(df_chart)
+            else:
+                st.info("No technical challenge rank data recorded for this baker yet.")
+                
+            if len(all_weeks) >= 3:
+                st.markdown("##### 🏷️ Performance Classification")
+                if ana_s["star_baker_cnt"] >= 2 or (avg_pct_val != "N/A" and avg_pct_val >= 75):
+                    st.success("🌟 **Top Contender:** Consistently ranks at the top of technicals and wins Star Baker titles.")
+                elif ana_s["in_trouble_cnt"] >= 2 or (avg_pct_val != "N/A" and avg_pct_val <= 30):
+                    st.warning("⚠️ **High Risk:** Frequently in the bottom tier of technicals or nominated in trouble.")
+                else:
+                    st.info("🧁 **Steady Performer:** Holds solid middle-tier technical finishes and steady performance.")
+
+        st.markdown("---")
+        
+        # C. Official Chaos & Event Log
+        with st.expander("📝 Official Broadcast Timestamps & Descriptions Log", expanded=False):
+            st.write("Review the Admin's published notes and timestamps for key episode events:")
+            for w in all_weeks:
+                res = st.session_state.weekly_results[w]
+                st.markdown(f"#### 📍 Week {w} Broadcast Log")
+                hs_cnt = res.get("handshake_count", len(res.get("handshake_bakers", [])))
+                hs_stamps = res.get("handshake_timestamps", "")
+                cry_cnt = res.get("crying_count", 0)
+                cry_stamps = res.get("crying_timestamps", "")
+                inn_cnt = res.get("innuendo_count", 0)
+                inn_stamps = res.get("innuendo_timestamps", "")
+                
+                st.markdown(f"- **🤝 Handshakes (`{hs_cnt}`):** {hs_stamps if hs_stamps else 'No description recorded'}")
+                st.markdown(f"- **😢 Crying Scenes (`{cry_cnt}`):** {cry_stamps if cry_stamps else 'No description recorded'}")
+                st.markdown(f"- **💬 Sexual Innuendos (`{inn_cnt}`):** {inn_stamps if inn_stamps else 'No description recorded'}")
+                st.markdown("<hr style='margin: 4px 0;'>", unsafe_allow_html=True)
+
+
+
 # --- TAB 3: ADMIN PANEL (PIN PROTECTED) ---
 with tab_admin:
     st.header("👑 League Administrator Console")
@@ -1414,7 +1587,24 @@ with tab_admin:
             st.subheader(f"Input Broadcast Results for Week {st.session_state.current_week}")
             actuals = {}
             
-            if st.session_state.current_week == 10:
+            if st.session_state.current_week == 1:
+                st.subheader("Input Broadcast Results for Week 1 (Episode 1 Premiere)")
+                st.write("Select the baker eliminated in Episode 1 and enter any episode broadcast counts.")
+                
+                col_w1_1, col_w1_2 = st.columns(2)
+                with col_w1_1:
+                    act_sb_opts = ["-- Select Star Baker --", "None (No Star Baker)"] + active_bakers
+                    act_sb_w1 = st.selectbox("Actual Star Baker (Episode 1)", act_sb_opts, index=0)
+                    actuals["star_baker"] = act_sb_w1 if act_sb_w1 not in ["-- Select Star Baker --", "None (No Star Baker)"] else "None"
+                with col_w1_2:
+                    act_elim_opts = ["-- Select Eliminated Baker --"] + active_bakers
+                    act_elim_w1 = st.selectbox("Actual Eliminated Baker (Episode 1)", act_elim_opts, index=0)
+                    actuals["eliminated"] = act_elim_w1 if act_elim_w1 != "-- Select Eliminated Baker --" else "None"
+                actuals["tech_rank"] = []
+                actuals["tech_top_3"] = []
+                actuals["tech_bottom_3"] = []
+                
+            elif st.session_state.current_week == 10:
                 actuals["show_champion"] = st.selectbox("Actual Show Champion", active_bakers)
                 st.write("Actual Technical Challenge Rankings:")
                 act_t1 = st.selectbox("Actual Technical 1st Place", active_bakers, index=0)
@@ -1490,40 +1680,63 @@ with tab_admin:
                         actuals["eliminated"] = [act_elim_1, act_elim_2]
                         actuals["in_trouble"] = st.multiselect("Actual 'In Trouble' Nominees", [b for b in active_bakers if b not in actuals["eliminated"]])
                     
-                st.write(f"Actual Technical Challenge Rankings (1st through {len(active_bakers)}th Place):")
-                act_tech_list = []
-                avail_tech = list(active_bakers)
+                st.write("Actual Top 3 Technical Rankings:")
+                col_act_t1, col_act_t2, col_act_t3 = st.columns(3)
+                with col_act_t1:
+                    act_t1 = st.selectbox("Actual 1st Place", active_bakers, index=0, key="admin_std_t1")
+                with col_act_t2:
+                    act_t2_opts = [b for b in active_bakers if b != act_t1]
+                    act_t2 = st.selectbox("Actual 2nd Place", act_t2_opts, index=0 if act_t2_opts else 0, key="admin_std_t2")
+                with col_act_t3:
+                    act_t3_opts = [b for b in active_bakers if b not in [act_t1, act_t2]]
+                    act_t3 = st.selectbox("Actual 3rd Place", act_t3_opts, index=0 if act_t3_opts else 0, key="admin_std_t3")
                 
-                cols_tech = st.columns(min(3, len(active_bakers)))
-                for rank_idx in range(len(active_bakers)):
-                    r_num = rank_idx + 1
-                    col_target = cols_tech[rank_idx % len(cols_tech)]
-                    with col_target:
-                        st_label = f"Actual {r_num}{'st' if r_num==1 else ('nd' if r_num==2 else ('rd' if r_num==3 else 'th'))} Place"
-                        b_selected = st.selectbox(st_label, avail_tech, index=0, key=f"admin_full_tech_w{st.session_state.current_week}_r{r_num}")
-                        act_tech_list.append(b_selected)
-                        avail_tech = [b for b in avail_tech if b != b_selected]
-                        
-                actuals["tech_rank"] = act_tech_list
-                actuals["tech_top_3"] = act_tech_list[:3] if len(act_tech_list) >= 3 else act_tech_list
-                actuals["tech_bottom_3"] = act_tech_list[-3:] if len(act_tech_list) >= 3 else act_tech_list
+                st.write("Actual Bottom 3 Technical Rankings:")
+                col_act_b1, col_act_b2, col_act_b3 = st.columns(3)
+                admin_avail_bottom = [b for b in active_bakers if b not in [act_t1, act_t2, act_t3]]
+                with col_act_b1:
+                    act_b3 = st.selectbox("Actual 3rd-to-last Place", admin_avail_bottom, index=0 if admin_avail_bottom else 0, key="admin_std_b3")
+                with col_act_b2:
+                    act_b2_opts = [b for b in admin_avail_bottom if b != act_b3]
+                    act_b2 = st.selectbox("Actual 2nd-to-last Place", act_b2_opts, index=0 if act_b2_opts else 0, key="admin_std_b2")
+                with col_act_b3:
+                    act_b1_opts = [b for b in admin_avail_bottom if b not in [act_b3, act_b2]]
+                    act_b1 = st.selectbox("Actual Last Place", act_b1_opts, index=0 if act_b1_opts else 0, key="admin_std_b1")
+
+                actuals["tech_top_3"] = [act_t1, act_t2, act_t3]
+                actuals["tech_bottom_3"] = [act_b3, act_b2, act_b1]
                 
-            # --- WEEKLY HANDSHAKE & CRYING TIMESTAMPS & INNUENDOS ---
+            # --- WEEKLY HANDSHAKE, CRYING & INNUENDOS (CHAOS CATEGORIES) ---
             st.markdown("---")
-            st.markdown("### 🤝 Hollywood Handshakes & Video Timestamps")
+            st.markdown("### 🤝 Hollywood Handshakes")
+            col_hs1, col_hs2 = st.columns([1, 2])
+            with col_hs1:
+                act_handshake_cnt = st.number_input("Handshakes Count in Episode", min_value=0, value=0, key=f"handshake_cnt_w{st.session_state.current_week}")
+            with col_hs2:
+                act_handshake_stamps = st.text_input("Description & Video Timestamps", value="", placeholder="e.g. 'Clara @ 14:22 Signature, Tom @ 42:10 Showstopper'", key=f"handshake_stamps_w{st.session_state.current_week}")
             act_handshake_bakers = st.multiselect("Bakers Receiving Hollywood Handshakes This Week", active_bakers, key=f"handshake_bakers_w{st.session_state.current_week}")
-            act_handshake_stamps = st.text_input("Handshake Video Timestamps & Context (e.g. 'Clara @ 14:22 Signature, Tom @ 42:10 Showstopper')", value="", key=f"handshake_stamps_w{st.session_state.current_week}")
 
-            st.markdown("### 😢 Crying Incidents & Video Timestamps")
-            act_crying_stamps = st.text_input("Crying Scene Video Timestamps & Context (e.g. 'Gabe @ 24:15 Technical, Molly @ 54:02 Elimination')", value="", key=f"crying_stamps_w{st.session_state.current_week}")
+            st.markdown("### 😢 Crying Incidents")
+            col_cry1, col_cry2 = st.columns([1, 2])
+            with col_cry1:
+                act_crying_cnt = st.number_input("Crying Incidents Count in Episode", min_value=0, value=0, key=f"crying_cnt_w{st.session_state.current_week}")
+            with col_cry2:
+                act_crying_stamps = st.text_input("Description & Video Timestamps", value="", placeholder="e.g. 'Mo during technical @ 24:15, Molly @ 54:02'", key=f"crying_stamps_w{st.session_state.current_week}")
 
-            st.markdown("### 💬 Weekly Sexual Innuendos Count")
-            act_innuendo_cnt = st.number_input("Sexual Innuendos Count in Episode", min_value=0, value=0, key=f"innuendo_cnt_w{st.session_state.current_week}")
+            st.markdown("### 💬 Sexual Innuendos")
+            col_inn1, col_inn2 = st.columns([1, 2])
+            with col_inn1:
+                act_innuendo_cnt = st.number_input("Sexual Innuendos Count in Episode", min_value=0, value=0, key=f"innuendo_cnt_w{st.session_state.current_week}")
+            with col_inn2:
+                act_innuendo_stamps = st.text_input("Description & Video Timestamps", value="", placeholder="e.g. 'Paul & Prue soggy bottom banter @ 18:05'", key=f"innuendo_stamps_w{st.session_state.current_week}")
 
+            actuals["handshake_count"] = act_handshake_cnt
             actuals["handshake_bakers"] = act_handshake_bakers
             actuals["handshake_timestamps"] = act_handshake_stamps
+            actuals["crying_count"] = act_crying_cnt
             actuals["crying_timestamps"] = act_crying_stamps
             actuals["innuendo_count"] = act_innuendo_cnt
+            actuals["innuendo_timestamps"] = act_innuendo_stamps
                 
             if st.session_state.current_week == 10:
                 st.markdown("### 🏆 Final Seasonal Broadcast Totals")
