@@ -440,19 +440,19 @@ def load_ai_brian_avatar():
 
 
 
-def get_gbbs_logo_base64():
-    """Smart image loader that returns base64 encoding of the GBBS logo for inline flex alignment."""
+def load_logo_image():
+    """Smart image loader for the header logo (prioritizes assets/normanbeaver.jpg)."""
     priority_paths = [
-        "assets/gbbslogo.jpg", "assets/gbbslogo.JPG", "assets/gbbslogo.jpeg", "assets/gbbslogo.JPEG",
-        "assets/gbbslogo.png", "assets/gbbslogo.PNG", "assets/gbbslogo.webp",
-        "assets/gbbs_logo.jpg", "assets/gbbs_logo.png", "assets/gbbs-logo.jpg",
-        "assets/GBBSLogo.jpg", "assets/GBBS_Logo.jpg", "gbbslogo.jpg", "gbbslogo.JPG", "gbbslogo.png"
+        "assets/normanbeaver.jpg", "assets/normanbeaver.JPG", "assets/normanbeaver.jpeg", "assets/normanbeaver.JPEG",
+        "assets/normanbeaver.png", "assets/normanbeaver.PNG", "assets/normanbeaver.webp",
+        "assets/norman_beaver.jpg", "assets/norman_beaver.png", "assets/norman-beaver.jpg",
+        "assets/NormanBeaver.jpg", "assets/Norman_Beaver.jpg", "normanbeaver.jpg", "normanbeaver.JPG", "normanbeaver.png",
+        "assets/gbbslogo.jpg", "assets/gbbslogo.png"
     ]
     for p in priority_paths:
         if os.path.exists(p):
             try:
-                with open(p, "rb") as image_file:
-                    return base64.b64encode(image_file.read()).decode("utf-8")
+                return Image.open(p)
             except Exception:
                 pass
 
@@ -460,16 +460,31 @@ def get_gbbs_logo_base64():
         try:
             for filename in os.listdir("assets"):
                 stem, ext = os.path.splitext(filename)
-                clean_stem = stem.lower().replace("_", "").replace("-", "").strip()
-                if clean_stem in ["gbbslogo", "gbbs", "logo"] and ext.lower() in ['.jpg', '.jpeg', '.png', '.webp']:
-                    try:
-                        with open(os.path.join("assets", filename), "rb") as image_file:
-                            return base64.b64encode(image_file.read()).decode("utf-8")
-                    except Exception:
-                        pass
+                clean_stem = stem.lower().replace("_", "").replace("-", "").replace(" ", "").strip()
+                if "norman" in clean_stem or "beaver" in clean_stem:
+                    if ext.lower() in ['.jpg', '.jpeg', '.png', '.webp']:
+                        try:
+                            return Image.open(os.path.join("assets", filename))
+                        except Exception:
+                            pass
         except Exception:
             pass
     return None
+
+
+def get_logo_base64():
+    img = load_logo_image()
+    if img is None:
+        return None
+    try:
+        buffered = io.BytesIO()
+        img_format = img.format if img.format else "JPEG"
+        img.save(buffered, format=img_format)
+        return base64.b64encode(buffered.getvalue()).decode()
+    except Exception:
+        return None
+
+
 
 
 def load_baker_image(baker_name):
@@ -727,18 +742,19 @@ if not st.session_state.league_members["AI Brian"]["season_picks"]:
     st.session_state.league_members["AI Brian"]["season_picks"] = generate_ai_brian_season_picks()
 
 # --- 5. APP INTERFACE LAYOUT ---
-logo_b64 = get_gbbs_logo_base64()
+logo_b64 = get_logo_base64()
 if logo_b64:
     st.markdown(f"""
-        <div style="display: flex; align-items: center; gap: 16px; margin-bottom: 24px; padding-top: 5px;">
-            <img src="data:image/jpeg;base64,{logo_b64}" style="height: 60px; width: auto; max-width: 100px; object-fit: contain; border-radius: 6px;">
-            <h1 style="margin: 0; padding: 0; font-size: 2.1rem; font-weight: 700; color: #2C3E50; line-height: 1.2;">
+        <div style="display: flex; align-items: center; gap: 18px; margin-bottom: 20px; padding: 5px 0;">
+            <img src="data:image/jpeg;base64,{logo_b64}" style="height: 75px; width: auto; max-width: 120px; object-fit: contain; border-radius: 8px; box-shadow: 0 2px 6px rgba(0,0,0,0.15);">
+            <h1 style="margin: 0; padding: 0; font-size: 2.2rem; font-weight: 800; color: var(--text-color, #1A0C08) !important; line-height: 1.2;">
                 Great British Baking Show Fantasy League 2026
             </h1>
         </div>
     """, unsafe_allow_html=True)
 else:
     st.title("🧁 Great British Baking Show Fantasy League 2026")
+
 
 
 # --- SIDEBAR: PLAYER PROFILE, AVATAR UPLOAD & PERSISTENT POINTS REMINDER ---
