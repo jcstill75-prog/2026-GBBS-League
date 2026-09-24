@@ -1640,9 +1640,18 @@ with tab_admin:
             st.markdown(f"### 📊 Actual Technical Challenge Rankings (1st through {len(active_bakers)}th Place)")
             st.write("Select the exact placement for every baker in the technical challenge:")
             
-            full_tech_ranks = []
-            cols_per_row = 3
             num_bakers = len(active_bakers)
+            cols_per_row = 3
+            
+            # Gather currently selected values across all ranks for the active week
+            selected_by_rank = {}
+            for r in range(1, num_bakers + 1):
+                k = f"admin_full_tech_w{st.session_state.current_week}_r{r}"
+                v = st.session_state.get(k)
+                if v and not str(v).startswith("-- Select"):
+                    selected_by_rank[r] = v
+
+            full_tech_ranks = []
             
             for i in range(num_bakers):
                 rank_num = i + 1
@@ -1656,22 +1665,35 @@ with tab_admin:
                 
                 col = t_cols[i % cols_per_row]
                 with col:
-                    opts = [b for b in active_bakers if b not in full_tech_ranks]
+                    key_r = f"admin_full_tech_w{st.session_state.current_week}_r{rank_num}"
+                    placeholder = f"-- Select {ord_str} Place --"
+                    
+                    others_selected = [v for r_num, v in selected_by_rank.items() if r_num != rank_num]
+                    available_bakers = [b for b in active_bakers if b not in others_selected]
+                    opts = [placeholder] + available_bakers
+                    
+                    curr_val = st.session_state.get(key_r)
+                    idx = opts.index(curr_val) if curr_val in opts else 0
+                    
                     sel_baker = st.selectbox(
                         f"Actual Technical {ord_str} Place",
                         opts,
-                        index=0,
-                        key=f"admin_full_tech_w{st.session_state.current_week}_r{rank_num}"
+                        index=idx,
+                        key=key_r
                     )
-                    full_tech_ranks.append(sel_baker)
+                    if sel_baker and not str(sel_baker).startswith("-- Select"):
+                        full_tech_ranks.append(sel_baker)
+                    else:
+                        full_tech_ranks.append(None)
 
-            actuals["tech_rank"] = full_tech_ranks
-            if len(full_tech_ranks) >= 3:
-                actuals["tech_top_3"] = full_tech_ranks[:3]
-                actuals["tech_bottom_3"] = full_tech_ranks[-3:]
+            cleaned_tech_ranks = [b for b in full_tech_ranks if b is not None]
+            actuals["tech_rank"] = cleaned_tech_ranks
+            if len(cleaned_tech_ranks) >= 3:
+                actuals["tech_top_3"] = cleaned_tech_ranks[:3]
+                actuals["tech_bottom_3"] = cleaned_tech_ranks[-3:]
             else:
-                actuals["tech_top_3"] = full_tech_ranks
-                actuals["tech_bottom_3"] = full_tech_ranks
+                actuals["tech_top_3"] = cleaned_tech_ranks
+                actuals["tech_bottom_3"] = cleaned_tech_ranks
 
             # --- WEEKLY HANDSHAKE & CRYING TIMESTAMPS & INNUENDOS ---
             st.markdown("---")
@@ -1707,10 +1729,13 @@ with tab_admin:
             
             submit_actuals = st.form_submit_button("Publish Actual Results & Recalculate Standings")
             if submit_actuals:
-                st.session_state.weekly_results[st.session_state.current_week] = actuals
-                if st.session_state.current_week == 10:
-                    st.session_state.season_results = actuals_season
-                save_league_data(st.session_state.league_members, st.session_state.weekly_results, st.session_state.season_results)
+                if len(actuals.get("tech_rank", [])) < len(active_bakers):
+                    st.error(f"⚠️ Please select a baker for all {len(active_bakers)} Technical Challenge ranks before publishing!")
+                else:
+                    st.session_state.weekly_results[st.session_state.current_week] = actuals
+                    if st.session_state.current_week == 10:
+                        st.session_state.season_results = actuals_season
+                    save_league_data(st.session_state.league_members, st.session_state.weekly_results, st.session_state.season_results)
                     
                 # TRIGGER RECALCULATION
                 for member_name in st.session_state.league_members:
