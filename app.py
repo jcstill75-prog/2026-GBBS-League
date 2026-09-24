@@ -1,11 +1,15 @@
-import streamlit as st
-import json
-import pandas as pd
-import random
-from PIL import Image, ImageDraw
-import io
 import base64
+import io
+import json
 import os
+import random
+import pandas as pd
+from PIL import Image, ImageDraw
+import streamlit as st
+
+# --- AVATAR DIRECTORY INITIALIZATION ---
+AVATAR_DIR = os.path.join("assets", "avatars")
+os.makedirs(AVATAR_DIR, exist_ok=True)
 
 # --- 1. SETUP & PAGE CONFIG ---
 st.set_page_config(
@@ -99,343 +103,222 @@ def calculate_weekly_score(predictions, actuals, week=2):
             else:
                 for idx, b in enumerate(pred_rank):
                     if act_rank[idx] == b:
-                        if idx in [0, 4]:
-                            score += 3  # 1st and 5th
-                        else:
-                            score += 2  # 2nd, 3rd, 4th
+                        score += (3 if idx in [0, 4] else 2)
         elif week == 9 and len(pred_rank) == 4 and len(act_rank) == 4:
             exact_count = sum(1 for idx, b in enumerate(pred_rank) if act_rank[idx] == b)
             if exact_count == 4:
-                score += 20  # Flat 20 pts for perfect sweep
+                score += 20  # Flat 20 pts for perfect sweep of 4 bakers
             else:
                 for idx, b in enumerate(pred_rank):
                     if act_rank[idx] == b:
-                        if idx in [0, 3]:
-                            score += 3  # 1st and 4th
-                        else:
-                            score += 2  # 2nd and 3rd
-                    
+                        score += (3 if idx in [0, 3] else 2)
         elif week == 10 and len(pred_rank) == 3 and len(act_rank) == 3:
             exact_count = sum(1 for idx, b in enumerate(pred_rank) if act_rank[idx] == b)
             if exact_count == 3:
-                score += 15  # Flat 15 pts for perfect sweep
+                score += 15  # Flat 15 pts for perfect sweep of 3 bakers
             else:
                 for idx, b in enumerate(pred_rank):
                     if act_rank[idx] == b:
-                        if idx == 0:
-                            score += 3
-                        else:
-                            score += 2
+                        score += (3 if idx == 0 else 2)
     else:
         # Standard Weeks 2-7
-        pred_top3 = predictions.get("tech_top_3", [])
-        act_top3 = actuals.get("tech_top_3", [])
+        p_top = predictions.get("tech_top_3", [])
+        a_top = actuals.get("tech_top_3", [])
+        p_bot = predictions.get("tech_bottom_3", [])
+        a_bot = actuals.get("tech_bottom_3", [])
         
-        if len(pred_top3) == 3 and len(act_top3) == 3:
-            if pred_top3 == act_top3:
-                score += 10  # Perfect Top 3 Combo Bonus
-            else:
-                if pred_top3[0] == act_top3[0]: score += 3
-                if pred_top3[1] == act_top3[1]: score += 2
-                if pred_top3[2] == act_top3[2]: score += 2
-                for idx, baker in enumerate(pred_top3):
-                    if baker in act_top3 and baker != act_top3[idx]:
+        # Check Top 3 Perfect Sequence Sweep (flat 10 pts)
+        if len(p_top) == 3 and len(a_top) == 3 and p_top == a_top:
+            score += 10
+        else:
+            for idx, p_baker in enumerate(p_top):
+                if idx < len(a_top):
+                    if p_baker == a_top[idx]:
+                        score += (3 if idx == 0 else 2)
+                    elif p_baker in a_top:
                         score += 1
                         
-        pred_bottom3 = predictions.get("tech_bottom_3", [])
-        act_bottom3 = actuals.get("tech_bottom_3", [])
-        
-        if len(pred_bottom3) == 3 and len(act_bottom3) == 3:
-            if pred_bottom3 == act_bottom3:
-                score += 10  # Perfect Bottom 3 Combo Bonus
-            else:
-                if pred_bottom3[0] == act_bottom3[0]: score += 2
-                if pred_bottom3[1] == act_bottom3[1]: score += 2
-                if pred_bottom3[2] == act_bottom3[2]: score += 3
-                for idx, baker in enumerate(pred_bottom3):
-                    if baker in act_bottom3 and baker != act_bottom3[idx]:
+        # Check Bottom 3 Perfect Sequence Sweep (flat 10 pts)
+        if len(p_bot) == 3 and len(a_bot) == 3 and p_bot == a_bot:
+            score += 10
+        else:
+            for idx, p_baker in enumerate(p_bot):
+                if idx < len(a_bot):
+                    if p_baker == a_bot[idx]:
+                        score += (3 if idx == 2 else 2)
+                    elif p_baker in a_bot:
                         score += 1
 
-    # --- C. Consolations ---
-    if week < 9:
-        if (predictions.get("in_line_sb") in actuals.get("in_line_sb", [])) and (predictions.get("in_line_sb") != actuals.get("star_baker")):
-            score += 2  # Balanced down from 3
-        if (predictions.get("in_trouble") in actuals.get("in_trouble", [])) and (predictions.get("in_trouble") != actuals.get("eliminated")):
-            score += 2  # Balanced down from 3
-            
+    # --- C. Consolation Nominees (Weeks 2-8) ---
+    if 2 <= week <= 8:
+        # In Line for Star Baker (2 pts if nominated but didn't win SB)
+        pred_inl = predictions.get("in_line_sb")
+        act_inl = actuals.get("in_line_sb", [])
+        act_sb = actuals.get("star_baker")
+        if pred_inl and pred_inl != act_sb:
+            if isinstance(act_inl, list) and pred_inl in act_inl:
+                score += 2
+            elif isinstance(act_inl, str) and pred_inl == act_inl:
+                score += 2
+                
+        # In Trouble of Elimination (2 pts if nominated bottom but saved)
+        pred_trb = predictions.get("in_trouble")
+        act_trb = actuals.get("in_trouble", [])
+        act_elim = actuals.get("eliminated")
+        act_elim_list = act_elim if isinstance(act_elim, list) else [act_elim]
+        if pred_trb and pred_trb not in act_elim_list:
+            if isinstance(act_trb, list) and pred_trb in act_trb:
+                score += 2
+            elif isinstance(act_trb, str) and pred_trb == act_trb:
+                score += 2
+
     return score
 
 
-def calculate_season_score(predictions, actuals):
-    score = 0
-    if not predictions or not actuals:
+def calculate_season_score(season_predictions, season_actuals):
+    if not season_predictions or not season_actuals:
         return 0
-        
-    act_winner = actuals.get("winner")
-    act_semis = actuals.get("semifinalists", [])
-    act_finalists = actuals.get("finalists", act_semis)
+    score = 0
     
-    # 1. Season Winner (40 points) or finalist consolation (15 points)
-    pred_winner = predictions.get("winner")
-    if pred_winner == act_winner:
-        score += 40
-    elif pred_winner in act_finalists:
-        score += 15
-        
+    # 1. Season Winner (40 pts exact, 15 pts runner-up finalist consolation)
+    p_win = season_predictions.get("winner")
+    a_win = season_actuals.get("winner")
+    a_finalists = season_actuals.get("finalists", [])
+    if p_win and a_win:
+        if p_win == a_win:
+            score += 40
+        elif p_win in a_finalists:
+            score += 15
+            
     # 2. Other 3 Semifinalists (10 pts each)
-    pred_semis = predictions.get("semifinalists", [])
-    for baker in pred_semis:
-        if baker in act_semis and baker != pred_winner:
-            score += 10
-            
-    # 3. Hollywood Handshakes (Spot-on = 20 pts, +/- 1 = 10 pts)
-    pred_handshakes = predictions.get("handshakes")
-    act_handshakes = actuals.get("handshakes")
-    if pred_handshakes is not None and act_handshakes is not None:
-        if pred_handshakes == act_handshakes:
+    p_semis = season_predictions.get("semifinalists", [])
+    a_semis = season_actuals.get("semifinalists", [])
+    if p_semis and a_semis:
+        for b in p_semis:
+            if b in a_semis and b != p_win:
+                score += 10
+                
+    # 3. Chaos Categories (20 pts spot-on, 10 pts margin)
+    p_hs = season_predictions.get("handshakes")
+    a_hs = season_actuals.get("handshakes")
+    if p_hs is not None and a_hs is not None:
+        if p_hs == a_hs:
             score += 20
-        elif abs(pred_handshakes - act_handshakes) <= 1:
+        elif abs(p_hs - a_hs) <= 1:
             score += 10
             
-    # 4. Crying Events (Spot-on = 20 pts, +/- 5 = 10 pts)
-    pred_crying = predictions.get("crying")
-    act_crying = actuals.get("crying")
-    if pred_crying is not None and act_crying is not None:
-        if pred_crying == act_crying:
+    p_cry = season_predictions.get("crying")
+    a_cry = season_actuals.get("crying")
+    if p_cry is not None and a_cry is not None:
+        if p_cry == a_cry:
             score += 20
-        elif abs(pred_crying - act_crying) <= 5:
+        elif abs(p_cry - a_cry) <= 5:
             score += 10
             
-    # 5. Sexual Innuendos (Spot-on = 20 pts, +/- 5 = 10 pts)
-    pred_innuendos = predictions.get("innuendos")
-    act_innuendos = actuals.get("innuendos")
-    if pred_innuendos is not None and act_innuendos is not None:
-        if pred_innuendos == act_innuendos:
+    p_inn = season_predictions.get("innuendos")
+    a_inn = season_actuals.get("innuendos")
+    if p_inn is not None and a_inn is not None:
+        if p_inn == a_inn:
             score += 20
-        elif abs(pred_innuendos - act_innuendos) <= 5:
+        elif abs(p_inn - a_inn) <= 5:
             score += 10
-            
+
     return score
 
 
-def get_weekly_scorecard_details(predictions, actuals, week=2):
-    """Generate line-item audit list for individual player scorecards."""
+def get_weekly_scorecard_details(pred, act, week=2):
     items = []
     
-    # --- A. Main Episode Results ---
+    # 1. Main Episode Results
     if week == 10:
-        pred_champ = predictions.get("show_champion", "N/A")
-        act_champ = actuals.get("show_champion", "N/A")
-        pts = 15 if (pred_champ and act_champ and pred_champ == act_champ) else 0
-        items.append({
-            "Category": "Show Champion Prediction",
-            "Player Pick": str(pred_champ),
-            "Actual Result": str(act_champ),
-            "Points": pts,
-            "Notes": "Exact match (+15 pts)" if pts > 0 else "Did not match"
-        })
+        p_c = pred.get("show_champion", "N/A")
+        a_c = act.get("show_champion", "Pending")
+        pts = 15 if (p_c == a_c and p_c != "N/A") else 0
+        items.append({"Category": "Show Champion", "Your Pick": str(p_c), "Actual Result": str(a_c), "Points": pts})
     else:
-        pred_sb = predictions.get("star_baker", "N/A")
-        act_sb = actuals.get("star_baker", "N/A")
-        pts_sb = 5 if (pred_sb == act_sb) else 0
-        items.append({
-            "Category": "Star Baker",
-            "Player Pick": str(pred_sb),
-            "Actual Result": str(act_sb),
-            "Points": pts_sb,
-            "Notes": "Correct (+5 pts)" if pts_sb > 0 else "Incorrect"
-        })
+        p_sb = pred.get("star_baker", "N/A")
+        a_sb = act.get("star_baker", "Pending")
+        pts_sb = 5 if (p_sb == a_sb and p_sb != "N/A") else 0
+        items.append({"Category": "Star Baker", "Your Pick": str(p_sb), "Actual Result": str(a_sb), "Points": pts_sb})
         
-        # Eliminated
-        act_elim = actuals.get("eliminated", "N/A")
-        pred_elim = predictions.get("eliminated", "N/A")
-        pts_elim = 0
-        if isinstance(act_elim, list):
-            if isinstance(pred_elim, list):
-                for p in pred_elim:
-                    if p in act_elim: pts_elim += 5
-            elif isinstance(pred_elim, str):
-                if pred_elim in act_elim: pts_elim += 5
-        elif act_elim == "None":
-            pts_elim = 0
-        else:
-            if isinstance(pred_elim, list):
-                if act_elim in pred_elim: pts_elim += 5
-            elif pred_elim == act_elim: pts_elim += 5
-            
-        p_elim_str = ", ".join(pred_elim) if isinstance(pred_elim, list) else str(pred_elim)
-        a_elim_str = ", ".join(act_elim) if isinstance(act_elim, list) else str(act_elim)
-        notes_elim = "Sickness grace week (0 pts)" if act_elim == "None" else ("Correct (+5 pts)" if pts_elim > 0 else "Incorrect")
-        items.append({
-            "Category": "Eliminated Baker",
-            "Player Pick": p_elim_str,
-            "Actual Result": a_elim_str,
-            "Points": pts_elim,
-            "Notes": notes_elim
-        })
+        p_el = pred.get("eliminated", "N/A")
+        a_el = act.get("eliminated", "Pending")
+        pts_el = 0
+        if isinstance(a_el, list):
+            if isinstance(p_el, list):
+                pts_el = sum(5 for p in p_el if p in a_el)
+            elif p_el in a_el:
+                pts_el = 5
+        elif a_el != "None" and a_el != "Pending":
+            if isinstance(p_el, list):
+                pts_el = 5 if a_el in p_el else 0
+            elif p_el == a_el:
+                pts_el = 5
+        items.append({"Category": "Eliminated Baker", "Your Pick": str(p_el), "Actual Result": str(a_el), "Points": pts_el})
 
-    # --- B. Technical Challenge ---
+    # 2. Consolation Nominees (Weeks 2-8)
+    if 2 <= week <= 8:
+        p_inl = pred.get("in_line_sb", "N/A")
+        a_inl = act.get("in_line_sb", [])
+        a_sb = act.get("star_baker")
+        pts_inl = 0
+        if p_inl != "N/A" and p_inl != a_sb:
+            if isinstance(a_inl, list) and p_inl in a_inl:
+                pts_inl = 2
+            elif isinstance(a_inl, str) and p_inl == a_inl:
+                pts_inl = 2
+        items.append({"Category": "In Line for Star Baker (Consolation)", "Your Pick": str(p_inl), "Actual Result": ", ".join(a_inl) if isinstance(a_inl, list) else str(a_inl), "Points": pts_inl})
+        
+        p_trb = pred.get("in_trouble", "N/A")
+        a_trb = act.get("in_trouble", [])
+        a_el = act.get("eliminated")
+        a_el_list = a_el if isinstance(a_el, list) else [a_el]
+        pts_trb = 0
+        if p_trb != "N/A" and p_trb not in a_el_list:
+            if isinstance(a_trb, list) and p_trb in a_trb:
+                pts_trb = 2
+            elif isinstance(a_trb, str) and p_trb == a_trb:
+                pts_trb = 2
+        items.append({"Category": "In Trouble of Elimination (Consolation)", "Your Pick": str(p_trb), "Actual Result": ", ".join(a_trb) if isinstance(a_trb, list) else str(a_trb), "Points": pts_trb})
+
+    # 3. Technical Challenge Details
     if week >= 8:
-        pred_rank = predictions.get("tech_rank", [])
-        act_rank = actuals.get("tech_rank", [])
-        p_rank_str = " -> ".join(pred_rank) if pred_rank else "N/A"
-        a_rank_str = " -> ".join(act_rank) if act_rank else "N/A"
+        p_tr = pred.get("tech_rank", [])
+        a_tr = act.get("tech_rank", [])
+        exact_cnt = sum(1 for idx, b in enumerate(p_tr) if idx < len(a_tr) and a_tr[idx] == b)
         
-        pts_tech = 0
-        notes_tech = ""
-        if week == 8 and len(pred_rank) == 5 and len(act_rank) == 5:
-            exact_count = sum(1 for idx, b in enumerate(pred_rank) if act_rank[idx] == b)
-            if exact_count == 5:
-                pts_tech = 25
-                notes_tech = "🎉 Perfect 5-for-5 Technical Sweep (+25 pts flat)!"
-            else:
-                for idx, b in enumerate(pred_rank):
-                    if act_rank[idx] == b:
-                        pts_tech += 3 if idx in [0, 4] else 2
-                notes_tech = f"{exact_count} exact position match(es)"
-        elif week == 9 and len(pred_rank) == 4 and len(act_rank) == 4:
-            exact_count = sum(1 for idx, b in enumerate(pred_rank) if act_rank[idx] == b)
-            if exact_count == 4:
-                pts_tech = 20
-                notes_tech = "🎉 Perfect 4-for-4 Technical Sweep (+20 pts flat)!"
-            else:
-                for idx, b in enumerate(pred_rank):
-                    if act_rank[idx] == b:
-                        pts_tech += 3 if idx in [0, 3] else 2
-                notes_tech = f"{exact_count} exact position match(es)"
-        elif week == 10 and len(pred_rank) == 3 and len(act_rank) == 3:
-            exact_count = sum(1 for idx, b in enumerate(pred_rank) if act_rank[idx] == b)
-            if exact_count == 3:
-                pts_tech = 15
-                notes_tech = "🎉 Perfect 3-for-3 Technical Sweep (+15 pts flat)!"
-            else:
-                for idx, b in enumerate(pred_rank):
-                    if act_rank[idx] == b:
-                        pts_tech += 3 if idx == 0 else 2
-                notes_tech = f"{exact_count} exact position match(es)"
-                
-        items.append({
-            "Category": f"Technical Challenge (Week {week} Rank)",
-            "Player Pick": p_rank_str,
-            "Actual Result": a_rank_str,
-            "Points": pts_tech,
-            "Notes": notes_tech
-        })
+        if week == 8:
+            pts_t = 25 if exact_cnt == 5 else sum((3 if idx in [0, 4] else 2) for idx, b in enumerate(p_tr) if idx < len(a_tr) and a_tr[idx] == b)
+            items.append({"Category": "Technical Challenge 1st-5th Full Rank", "Your Pick": ", ".join(p_tr) if p_tr else "N/A", "Actual Result": ", ".join(a_tr) if a_tr else "Pending", "Points": pts_t})
+        elif week == 9:
+            pts_t = 20 if exact_cnt == 4 else sum((3 if idx in [0, 3] else 2) for idx, b in enumerate(p_tr) if idx < len(a_tr) and a_tr[idx] == b)
+            items.append({"Category": "Technical Challenge 1st-4th Full Rank", "Your Pick": ", ".join(p_tr) if p_tr else "N/A", "Actual Result": ", ".join(a_tr) if a_tr else "Pending", "Points": pts_t})
+        elif week == 10:
+            pts_t = 15 if exact_cnt == 3 else sum((3 if idx == 0 else 2) for idx, b in enumerate(p_tr) if idx < len(a_tr) and a_tr[idx] == b)
+            items.append({"Category": "Technical Challenge Final 3 Rank", "Your Pick": ", ".join(p_tr) if p_tr else "N/A", "Actual Result": ", ".join(a_tr) if a_tr else "Pending", "Points": pts_t})
     else:
-        # Standard Weeks 2-7
-        pred_top3 = predictions.get("tech_top_3", [])
-        act_top3 = actuals.get("tech_top_3", [])
-        p_top_str = " -> ".join(pred_top3) if pred_top3 else "N/A"
-        a_top_str = " -> ".join(act_top3) if act_top3 else "N/A"
+        p_top = pred.get("tech_top_3", [])
+        a_top = act.get("tech_top_3", [])
+        pts_top = 10 if (len(p_top)==3 and len(a_top)==3 and p_top == a_top) else sum((3 if idx==0 else 2) if (idx<len(a_top) and p_top[idx]==a_top[idx]) else (1 if p in a_top else 0) for idx, p in enumerate(p_top))
+        items.append({"Category": "Technical Top 3 Placements", "Your Pick": ", ".join(p_top) if p_top else "N/A", "Actual Result": ", ".join(a_top) if a_top else "Pending", "Points": pts_top})
         
-        pts_top = 0
-        notes_top = ""
-        if len(pred_top3) == 3 and len(act_top3) == 3:
-            if pred_top3 == act_top3:
-                pts_top = 10
-                notes_top = "🎉 Perfect Top 3 Combo Sweep (+10 pts flat)!"
-            else:
-                if pred_top3[0] == act_top3[0]: pts_top += 3
-                if pred_top3[1] == act_top3[1]: pts_top += 2
-                if pred_top3[2] == act_top3[2]: pts_top += 2
-                for idx, baker in enumerate(pred_top3):
-                    if baker in act_top3 and baker != act_top3[idx]:
-                        pts_top += 1
-                notes_top = f"Top 3 sequence points breakdown"
-        items.append({
-            "Category": "Technical Challenge Top 3",
-            "Player Pick": p_top_str,
-            "Actual Result": a_top_str,
-            "Points": pts_top,
-            "Notes": notes_top
-        })
-        
-        # Bottom 3
-        pred_bot3 = predictions.get("tech_bottom_3", [])
-        act_bot3 = actuals.get("tech_bottom_3", [])
-        p_bot_str = " -> ".join(pred_bot3) if pred_bot3 else "N/A"
-        a_bot_str = " -> ".join(act_bot3) if act_bot3 else "N/A"
-        
-        pts_bot = 0
-        notes_bot = ""
-        if len(pred_bot3) == 3 and len(act_bot3) == 3:
-            if pred_bot3 == act_bot3:
-                pts_bot = 10
-                notes_bot = "🎉 Perfect Bottom 3 Combo Sweep (+10 pts flat)!"
-            else:
-                if pred_bot3[0] == act_bot3[0]: pts_bot += 2
-                if pred_bot3[1] == act_bot3[1]: pts_bot += 2
-                if pred_bot3[2] == act_bot3[2]: pts_bot += 3
-                for idx, baker in enumerate(pred_bot3):
-                    if baker in act_bot3 and baker != act_bot3[idx]:
-                        pts_bot += 1
-                notes_bot = f"Bottom 3 sequence points breakdown"
-        items.append({
-            "Category": "Technical Challenge Bottom 3",
-            "Player Pick": p_bot_str,
-            "Actual Result": a_bot_str,
-            "Points": pts_bot,
-            "Notes": notes_bot
-        })
+        p_bot = pred.get("tech_bottom_3", [])
+        a_bot = act.get("tech_bottom_3", [])
+        pts_bot = 10 if (len(p_bot)==3 and len(a_bot)==3 and p_bot == a_bot) else sum((3 if idx==2 else 2) if (idx<len(a_bot) and p_bot[idx]==a_bot[idx]) else (1 if p in a_bot else 0) for idx, p in enumerate(p_bot))
+        items.append({"Category": "Technical Bottom 3 Placements", "Your Pick": ", ".join(p_bot) if p_bot else "N/A", "Actual Result": ", ".join(a_bot) if a_bot else "Pending", "Points": pts_bot})
 
-    # --- C. Consolations ---
-    if week < 9:
-        pred_line = predictions.get("in_line_sb", "N/A")
-        act_line = actuals.get("in_line_sb", [])
-        pts_line = 2 if (pred_line in act_line and pred_line != actuals.get("star_baker")) else 0
-        items.append({
-            "Category": "Consolation: In Line for Star Baker",
-            "Player Pick": str(pred_line),
-            "Actual Result": ", ".join(act_line) if act_line else "None",
-            "Points": pts_line,
-            "Notes": "Nominated but didn't win (+2 pts)" if pts_line > 0 else "No match"
-        })
-        
-        pred_trbl = predictions.get("in_trouble", "N/A")
-        act_trbl = actuals.get("in_trouble", [])
-        act_elim_val = actuals.get("eliminated")
-        act_elim_list = act_elim_val if isinstance(act_elim_val, list) else [act_elim_val]
-        pts_trbl = 2 if (pred_trbl in act_trbl and pred_trbl not in act_elim_list) else 0
-        items.append({
-            "Category": "Consolation: In Trouble of Elimination",
-            "Player Pick": str(pred_trbl),
-            "Actual Result": ", ".join(act_trbl) if act_trbl else "None",
-            "Points": pts_trbl,
-            "Notes": "Bottom nominated but saved (+2 pts)" if pts_trbl > 0 else "No match"
-        })
-        
     return items
 
 
 def load_ai_brian_avatar():
-    """Smart image loader for AI Brian's avatar (prioritizes assets/aibrian.jpg)."""
-    priority_paths = [
-        "assets/aibrian.jpg", "assets/aibrian.JPG", "assets/aibrian.jpeg", "assets/aibrian.JPEG",
-        "assets/aibrian.png", "assets/aibrian.PNG", "assets/aibrian.webp",
-        "assets/ai_brian.jpg", "assets/ai_brian.JPG", "assets/ai_brian.png",
-        "assets/AIBrian.jpg", "assets/AIBrian.JPG", "assets/AI_Brian.jpg", "assets/AI_Brian.JPG",
-        "assets/AI Brian.jpg", "assets/AI Brian.JPG",
-        "aibrian.jpg", "aibrian.JPG", "aibrian.png", "ai_brian.jpg", "AI Brian.jpg"
-    ]
-    for p in priority_paths:
+    """Loads AI Brian's custom avatar from assets/aibrian.jpg or returns None."""
+    paths = [os.path.join("assets", "aibrian.jpg"), os.path.join("assets", "aibrian.png"), os.path.join("assets", "aibrian.jpeg")]
+    for p in paths:
         if os.path.exists(p):
             try:
                 return Image.open(p)
             except Exception:
                 pass
-
-    if os.path.exists("assets"):
-        try:
-            for filename in os.listdir("assets"):
-                stem, ext = os.path.splitext(filename)
-                clean_stem = stem.lower().replace("_", "").replace(" ", "").strip()
-                if clean_stem in ["aibrian", "brian"] and ext.lower() in ['.jpg', '.jpeg', '.png', '.webp']:
-                    try:
-                        return Image.open(os.path.join("assets", filename))
-                    except Exception:
-                        pass
-        except Exception:
-            pass
     return None
 
 
@@ -488,23 +371,20 @@ def apply_elimination_overlay(img):
 
 
 def get_current_eliminated_bakers(week_num):
-    """Get list of eliminated bakers dynamically driven strictly by admin broadcast results."""
+    """Get list of eliminated bakers strictly driven by published Admin Panel broadcast results."""
     elim = []
     if "weekly_results" in st.session_state:
-        for w in sorted(st.session_state.weekly_results.keys()):
+        for w, res in st.session_state.weekly_results.items():
             if w <= week_num:
-                res = st.session_state.weekly_results[w]
                 act_el = res.get("eliminated")
                 if isinstance(act_el, list):
                     for b in act_el:
-                        if b and b != "None" and b not in elim:
+                        if b != "None" and b not in elim:
                             elim.append(b)
-                elif isinstance(act_el, str) and act_el and act_el != "None":
+                elif isinstance(act_el, str) and act_el != "None":
                     if act_el not in elim:
                         elim.append(act_el)
     return elim
-
-
 
 
 DATA_FILE = "league_data.json"
@@ -531,7 +411,7 @@ def save_league_data(league_members, weekly_results, season_results):
 
 
 def load_league_data():
-    """Loads saved league session state from league_data.json if present."""
+    """Loads stored league state from persistent league_data.json file if available."""
     if os.path.exists(DATA_FILE):
         try:
             with open(DATA_FILE, "r") as f:
@@ -608,6 +488,12 @@ else:
         elif "pin" not in st.session_state.league_members[p_name]:
             st.session_state.league_members[p_name]["pin"] = None
 
+if loaded_weekly and "weekly_results" not in st.session_state:
+    st.session_state.weekly_results = loaded_weekly
+
+if loaded_season and "season_results" not in st.session_state:
+    st.session_state.season_results = loaded_season
+
 # Check for AI Brian's custom profile picture
 brian_avatar_img = load_ai_brian_avatar()
 if brian_avatar_img is not None:
@@ -617,10 +503,10 @@ if "current_week" not in st.session_state:
     st.session_state.current_week = 1
 
 if "weekly_results" not in st.session_state:
-    st.session_state.weekly_results = loaded_weekly if loaded_weekly is not None else {}
+    st.session_state.weekly_results = {}
 
 if "season_results" not in st.session_state:
-    st.session_state.season_results = loaded_season if loaded_season is not None else {}
+    st.session_state.season_results = {}
 
 if "disputes" not in st.session_state:
     st.session_state.disputes = []
@@ -703,7 +589,6 @@ if not st.session_state.league_members["AI Brian"]["season_picks"]:
 # --- 5. APP INTERFACE LAYOUT ---
 st.title("🧁 Great British Baking Show Fantasy League 2026")
 
-
 # --- SIDEBAR: PLAYER PROFILE, AVATAR UPLOAD & PERSISTENT POINTS REMINDER ---
 with st.sidebar:
     st.header("📸 Upload Avatar Photo")
@@ -785,14 +670,14 @@ with st.sidebar:
             *   *Eliminated:* 5 pts
             *   *Technical:* Exact positions 1st/4th (3 pts), 2nd/3rd (2 pts)
             *   *Perfect 4-for-4 Sweep:* **20 pts** *(flat)*
-        *   **Week 10 (Grand Finale episodic - 3 bakers):**
+        *   **Week 10 (Grand Finale - 3 bakers):**
             *   *Show Champion:* 15 pts
             *   *Technical:* Exact positions 1st (3 pts), 2nd/3rd (2 pts)
             *   *Perfect 3-for-3 Sweep:* **15 pts** *(flat)*
         """)
 
 # --- MAIN TABS ---
-tab_lead, tab_submit, tab_admin = st.tabs(["📊 Leaderboard & Standings", "📝 Submit Predictions", "👑 Admin Panel"])
+tab_lead, tab_submit, tab_analytics, tab_admin = st.tabs(["📊 Leaderboard & Standings", "📝 Submit Predictions", "📈 Baker Analytics", "👑 Admin Panel"])
 
 # --- TAB 1: LEADERBOARD & STANDINGS ---
 with tab_lead:
@@ -1141,7 +1026,7 @@ with tab_submit:
                         elif len(user_semis) != 3:
                             st.error("Please select exactly 3 other semifinalists.")
                         elif user_winner in user_semis:
-                            st.error("⚠️ Duplicate Selection Error: You cannot select the same baker as both Season Winner and one of the other 3 semifinalists!")
+                            st.error("⚠️ Duplicate Selection Error: You cannot select the same baker as Season Winner AND as one of the 3 semifinalists!")
                         elif user_handshakes is None or user_crying is None or user_innuendos is None:
                             st.error("Please type in estimated counts for Handshakes, Crying, and Innuendos.")
                         else:
@@ -1159,7 +1044,7 @@ with tab_submit:
             st.markdown(f"### Weekly Ballot for {active_sub_player}")
             
             if st.session_state.current_week == 1:
-                st.info("👀 **Week 1: The Scouting Period (Sept 25 Premiere)**\n\nWatch Episode 1 on Friday to evaluate all 12 bakers! No prediction ballots are submitted or scored for Week 1. League members do not make any predictions until Week 2!")
+                st.info("👀 **Week 1: The Scouting Period (Sept 25 Premiere)**\n\nWatch Episode 1 on Friday to evaluate all 12 bakers! No weekly prediction ballots are submitted or scored for Week 1. Lock in your Season-Long Predictions above before Episode 2 airs!")
             else:
                 is_double_elim = False
                 if st.session_state.current_week < 10:
@@ -1323,28 +1208,26 @@ with tab_submit:
                             elif isinstance(v, list) and any(item is None for item in v):
                                 has_missing = True
                                 
-                        # Episodic Duplicate Check
+                        # Check duplicate picks across episodic categories
                         episodic_picks = []
-                        if weekly_picks.get("star_baker"): episodic_picks.append(weekly_picks["star_baker"])
-                        if weekly_picks.get("in_line_sb"): episodic_picks.append(weekly_picks["in_line_sb"])
-                        if weekly_picks.get("eliminated"):
-                            if isinstance(weekly_picks["eliminated"], list):
-                                episodic_picks.extend([e for e in weekly_picks["eliminated"] if e])
-                            elif weekly_picks["eliminated"]:
-                                episodic_picks.append(weekly_picks["eliminated"])
-                        if weekly_picks.get("in_trouble"): episodic_picks.append(weekly_picks["in_trouble"])
-                        
+                        for cat in ["star_baker", "in_line_sb", "in_trouble"]:
+                            if weekly_picks.get(cat):
+                                episodic_picks.append(weekly_picks[cat])
+                        elim_p = weekly_picks.get("eliminated")
+                        if isinstance(elim_p, list):
+                            episodic_picks.extend([e for e in elim_p if e])
+                        elif elim_p:
+                            episodic_picks.append(elim_p)
                         has_episodic_dup = (len(episodic_picks) != len(set(episodic_picks)))
                         
-                        # Technical Challenge Duplicate Check
+                        # Check duplicate picks across Technical challenge spots
                         tech_picks = []
-                        if weekly_picks.get("tech_rank"):
-                            tech_picks = [t for t in weekly_picks["tech_rank"] if t]
-                        if weekly_picks.get("tech_top_3"):
+                        if "tech_rank" in weekly_picks and weekly_picks["tech_rank"]:
+                            tech_picks.extend([t for t in weekly_picks["tech_rank"] if t])
+                        if "tech_top_3" in weekly_picks and weekly_picks["tech_top_3"]:
                             tech_picks.extend([t for t in weekly_picks["tech_top_3"] if t])
-                        if weekly_picks.get("tech_bottom_3"):
+                        if "tech_bottom_3" in weekly_picks and weekly_picks["tech_bottom_3"]:
                             tech_picks.extend([t for t in weekly_picks["tech_bottom_3"] if t])
-                            
                         has_tech_dup = (len(tech_picks) != len(set(tech_picks)))
                         
                         if has_missing:
@@ -1363,7 +1246,189 @@ with tab_submit:
                             st.success(f"Predictions submitted for Week {st.session_state.current_week} under profile '{active_sub_player}'! You can update your predictions anytime prior to the Tuesday at 2:00 p.m. submission deadline.")
 
 
-# --- TAB 3: ADMIN PANEL (PIN PROTECTED) ---
+# --- TAB 3: BAKER ANALYTICS ---
+with tab_analytics:
+    st.header("📈 Baker Performance Analytics & Trends")
+    st.write("Explore comprehensive statistical breakdowns, technical challenge trajectories, and judge accolades for each baker!")
+    
+    if not st.session_state.weekly_results:
+        st.info("📍 **Broadcast Results Pending:** Analytics will populate automatically as weekly broadcast results are logged in the Admin Panel!")
+    else:
+        # Compute Analytics Data for each baker in ALL_BAKERS
+        baker_stats = {}
+        current_eliminated = get_current_eliminated_bakers(st.session_state.current_week)
+        
+        for b in ALL_BAKERS:
+            tech_ranks = []
+            tech_pcts = []
+            star_bakers = 0
+            in_line = 0
+            in_trouble = 0
+            handshakes = 0
+            
+            for w, res in sorted(st.session_state.weekly_results.items()):
+                # Check Star Baker
+                if res.get("star_baker") == b:
+                    star_bakers += 1
+                
+                # Check In Line
+                inl = res.get("in_line_sb", [])
+                if isinstance(inl, list) and b in inl:
+                    in_line += 1
+                elif isinstance(inl, str) and b == inl:
+                    in_line += 1
+                    
+                # Check In Trouble
+                trb = res.get("in_trouble", [])
+                if isinstance(trb, list) and b in trb:
+                    in_trouble += 1
+                elif isinstance(trb, str) and b == trb:
+                    in_trouble += 1
+                    
+                # Check Handshakes
+                hs_bakers = res.get("handshake_bakers", [])
+                if isinstance(hs_bakers, list) and b in hs_bakers:
+                    handshakes += 1
+                    
+                # Check Tech Rank
+                tr = res.get("full_tech_rank", res.get("tech_rank", []))
+                if b in tr:
+                    pos = tr.index(b) + 1
+                    total_in_ep = len(tr)
+                    tech_ranks.append(pos)
+                    pct = ((total_in_ep - pos) / (total_in_ep - 1) * 100) if total_in_ep > 1 else 100.0
+                    tech_pcts.append(pct)
+                    
+            avg_rank = (sum(tech_ranks) / len(tech_ranks)) if tech_ranks else None
+            avg_pct = (sum(tech_pcts) / len(tech_pcts)) if tech_pcts else None
+            
+            baker_stats[b] = {
+                "is_elim": b in current_eliminated,
+                "tech_ranks": tech_ranks,
+                "avg_rank": avg_rank,
+                "avg_pct": avg_pct,
+                "star_bakers": star_bakers,
+                "in_line": in_line,
+                "in_trouble": in_trouble,
+                "handshakes": handshakes,
+                "episodes_counted": len(tech_ranks)
+            }
+
+        # 1. INDIVIDUAL BAKER DEEP-DIVE WITH PHOTO NEXT TO STATS
+        st.subheader("🔍 Individual Baker Deep-Dive")
+        sel_analytics_baker = st.selectbox("Select Baker to Inspect Analytics:", ALL_BAKERS)
+        
+        b_info = baker_stats[sel_analytics_baker]
+        b_img = load_baker_image(sel_analytics_baker)
+        
+        col_photo, col_metrics = st.columns([1, 2.5])
+        
+        with col_photo:
+            if b_img is not None:
+                if b_info["is_elim"]:
+                    img_disp = apply_elimination_overlay(b_img)
+                    st.image(img_disp, use_container_width=True, caption=f"❌ {sel_analytics_baker} (Eliminated)")
+                else:
+                    st.image(b_img, use_container_width=True, caption=f"🎂 {sel_analytics_baker}")
+            else:
+                if b_info["is_elim"]:
+                    st.error(f"❌ {sel_analytics_baker} (ELIMINATED)")
+                else:
+                    st.info(f"📸 {sel_analytics_baker}")
+                    
+        with col_metrics:
+            st.markdown(f"### **{sel_analytics_baker}'s Performance Profile**")
+            status_text = "❌ **Eliminated**" if b_info["is_elim"] else "🟢 **Active in Tent**"
+            st.markdown(f"**Status:** {status_text}")
+            
+            m1, m2, m3 = st.columns(3)
+            with m1:
+                avg_pct_str = f"{b_info['avg_pct']:.1f}%" if b_info["avg_pct"] is not None else "N/A"
+                st.metric("Avg Tech Rank %", avg_pct_str)
+            with m2:
+                avg_r_str = f"#{b_info['avg_rank']:.1f}" if b_info["avg_rank"] is not None else "N/A"
+                st.metric("Avg Technical Finish", avg_r_str)
+            with m3:
+                st.metric("Star Baker Titles", f"{b_info['star_bakers']} 🌟")
+                
+            m4, m5, m6 = st.columns(3)
+            with m4:
+                st.metric("In Line Nominee", f"{b_info['in_line']} 📈")
+            with m5:
+                st.metric("In Trouble Nominee", f"{b_info['in_trouble']} ⚠️")
+            with m6:
+                st.metric("Hollywood Handshakes", f"{b_info['handshakes']} 🤝")
+                
+        # Technical Trajectory Line Chart
+        if b_info["tech_ranks"]:
+            st.markdown(f"#### 📊 {sel_analytics_baker}'s Technical Challenge Trajectory")
+            df_chart = pd.DataFrame({
+                "Episode Week": [f"Week {w}" for w in sorted(st.session_state.weekly_results.keys())[:len(b_info["tech_ranks"])]],
+                "Technical Rank": b_info["tech_ranks"]
+            }).set_index("Episode Week")
+            st.line_chart(df_chart)
+
+        st.markdown("---")
+
+        # 2. VISUAL BAKER CARDS GALLERY (PHOTOS NEXT TO STATS FOR ALL BAKERS)
+        st.subheader("📸 All Baker Cards (Photos Next to Performance Stats)")
+        st.write("Compare every contestant at a glance with their photo right alongside their technical and judge stats!")
+        
+        card_cols = st.columns(2)
+        for idx, b_name in enumerate(ALL_BAKERS):
+            bs = baker_stats[b_name]
+            b_pic = load_baker_image(b_name)
+            
+            with card_cols[idx % 2]:
+                with st.container():
+                    c_p, c_s = st.columns([1, 1.8])
+                    with c_p:
+                        if b_pic is not None:
+                            if bs["is_elim"]:
+                                st.image(apply_elimination_overlay(b_pic), use_container_width=True, caption=f"❌ {b_name}")
+                            else:
+                                st.image(b_pic, use_container_width=True, caption=f"🎂 {b_name}")
+                        else:
+                            st.markdown(f"**{'❌ ' if bs['is_elim'] else ''}{b_name}**")
+                            
+                    with c_s:
+                        st.markdown(f"#### **{b_name}** {'❌' if bs['is_elim'] else '🌟'}")
+                        tech_pct_txt = f"{bs['avg_pct']:.1f}%" if bs["avg_pct"] is not None else "N/A"
+                        tech_rank_txt = f"#{bs['avg_rank']:.1f}" if bs["avg_rank"] is not None else "N/A"
+                        
+                        st.write(
+                            f"• **Avg Tech Rank:** `{tech_pct_txt}` ({tech_rank_txt} avg finish)\n"
+                            f"• **Star Bakers:** `{bs['star_bakers']}` | **In Line:** `{bs['in_line']}`\n"
+                            f"• **In Trouble:** `{bs['in_trouble']}` | **Handshakes:** `{bs['handshakes']}`"
+                        )
+                    st.markdown("<hr style='margin: 8px 0; border-top: 1px solid #E0E0E0;'>", unsafe_allow_html=True)
+
+        st.markdown("---")
+
+        # 3. EPISODIC CHAOS & TIMESTAMPS LOG
+        st.subheader("📜 Official Chaos & Timestamp Broadcast Log")
+        with st.expander("🔍 View Full Episode Log (Handshakes, Crying & Innuendo Details)", expanded=False):
+            for w_num in sorted(st.session_state.weekly_results.keys()):
+                w_res = st.session_state.weekly_results[w_num]
+                st.markdown(f"##### 📍 Week {w_num} Broadcast Events")
+                
+                col_e1, col_e2, col_e3 = st.columns(3)
+                with col_e1:
+                    st.markdown(f"**🤝 Handshakes:** `{len(w_res.get('handshake_bakers', []))}`")
+                    if w_res.get("handshake_timestamps"):
+                        st.caption(f"Details: {w_res['handshake_timestamps']}")
+                with col_e2:
+                    st.markdown(f"**😢 Crying Scenes:** `{w_res.get('crying_count', 0)}`")
+                    if w_res.get("crying_timestamps"):
+                        st.caption(f"Details: {w_res['crying_timestamps']}")
+                with col_e3:
+                    st.markdown(f"**💬 Innuendos:** `{w_res.get('innuendo_count', 0)}`")
+                    if w_res.get("innuendo_timestamps"):
+                        st.caption(f"Details: {w_res['innuendo_timestamps']}")
+                st.markdown("<br>", unsafe_allow_html=True)
+
+
+# --- TAB 4: ADMIN PANEL (PIN PROTECTED) ---
 with tab_admin:
     st.header("👑 League Administrator Console")
     
@@ -1431,124 +1496,84 @@ with tab_admin:
                 actuals["tech_top_3"] = []
                 actuals["tech_bottom_3"] = []
                 
-            elif st.session_state.current_week == 10:
-                actuals["show_champion"] = st.selectbox("Actual Show Champion", active_bakers)
-                st.write("Actual Technical Challenge Rankings:")
-                act_t1 = st.selectbox("Actual Technical 1st Place", active_bakers, index=0)
-                act_t2 = st.selectbox("Actual Technical 2nd Place", [b for b in active_bakers if b != act_t1], index=0)
-                act_t3 = st.selectbox("Actual Technical 3rd Place", [b for b in active_bakers if b not in [act_t1, act_t2]], index=0)
-                actuals["tech_rank"] = [act_t1, act_t2, act_t3]
-                
-            elif st.session_state.current_week == 9:
-                actuals["star_baker"] = st.selectbox("Actual Star Baker", active_bakers)
-                elim_type = st.radio("Elimination Status", ["Single Elimination", "No Elimination (Sickness/Grace Week)", "Double Elimination"], horizontal=True, key="admin_elim_type_w9")
-                if elim_type == "Single Elimination":
-                    actuals["eliminated"] = st.selectbox("Actual Eliminated Baker", [b for b in active_bakers if b != actuals.get("star_baker")])
-                elif elim_type == "No Elimination (Sickness/Grace Week)":
-                    actuals["eliminated"] = "None"
-                    st.info("No baker was eliminated this week. Consolation and other categories are still scored normally.")
-                else:
-                    act_elim_1 = st.selectbox("Actual Eliminated Baker #1", [b for b in active_bakers if b != actuals.get("star_baker")], key="admin_act_elim_1_w9")
-                    act_elim_2 = st.selectbox("Actual Eliminated Baker #2", [b for b in active_bakers if b not in [actuals.get("star_baker"), act_elim_1]], key="admin_act_elim_2_w9")
-                    actuals["eliminated"] = [act_elim_1, act_elim_2]
-                
-                st.write("Actual Technical Challenge Rankings:")
-                act_t1 = st.selectbox("Actual Technical 1st", active_bakers, index=0)
-                act_t2 = st.selectbox("Actual Technical 2nd", [b for b in active_bakers if b != act_t1], index=0)
-                act_t3 = st.selectbox("Actual Technical 3rd", [b for b in active_bakers if b not in [act_t1, act_t2]], index=0)
-                act_t4 = st.selectbox("Actual Technical 4th", [b for b in active_bakers if b not in [act_t1, act_t2, act_t3]], index=0)
-                actuals["tech_rank"] = [act_t1, act_t2, act_t3, act_t4]
-
-            elif st.session_state.current_week == 8:
-                col1, col2 = st.columns(2)
-                with col1:
-                    actuals["star_baker"] = st.selectbox("Actual Star Baker", active_bakers)
-                    actuals["in_line_sb"] = st.multiselect("Actual 'In Line' Nominees", [b for b in active_bakers if b != actuals.get("star_baker")])
-                with col2:
-                    elim_type = st.radio("Elimination Status", ["Single Elimination", "No Elimination (Sickness/Grace Week)", "Double Elimination"], horizontal=True, key="admin_elim_type_w8")
-                    if elim_type == "Single Elimination":
-                        actuals["eliminated"] = st.selectbox("Actual Eliminated Baker", active_bakers)
-                        actuals["in_trouble"] = st.multiselect("Actual 'In Trouble' Nominees", [b for b in active_bakers if b != actuals.get("eliminated")])
-                    elif elim_type == "No Elimination (Sickness/Grace Week)":
-                        actuals["eliminated"] = "None"
-                        st.info("No baker was eliminated this week. Predicting elimination scores 0.")
-                        actuals["in_trouble"] = st.multiselect("Actual 'In Trouble' Nominees (Sickness consolations)", active_bakers)
-                    else:
-                        act_elim_1 = st.selectbox("Actual Eliminated Baker #1", active_bakers, key="admin_act_elim_1_w8")
-                        act_elim_2 = st.selectbox("Actual Eliminated Baker #2", [b for b in active_bakers if b != act_elim_1], key="admin_act_elim_2_w8")
-                        actuals["eliminated"] = [act_elim_1, act_elim_2]
-                        actuals["in_trouble"] = st.multiselect("Actual 'In Trouble' Nominees", [b for b in active_bakers if b not in actuals["eliminated"]])
-                    
-                st.write("Actual Technical Challenge Rankings (1st through 5th):")
-                act_t1 = st.selectbox("Actual Technical 1st", active_bakers, index=0, key="act_t1_w8")
-                act_t2 = st.selectbox("Actual Technical 2nd", [b for b in active_bakers if b != act_t1], index=0, key="act_t2_w8")
-                act_t3 = st.selectbox("Actual Technical 3rd", [b for b in active_bakers if b not in [act_t1, act_t2]], index=0, key="act_t3_w8")
-                act_t4 = st.selectbox("Actual Technical 4th", [b for b in active_bakers if b not in [act_t1, act_t2, act_t3]], index=0, key="act_t4_w8")
-                act_t5 = st.selectbox("Actual Technical 5th", [b for b in active_bakers if b not in [act_t1, act_t2, act_t3, act_t4]], index=0, key="act_t5_w8")
-                actuals["tech_rank"] = [act_t1, act_t2, act_t3, act_t4, act_t5]
-                
             else:
                 col1, col2 = st.columns(2)
                 with col1:
-                    actuals["star_baker"] = st.selectbox("Actual Star Baker", active_bakers)
-                    actuals["in_line_sb"] = st.multiselect("Actual 'In Line' Nominees", [b for b in active_bakers if b != actuals.get("star_baker")])
-                with col2:
-                    elim_type = st.radio("Elimination Status", ["Single Elimination", "No Elimination (Sickness/Grace Week)", "Double Elimination"], horizontal=True, key="admin_elim_type_std")
-                    if elim_type == "Single Elimination":
-                        actuals["eliminated"] = st.selectbox("Actual Eliminated Baker", active_bakers)
-                        actuals["in_trouble"] = st.multiselect("Actual 'In Trouble' Nominees", [b for b in active_bakers if b != actuals.get("eliminated")])
-                    elif elim_type == "No Elimination (Sickness/Grace Week)":
-                        actuals["eliminated"] = "None"
-                        st.info("No baker was eliminated this week. Predicting elimination scores 0.")
-                        actuals["in_trouble"] = st.multiselect("Actual 'In Trouble' Nominees (Sickness consolations)", active_bakers)
+                    if st.session_state.current_week == 10:
+                        actuals["show_champion"] = st.selectbox("Actual Show Champion", active_bakers)
                     else:
-                        act_elim_1 = st.selectbox("Actual Eliminated Baker #1", active_bakers, key="admin_act_elim_1_std")
-                        act_elim_2 = st.selectbox("Actual Eliminated Baker #2", [b for b in active_bakers if b != act_elim_1], key="admin_act_elim_2_std")
-                        actuals["eliminated"] = [act_elim_1, act_elim_2]
-                        actuals["in_trouble"] = st.multiselect("Actual 'In Trouble' Nominees", [b for b in active_bakers if b not in actuals["eliminated"]])
+                        actuals["star_baker"] = st.selectbox("Actual Star Baker", active_bakers)
+                        actuals["in_line_sb"] = st.multiselect("Actual 'In Line' Nominees", [b for b in active_bakers if b != actuals.get("star_baker")])
+                with col2:
+                    if st.session_state.current_week < 10:
+                        elim_type = st.radio("Elimination Status", ["Single Elimination", "No Elimination (Sickness/Grace Week)", "Double Elimination"], horizontal=True, key=f"admin_elim_type_w{st.session_state.current_week}")
+                        if elim_type == "Single Elimination":
+                            actuals["eliminated"] = st.selectbox("Actual Eliminated Baker", active_bakers)
+                            actuals["in_trouble"] = st.multiselect("Actual 'In Trouble' Nominees", [b for b in active_bakers if b != actuals.get("eliminated")])
+                        elif elim_type == "No Elimination (Sickness/Grace Week)":
+                            actuals["eliminated"] = "None"
+                            st.info("No baker was eliminated this week.")
+                            actuals["in_trouble"] = st.multiselect("Actual 'In Trouble' Nominees", active_bakers)
+                        else:
+                            act_elim_1 = st.selectbox("Actual Eliminated Baker #1", active_bakers, key=f"admin_act_elim_1_w{st.session_state.current_week}")
+                            act_elim_2 = st.selectbox("Actual Eliminated Baker #2", [b for b in active_bakers if b != act_elim_1], key=f"admin_act_elim_2_w{st.session_state.current_week}")
+                            actuals["eliminated"] = [act_elim_1, act_elim_2]
+                            actuals["in_trouble"] = st.multiselect("Actual 'In Trouble' Nominees", [b for b in active_bakers if b not in actuals["eliminated"]])
+
+                st.markdown("---")
+                st.write(f"### 🥧 Complete Technical Challenge Rankings (Week {st.session_state.current_week})")
+                st.write("Select the exact final placement for every active baker in the tent (1st through Nth):")
+                
+                full_tech_ranks = []
+                avail_tech = list(active_bakers)
+                
+                for pos_idx in range(len(active_bakers)):
+                    pos_num = pos_idx + 1
+                    pos_label = f"Technical #{pos_num} Place"
                     
-                st.write("Actual Top 3 Technical Rankings:")
-                col_act_t1, col_act_t2, col_act_t3 = st.columns(3)
-                with col_act_t1:
-                    act_t1 = st.selectbox("Actual 1st Place", active_bakers, index=0, key="admin_std_t1")
-                with col_act_t2:
-                    act_t2_opts = [b for b in active_bakers if b != act_t1]
-                    act_t2 = st.selectbox("Actual 2nd Place", act_t2_opts, index=0 if act_t2_opts else 0, key="admin_std_t2")
-                with col_act_t3:
-                    act_t3_opts = [b for b in active_bakers if b not in [act_t1, act_t2]]
-                    act_t3 = st.selectbox("Actual 3rd Place", act_t3_opts, index=0 if act_t3_opts else 0, key="admin_std_t3")
-                
-                st.write("Actual Bottom 3 Technical Rankings:")
-                col_act_b1, col_act_b2, col_act_b3 = st.columns(3)
-                admin_avail_bottom = [b for b in active_bakers if b not in [act_t1, act_t2, act_t3]]
-                with col_act_b1:
-                    act_b3 = st.selectbox("Actual 3rd-to-last Place", admin_avail_bottom, index=0 if admin_avail_bottom else 0, key="admin_std_b3")
-                with col_act_b2:
-                    act_b2_opts = [b for b in admin_avail_bottom if b != act_b3]
-                    act_b2 = st.selectbox("Actual 2nd-to-last Place", act_b2_opts, index=0 if act_b2_opts else 0, key="admin_std_b2")
-                with col_act_b3:
-                    act_b1_opts = [b for b in admin_avail_bottom if b not in [act_b3, act_b2]]
-                    act_b1 = st.selectbox("Actual Last Place", act_b1_opts, index=0 if act_b1_opts else 0, key="admin_std_b1")
+                    if pos_idx < len(avail_tech):
+                        sel_b = st.selectbox(pos_label, avail_tech, index=0, key=f"admin_full_tech_w{st.session_state.current_week}_pos{pos_num}")
+                        full_tech_ranks.append(sel_b)
+                        avail_tech = [b for b in avail_tech if b != sel_b]
+                        
+                actuals["full_tech_rank"] = full_tech_ranks
+                actuals["tech_rank"] = full_tech_ranks
+                if len(full_tech_ranks) >= 3:
+                    actuals["tech_top_3"] = full_tech_ranks[:3]
+                    actuals["tech_bottom_3"] = full_tech_ranks[-3:]
+                else:
+                    actuals["tech_top_3"] = full_tech_ranks
+                    actuals["tech_bottom_3"] = full_tech_ranks
 
-                actuals["tech_top_3"] = [act_t1, act_t2, act_t3]
-                actuals["tech_bottom_3"] = [act_b3, act_b2, act_b1]
-                
-            # --- WEEKLY HANDSHAKE & CRYING TIMESTAMPS & INNUENDOS ---
+            # --- WEEKLY HANDSHAKE & CRYING TIMESTAMPS & INNUENDOS (DUAL ENTRY BLANKS) ---
             st.markdown("---")
-            st.markdown("### 🤝 Hollywood Handshakes & Video Timestamps")
-            act_handshake_bakers = st.multiselect("Bakers Receiving Hollywood Handshakes This Week", active_bakers, key=f"handshake_bakers_w{st.session_state.current_week}")
-            act_handshake_stamps = st.text_input("Handshake Video Timestamps & Context (e.g. 'Clara @ 14:22 Signature, Tom @ 42:10 Showstopper')", value="", key=f"handshake_stamps_w{st.session_state.current_week}")
+            st.markdown("### 🤝 Hollywood Handshakes")
+            col_hs1, col_hs2 = st.columns([1, 2])
+            with col_hs1:
+                act_handshake_bakers = st.multiselect("Bakers Receiving Handshakes", active_bakers, key=f"handshake_bakers_w{st.session_state.current_week}")
+            with col_hs2:
+                act_handshake_stamps = st.text_input("Handshake Description & Timestamps (e.g. 'Clara @ 14:22 Signature')", value="", key=f"handshake_stamps_w{st.session_state.current_week}")
 
-            st.markdown("### 😢 Crying Incidents & Video Timestamps")
-            act_crying_stamps = st.text_input("Crying Scene Video Timestamps & Context (e.g. 'Gabe @ 24:15 Technical, Molly @ 54:02 Elimination')", value="", key=f"crying_stamps_w{st.session_state.current_week}")
+            st.markdown("### 😢 Crying Incidents")
+            col_cry1, col_cry2 = st.columns([1, 2])
+            with col_cry1:
+                act_crying_cnt = st.number_input("Number of Crying Scenes", min_value=0, value=0, key=f"crying_cnt_w{st.session_state.current_week}")
+            with col_cry2:
+                act_crying_stamps = st.text_input("Crying Description & Timestamps (e.g. 'Mo during technical @ 24:15')", value="", key=f"crying_stamps_w{st.session_state.current_week}")
 
-            st.markdown("### 💬 Weekly Sexual Innuendos Count")
-            act_innuendo_cnt = st.number_input("Sexual Innuendos Count in Episode", min_value=0, value=0, key=f"innuendo_cnt_w{st.session_state.current_week}")
+            st.markdown("### 💬 Sexual Innuendos")
+            col_inn1, col_inn2 = st.columns([1, 2])
+            with col_inn1:
+                act_innuendo_cnt = st.number_input("Number of Sexual Innuendos", min_value=0, value=0, key=f"innuendo_cnt_w{st.session_state.current_week}")
+            with col_inn2:
+                act_innuendo_stamps = st.text_input("Innuendo Description & Timestamps (e.g. 'Paul & Prue soggy bottom banter @ 18:05')", value="", key=f"innuendo_stamps_w{st.session_state.current_week}")
 
             actuals["handshake_bakers"] = act_handshake_bakers
             actuals["handshake_timestamps"] = act_handshake_stamps
+            actuals["crying_count"] = act_crying_cnt
             actuals["crying_timestamps"] = act_crying_stamps
             actuals["innuendo_count"] = act_innuendo_cnt
+            actuals["innuendo_timestamps"] = act_innuendo_stamps
                 
             if st.session_state.current_week == 10:
                 st.markdown("### 🏆 Final Seasonal Broadcast Totals")
@@ -1608,11 +1633,12 @@ with tab_admin:
                         season_pred = m_data["season_picks"]
                         season_score = calculate_season_score(season_pred, st.session_state.season_results)
                         m_data["season_score"] = season_score
+                        m_data["total_score"] += season_score
                         
-                # Recompile total scores
+                # Update total scores across all weekly breakdowns
                 for m_name, m_data in st.session_state.league_members.items():
-                    weekly_total = sum(m_data["weekly_breakdown"].values())
-                    season_total = m_data.get("season_score", 0)
-                    m_data["total_score"] = weekly_total + season_total
+                    m_data["total_score"] = sum(m_data["weekly_breakdown"].values()) + m_data.get("season_score", 0)
                     
-                st.success("Leaderboard updated! All player predictions scored and verified against official rule constraints.")
+                save_league_data(st.session_state.league_members, st.session_state.weekly_results, st.session_state.season_results)
+                st.success(f"Broadcast results for Week {st.session_state.current_week} successfully published! Leaderboard updated.")
+                st.rerun()
