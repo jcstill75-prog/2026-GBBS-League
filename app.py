@@ -18,14 +18,6 @@ st.set_page_config(
 # Custom Styling for a beautiful, cozy baking theme
 st.markdown("""
 <style>
-    /* Responsive Dark Mode & Light Mode Typography */
-    h1, h2, h3, h4, h5, h6 {
-        color: var(--text-color, inherit) !important;
-    }
-    p, span, label, div {
-        color: var(--text-color, inherit);
-    }
-    
     .stButton>button {
         background-color: #D36B5F;
         color: white !important;
@@ -40,8 +32,7 @@ st.markdown("""
     }
     
     .status-box {
-        background-color: rgba(255, 243, 224, 0.15);
-        color: var(--text-color, inherit);
+        background-color: rgba(255, 243, 224, 0.2);
         padding: 15px;
         border-radius: 10px;
         border-left: 5px solid #FFB74D;
@@ -51,7 +42,6 @@ st.markdown("""
         font-family: Arial, sans-serif;
         border-collapse: collapse;
         width: 100%;
-        color: var(--text-color, inherit);
     }
     
     /* Remove outlines & glows on Streamlit header anchors */
@@ -59,31 +49,6 @@ st.markdown("""
         outline: none !important;
         box-shadow: none !important;
         text-decoration: none !important;
-    }
-
-    /* Explicit Dark Mode Overrides */
-    @media (prefers-color-scheme: dark) {
-        h1, h2, h3, h4, h5, h6 {
-            color: #FAFAFA !important;
-        }
-        p, span, label, div {
-            color: #E0E0E0 !important;
-        }
-        .status-box {
-            background-color: #2D261E !important;
-            color: #FAFAFA !important;
-        }
-    }
-    
-    [data-theme="dark"] h1, [data-theme="dark"] h2, [data-theme="dark"] h3,
-    [data-theme="dark"] h4, [data-theme="dark"] h5, [data-theme="dark"] h6,
-    body[data-theme="dark"] h1, body[data-theme="dark"] h2, body[data-theme="dark"] h3 {
-        color: #FAFAFA !important;
-    }
-    
-    [data-theme="dark"] .status-box, body[data-theme="dark"] .status-box {
-        background-color: #2D261E !important;
-        color: #FAFAFA !important;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -477,6 +442,36 @@ def load_ai_brian_avatar():
 
 
 
+def load_logo_image():
+    """Smart image loader for Norman Beaver / header logo (returns PIL Image)."""
+    priority_paths = [
+        "assets/normanbeaver.jpg", "assets/normanbeaver.JPG", "assets/normanbeaver.jpeg", "assets/normanbeaver.JPEG",
+        "assets/normanbeaver.png", "assets/normanbeaver.PNG", "assets/normanbeaver.webp",
+        "assets/norman_beaver.jpg", "assets/norman_beaver.png", "assets/norman-beaver.jpg",
+        "assets/NormanBeaver.jpg", "assets/Norman_Beaver.jpg", "normanbeaver.jpg", "normanbeaver.JPG", "normanbeaver.png",
+        "assets/gbbslogo.jpg", "assets/gbbslogo.png"
+    ]
+    for p in priority_paths:
+        if os.path.exists(p):
+            try:
+                return Image.open(p)
+            except Exception:
+                pass
+
+    if os.path.exists("assets"):
+        try:
+            for filename in os.listdir("assets"):
+                stem, ext = os.path.splitext(filename)
+                clean_stem = stem.lower().replace("_", "").replace("-", "").strip()
+                if ("norman" in clean_stem or "beaver" in clean_stem or "gbbs" in clean_stem) and ext.lower() in ['.jpg', '.jpeg', '.png', '.webp']:
+                    try:
+                        return Image.open(os.path.join("assets", filename))
+                    except Exception:
+                        pass
+        except Exception:
+            pass
+    return None
+
 def get_gbbs_logo_base64():
     """Smart image loader that returns base64 encoding of Norman Beaver (normanbeaver.jpg) for inline flex alignment."""
     priority_paths = [
@@ -765,16 +760,13 @@ if not st.session_state.league_members["AI Brian"]["season_picks"]:
     st.session_state.league_members["AI Brian"]["season_picks"] = generate_ai_brian_season_picks()
 
 # --- 5. APP INTERFACE LAYOUT ---
-logo_b64 = get_gbbs_logo_base64()
-if logo_b64:
-    st.markdown(f"""
-        <div style="display: flex; align-items: center; gap: 18px; margin-bottom: 20px; padding: 5px 0;">
-            <img src="data:image/jpeg;base64,{logo_b64}" style="height: 75px; width: auto; max-width: 120px; object-fit: contain; border-radius: 8px; box-shadow: 0 2px 6px rgba(0,0,0,0.15);">
-            <h1 style="margin: 0; padding: 0; font-size: 2.2rem; font-weight: 800; color: var(--text-color, inherit) !important; line-height: 1.2;">
-                Great British Baking Show Fantasy League 2026
-            </h1>
-        </div>
-    """, unsafe_allow_html=True)
+logo_img = load_logo_image()
+if logo_img is not None:
+    col_logo, col_title = st.columns([1, 7], vertical_alignment="center")
+    with col_logo:
+        st.image(logo_img, width=90)
+    with col_title:
+        st.title("Great British Baking Show Fantasy League 2026")
 else:
     st.title("🧁 Great British Baking Show Fantasy League 2026")
 
