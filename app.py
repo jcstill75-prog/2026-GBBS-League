@@ -1522,16 +1522,13 @@ with tab_analytics:
             for w in all_weeks:
                 res = st.session_state.weekly_results[w]
                 st.markdown(f"#### 📍 Week {w} Broadcast Log")
-                hs_cnt = res.get("handshake_count", len(res.get("handshake_bakers", [])))
                 hs_stamps = res.get("handshake_timestamps", "")
-                cry_cnt = res.get("crying_count", 0)
                 cry_stamps = res.get("crying_timestamps", "")
                 inn_cnt = res.get("innuendo_count", 0)
-                inn_stamps = res.get("innuendo_timestamps", "")
                 
-                st.markdown(f"- **🤝 Handshakes (`{hs_cnt}`):** {hs_stamps if hs_stamps else 'No description recorded'}")
-                st.markdown(f"- **😢 Crying Scenes (`{cry_cnt}`):** {cry_stamps if cry_stamps else 'No description recorded'}")
-                st.markdown(f"- **💬 Sexual Innuendos (`{inn_cnt}`):** {inn_stamps if inn_stamps else 'No description recorded'}")
+                st.markdown(f"- **🤝 Handshakes:** {hs_stamps if hs_stamps else 'None recorded'}")
+                st.markdown(f"- **😢 Crying Scenes:** {cry_stamps if cry_stamps else 'None recorded'}")
+                st.markdown(f"- **💬 Sexual Innuendos Count:** `{inn_cnt}`")
                 st.markdown("<hr style='margin: 4px 0;'>", unsafe_allow_html=True)
 
 
@@ -1589,7 +1586,7 @@ with tab_admin:
             
             if st.session_state.current_week == 1:
                 st.subheader("Input Broadcast Results for Week 1 (Episode 1 Premiere)")
-                st.write("Select the baker eliminated in Episode 1 and enter any episode broadcast counts.")
+                st.write("Select Star Baker (if applicable) and Eliminated Baker for Episode 1.")
                 
                 col_w1_1, col_w1_2 = st.columns(2)
                 with col_w1_1:
@@ -1600,17 +1597,9 @@ with tab_admin:
                     act_elim_opts = ["-- Select Eliminated Baker --"] + active_bakers
                     act_elim_w1 = st.selectbox("Actual Eliminated Baker (Episode 1)", act_elim_opts, index=0)
                     actuals["eliminated"] = act_elim_w1 if act_elim_w1 != "-- Select Eliminated Baker --" else "None"
-                actuals["tech_rank"] = []
-                actuals["tech_top_3"] = []
-                actuals["tech_bottom_3"] = []
                 
             elif st.session_state.current_week == 10:
                 actuals["show_champion"] = st.selectbox("Actual Show Champion", active_bakers)
-                st.write("Actual Technical Challenge Rankings:")
-                act_t1 = st.selectbox("Actual Technical 1st Place", active_bakers, index=0)
-                act_t2 = st.selectbox("Actual Technical 2nd Place", [b for b in active_bakers if b != act_t1], index=0)
-                act_t3 = st.selectbox("Actual Technical 3rd Place", [b for b in active_bakers if b not in [act_t1, act_t2]], index=0)
-                actuals["tech_rank"] = [act_t1, act_t2, act_t3]
                 
             elif st.session_state.current_week == 9:
                 actuals["star_baker"] = st.selectbox("Actual Star Baker", active_bakers)
@@ -1624,49 +1613,15 @@ with tab_admin:
                     act_elim_1 = st.selectbox("Actual Eliminated Baker #1", [b for b in active_bakers if b != actuals.get("star_baker")], key="admin_act_elim_1_w9")
                     act_elim_2 = st.selectbox("Actual Eliminated Baker #2", [b for b in active_bakers if b not in [actuals.get("star_baker"), act_elim_1]], key="admin_act_elim_2_w9")
                     actuals["eliminated"] = [act_elim_1, act_elim_2]
-                
-                st.write("Actual Technical Challenge Rankings:")
-                act_t1 = st.selectbox("Actual Technical 1st", active_bakers, index=0)
-                act_t2 = st.selectbox("Actual Technical 2nd", [b for b in active_bakers if b != act_t1], index=0)
-                act_t3 = st.selectbox("Actual Technical 3rd", [b for b in active_bakers if b not in [act_t1, act_t2]], index=0)
-                act_t4 = st.selectbox("Actual Technical 4th", [b for b in active_bakers if b not in [act_t1, act_t2, act_t3]], index=0)
-                actuals["tech_rank"] = [act_t1, act_t2, act_t3, act_t4]
 
-            elif st.session_state.current_week == 8:
-                col1, col2 = st.columns(2)
-                with col1:
-                    actuals["star_baker"] = st.selectbox("Actual Star Baker", active_bakers)
-                    actuals["in_line_sb"] = st.multiselect("Actual 'In Line' Nominees", [b for b in active_bakers if b != actuals.get("star_baker")])
-                with col2:
-                    elim_type = st.radio("Elimination Status", ["Single Elimination", "No Elimination (Sickness/Grace Week)", "Double Elimination"], horizontal=True, key="admin_elim_type_w8")
-                    if elim_type == "Single Elimination":
-                        actuals["eliminated"] = st.selectbox("Actual Eliminated Baker", active_bakers)
-                        actuals["in_trouble"] = st.multiselect("Actual 'In Trouble' Nominees", [b for b in active_bakers if b != actuals.get("eliminated")])
-                    elif elim_type == "No Elimination (Sickness/Grace Week)":
-                        actuals["eliminated"] = "None"
-                        st.info("No baker was eliminated this week. Predicting elimination scores 0.")
-                        actuals["in_trouble"] = st.multiselect("Actual 'In Trouble' Nominees (Sickness consolations)", active_bakers)
-                    else:
-                        act_elim_1 = st.selectbox("Actual Eliminated Baker #1", active_bakers, key="admin_act_elim_1_w8")
-                        act_elim_2 = st.selectbox("Actual Eliminated Baker #2", [b for b in active_bakers if b != act_elim_1], key="admin_act_elim_2_w8")
-                        actuals["eliminated"] = [act_elim_1, act_elim_2]
-                        actuals["in_trouble"] = st.multiselect("Actual 'In Trouble' Nominees", [b for b in active_bakers if b not in actuals["eliminated"]])
-                    
-                st.write("Actual Technical Challenge Rankings (1st through 5th):")
-                act_t1 = st.selectbox("Actual Technical 1st", active_bakers, index=0, key="act_t1_w8")
-                act_t2 = st.selectbox("Actual Technical 2nd", [b for b in active_bakers if b != act_t1], index=0, key="act_t2_w8")
-                act_t3 = st.selectbox("Actual Technical 3rd", [b for b in active_bakers if b not in [act_t1, act_t2]], index=0, key="act_t3_w8")
-                act_t4 = st.selectbox("Actual Technical 4th", [b for b in active_bakers if b not in [act_t1, act_t2, act_t3]], index=0, key="act_t4_w8")
-                act_t5 = st.selectbox("Actual Technical 5th", [b for b in active_bakers if b not in [act_t1, act_t2, act_t3, act_t4]], index=0, key="act_t5_w8")
-                actuals["tech_rank"] = [act_t1, act_t2, act_t3, act_t4, act_t5]
-                
             else:
+                # Standard Weeks 2-8
                 col1, col2 = st.columns(2)
                 with col1:
                     actuals["star_baker"] = st.selectbox("Actual Star Baker", active_bakers)
                     actuals["in_line_sb"] = st.multiselect("Actual 'In Line' Nominees", [b for b in active_bakers if b != actuals.get("star_baker")])
                 with col2:
-                    elim_type = st.radio("Elimination Status", ["Single Elimination", "No Elimination (Sickness/Grace Week)", "Double Elimination"], horizontal=True, key="admin_elim_type_std")
+                    elim_type = st.radio("Elimination Status", ["Single Elimination", "No Elimination (Sickness/Grace Week)", "Double Elimination"], horizontal=True, key=f"admin_elim_type_w{st.session_state.current_week}")
                     if elim_type == "Single Elimination":
                         actuals["eliminated"] = st.selectbox("Actual Eliminated Baker", active_bakers)
                         actuals["in_trouble"] = st.multiselect("Actual 'In Trouble' Nominees", [b for b in active_bakers if b != actuals.get("eliminated")])
@@ -1675,88 +1630,81 @@ with tab_admin:
                         st.info("No baker was eliminated this week. Predicting elimination scores 0.")
                         actuals["in_trouble"] = st.multiselect("Actual 'In Trouble' Nominees (Sickness consolations)", active_bakers)
                     else:
-                        act_elim_1 = st.selectbox("Actual Eliminated Baker #1", active_bakers, key="admin_act_elim_1_std")
-                        act_elim_2 = st.selectbox("Actual Eliminated Baker #2", [b for b in active_bakers if b != act_elim_1], key="admin_act_elim_2_std")
+                        act_elim_1 = st.selectbox("Actual Eliminated Baker #1", active_bakers, key=f"admin_act_elim_1_w{st.session_state.current_week}")
+                        act_elim_2 = st.selectbox("Actual Eliminated Baker #2", [b for b in active_bakers if b != act_elim_1], key=f"admin_act_elim_2_w{st.session_state.current_week}")
                         actuals["eliminated"] = [act_elim_1, act_elim_2]
                         actuals["in_trouble"] = st.multiselect("Actual 'In Trouble' Nominees", [b for b in active_bakers if b not in actuals["eliminated"]])
                     
-                st.write("Actual Top 3 Technical Rankings:")
-                col_act_t1, col_act_t2, col_act_t3 = st.columns(3)
-                with col_act_t1:
-                    act_t1 = st.selectbox("Actual 1st Place", active_bakers, index=0, key="admin_std_t1")
-                with col_act_t2:
-                    act_t2_opts = [b for b in active_bakers if b != act_t1]
-                    act_t2 = st.selectbox("Actual 2nd Place", act_t2_opts, index=0 if act_t2_opts else 0, key="admin_std_t2")
-                with col_act_t3:
-                    act_t3_opts = [b for b in active_bakers if b not in [act_t1, act_t2]]
-                    act_t3 = st.selectbox("Actual 3rd Place", act_t3_opts, index=0 if act_t3_opts else 0, key="admin_std_t3")
+            # --- UNIVERSAL TECHNICAL CHALLENGE RANKINGS FOR ALL WEEKS ---
+            st.markdown("---")
+            st.markdown(f"### 📊 Actual Technical Challenge Rankings (1st through {len(active_bakers)}th Place)")
+            st.write("Select the exact placement for every baker in the technical challenge:")
+            
+            full_tech_ranks = []
+            cols_per_row = 3
+            num_bakers = len(active_bakers)
+            
+            for i in range(num_bakers):
+                rank_num = i + 1
+                if rank_num == 1: ord_str = "1st"
+                elif rank_num == 2: ord_str = "2nd"
+                elif rank_num == 3: ord_str = "3rd"
+                else: ord_str = f"{rank_num}th"
                 
-                st.write("Actual Bottom 3 Technical Rankings:")
-                col_act_b1, col_act_b2, col_act_b3 = st.columns(3)
-                admin_avail_bottom = [b for b in active_bakers if b not in [act_t1, act_t2, act_t3]]
-                with col_act_b1:
-                    act_b3 = st.selectbox("Actual 3rd-to-last Place", admin_avail_bottom, index=0 if admin_avail_bottom else 0, key="admin_std_b3")
-                with col_act_b2:
-                    act_b2_opts = [b for b in admin_avail_bottom if b != act_b3]
-                    act_b2 = st.selectbox("Actual 2nd-to-last Place", act_b2_opts, index=0 if act_b2_opts else 0, key="admin_std_b2")
-                with col_act_b3:
-                    act_b1_opts = [b for b in admin_avail_bottom if b not in [act_b3, act_b2]]
-                    act_b1 = st.selectbox("Actual Last Place", act_b1_opts, index=0 if act_b1_opts else 0, key="admin_std_b1")
+                if i % cols_per_row == 0:
+                    t_cols = st.columns(min(cols_per_row, num_bakers - i))
+                
+                col = t_cols[i % cols_per_row]
+                with col:
+                    opts = [b for b in active_bakers if b not in full_tech_ranks]
+                    sel_baker = st.selectbox(
+                        f"Actual Technical {ord_str} Place",
+                        opts,
+                        index=0,
+                        key=f"admin_full_tech_w{st.session_state.current_week}_r{rank_num}"
+                    )
+                    full_tech_ranks.append(sel_baker)
 
-                actuals["tech_top_3"] = [act_t1, act_t2, act_t3]
-                actuals["tech_bottom_3"] = [act_b3, act_b2, act_b1]
-                
-            # --- WEEKLY HANDSHAKE, CRYING & INNUENDOS (CHAOS CATEGORIES) ---
+            actuals["tech_rank"] = full_tech_ranks
+            if len(full_tech_ranks) >= 3:
+                actuals["tech_top_3"] = full_tech_ranks[:3]
+                actuals["tech_bottom_3"] = full_tech_ranks[-3:]
+            else:
+                actuals["tech_top_3"] = full_tech_ranks
+                actuals["tech_bottom_3"] = full_tech_ranks
+
+            # --- WEEKLY HANDSHAKE & CRYING TIMESTAMPS & INNUENDOS ---
             st.markdown("---")
             st.markdown("### 🤝 Hollywood Handshakes")
-            col_hs1, col_hs2 = st.columns([1, 2])
+            col_hs1, col_hs2 = st.columns(2)
             with col_hs1:
-                act_handshake_cnt = st.number_input("Handshakes Count in Episode", min_value=0, value=0, key=f"handshake_cnt_w{st.session_state.current_week}")
+                act_handshake_bakers = st.multiselect("Bakers Receiving Hollywood Handshakes This Week", active_bakers, key=f"handshake_bakers_w{st.session_state.current_week}")
+                act_handshake_cnt = st.number_input("Number of Handshakes in Episode", min_value=0, value=len(act_handshake_bakers), key=f"handshake_cnt_w{st.session_state.current_week}")
             with col_hs2:
-                act_handshake_stamps = st.text_input("Description & Video Timestamps", value="", placeholder="e.g. 'Clara @ 14:22 Signature, Tom @ 42:10 Showstopper'", key=f"handshake_stamps_w{st.session_state.current_week}")
-            act_handshake_bakers = st.multiselect("Bakers Receiving Hollywood Handshakes This Week", active_bakers, key=f"handshake_bakers_w{st.session_state.current_week}")
+                act_handshake_stamps = st.text_input("Description & Video Timestamps (e.g. 'Clara @ 14:22 Signature, Tom @ 42:10 Showstopper')", value="", key=f"handshake_stamps_w{st.session_state.current_week}")
 
             st.markdown("### 😢 Crying Incidents")
-            col_cry1, col_cry2 = st.columns([1, 2])
+            col_cry1, col_cry2 = st.columns(2)
             with col_cry1:
-                act_crying_cnt = st.number_input("Crying Incidents Count in Episode", min_value=0, value=0, key=f"crying_cnt_w{st.session_state.current_week}")
+                act_crying_cnt = st.number_input("Number of Crying Incidents in Episode", min_value=0, value=0, key=f"crying_cnt_w{st.session_state.current_week}")
             with col_cry2:
-                act_crying_stamps = st.text_input("Description & Video Timestamps", value="", placeholder="e.g. 'Mo during technical @ 24:15, Molly @ 54:02'", key=f"crying_stamps_w{st.session_state.current_week}")
+                act_crying_stamps = st.text_input("Description & Video Timestamps (e.g. 'Mo during technical @ 24:15, Molly @ 54:02')", value="", key=f"crying_stamps_w{st.session_state.current_week}")
 
             st.markdown("### 💬 Sexual Innuendos")
-            col_inn1, col_inn2 = st.columns([1, 2])
+            col_inn1, col_inn2 = st.columns(2)
             with col_inn1:
-                act_innuendo_cnt = st.number_input("Sexual Innuendos Count in Episode", min_value=0, value=0, key=f"innuendo_cnt_w{st.session_state.current_week}")
+                act_innuendo_cnt = st.number_input("Number of Sexual Innuendos in Episode", min_value=0, value=0, key=f"innuendo_cnt_w{st.session_state.current_week}")
             with col_inn2:
-                act_innuendo_stamps = st.text_input("Description & Video Timestamps", value="", placeholder="e.g. 'Paul & Prue soggy bottom banter @ 18:05'", key=f"innuendo_stamps_w{st.session_state.current_week}")
+                act_innuendo_stamps = st.text_input("Description & Video Timestamps (e.g. 'Paul & Prue soggy bottom banter @ 18:05')", value="", key=f"innuendo_stamps_w{st.session_state.current_week}")
 
-            actuals["handshake_count"] = act_handshake_cnt
             actuals["handshake_bakers"] = act_handshake_bakers
+            actuals["handshake_count"] = act_handshake_cnt
             actuals["handshake_timestamps"] = act_handshake_stamps
             actuals["crying_count"] = act_crying_cnt
             actuals["crying_timestamps"] = act_crying_stamps
             actuals["innuendo_count"] = act_innuendo_cnt
             actuals["innuendo_timestamps"] = act_innuendo_stamps
-                
-            if st.session_state.current_week == 10:
-                st.markdown("### 🏆 Final Seasonal Broadcast Totals")
-                act_winner = st.selectbox("Actual Season Winner (Show Champion)", active_bakers)
-                act_semis = st.multiselect("Actual Semifinalists (Select 4)", ALL_BAKERS, max_selections=4)
-                act_finalists = st.multiselect("Actual Finalists (Select 3)", ALL_BAKERS, max_selections=3)
-                
-                act_handshakes = st.number_input("Actual Total Handshakes", min_value=0, value=5)
-                act_crying = st.number_input("Actual Total Crying Scenes", min_value=0, value=12)
-                act_innuendos = st.number_input("Actual Total Sexual Innuendos", min_value=0, value=48)
-                
-                actuals_season = {
-                    "winner": act_winner,
-                    "semifinalists": act_semis,
-                    "finalists": act_finalists,
-                    "handshakes": act_handshakes,
-                    "crying": act_crying,
-                    "innuendos": act_innuendos
-                }
-                
+            
             submit_actuals = st.form_submit_button("Publish Actual Results & Recalculate Standings")
             if submit_actuals:
                 st.session_state.weekly_results[st.session_state.current_week] = actuals
