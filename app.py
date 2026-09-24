@@ -34,7 +34,16 @@ st.markdown("""
         color: white;
     }
     h1, h2, h3 {
-        color: #5D4037;
+        color: #4A2E2B;
+    }
+    /* Remove default Streamlit header blue outlines & focus rings */
+    h1, h2, h3, h4, a, a:focus, a:active, *:focus {
+        outline: none !important;
+        box-shadow: none !important;
+        -webkit-text-stroke: 0 !important;
+    }
+    a[data-testid="stHeaderAnchor"] {
+        display: none !important;
     }
     .status-box {
         background-color: #FFF3E0;
@@ -440,8 +449,9 @@ def load_ai_brian_avatar():
 
 
 
+
 def load_logo_image():
-    """Smart image loader for the header logo (prioritizes assets/normanbeaver.jpg)."""
+    """Smart image loader for header logo (prioritizes assets/normanbeaver.jpg)."""
     priority_paths = [
         "assets/normanbeaver.jpg", "assets/normanbeaver.JPG", "assets/normanbeaver.jpeg", "assets/normanbeaver.JPEG",
         "assets/normanbeaver.png", "assets/normanbeaver.PNG", "assets/normanbeaver.webp",
@@ -483,8 +493,6 @@ def get_logo_base64():
         return base64.b64encode(buffered.getvalue()).decode()
     except Exception:
         return None
-
-
 
 
 def load_baker_image(baker_name):
@@ -745,17 +753,19 @@ if not st.session_state.league_members["AI Brian"]["season_picks"]:
 logo_b64 = get_logo_base64()
 if logo_b64:
     st.markdown(f"""
-        <div style="display: flex; align-items: center; gap: 18px; margin-bottom: 20px; padding: 5px 0;">
-            <img src="data:image/jpeg;base64,{logo_b64}" style="height: 75px; width: auto; max-width: 120px; object-fit: contain; border-radius: 8px; box-shadow: 0 2px 6px rgba(0,0,0,0.15);">
-            <h1 style="margin: 0; padding: 0; font-size: 2.2rem; font-weight: 800; color: var(--text-color, #1A0C08) !important; line-height: 1.2;">
+        <div style="display: flex; align-items: center; gap: 20px; margin-bottom: 20px; padding: 6px 0;">
+            <img src="data:image/jpeg;base64,{logo_b64}" style="height: 75px; width: auto; max-width: 120px; object-fit: contain; border-radius: 8px; border: none; outline: none;">
+            <h1 style="margin: 0; padding: 0; font-size: 2.2rem; font-weight: 800; color: #4A2E2B !important; border: none; outline: none; text-shadow: none; -webkit-text-stroke: 0;">
                 Great British Baking Show Fantasy League 2026
             </h1>
         </div>
     """, unsafe_allow_html=True)
 else:
-    st.title("🧁 Great British Baking Show Fantasy League 2026")
-
-
+    st.markdown("""
+        <h1 style="margin: 0; padding: 0; font-size: 2.2rem; font-weight: 800; color: #4A2E2B !important; border: none; outline: none; text-shadow: none;">
+            🧁 Great British Baking Show Fantasy League 2026
+        </h1>
+    """, unsafe_allow_html=True)
 
 # --- SIDEBAR: PLAYER PROFILE, AVATAR UPLOAD & PERSISTENT POINTS REMINDER ---
 with st.sidebar:
