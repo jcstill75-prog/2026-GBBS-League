@@ -371,6 +371,356 @@ def load_logo_image():
             pass
     return None
 
+
+def get_weekly_score_breakdown(predictions, actuals, week=2):
+    """Returns a list of dicts detailing line-item scoring breakdown for weekly scorecards."""
+    items = []
+    if not predictions:
+        return items
+
+    if week == 10:
+        pred_champ = predictions.get("show_champion", "None")
+        act_champ = actuals.get("show_champion", "N/A")
+        pts = 15 if (pred_champ and act_champ and pred_champ == act_champ and pred_champ != "None") else 0
+        items.append({
+            "Category": "🏆 Show Champion",
+            "Your Prediction": pred_champ,
+            "Actual Result": act_champ,
+            "Points": f"{pts} pts",
+            "Details": "Exact Match (+15 pts)" if pts > 0 else "No Match (0 pts)"
+        })
+    else:
+        # Star Baker
+        pred_sb = predictions.get("star_baker", "None")
+        act_sb = actuals.get("star_baker", "N/A")
+        pts_sb = 5 if (pred_sb == act_sb and pred_sb not in ["None", None, ""]) else 0
+        items.append({
+            "Category": "🌟 Star Baker",
+            "Your Prediction": pred_sb,
+            "Actual Result": act_sb,
+            "Points": f"{pts_sb} pts",
+            "Details": "Correct Star Baker (+5 pts)" if pts_sb > 0 else "No Match (0 pts)"
+        })
+
+        # Eliminated Baker
+        pred_elim = predictions.get("eliminated", "None")
+        act_elim = actuals.get("eliminated", "N/A")
+        
+        pred_elim_str = ", ".join(pred_elim) if isinstance(pred_elim, list) else str(pred_elim)
+        act_elim_str = ", ".join(act_elim) if isinstance(act_elim, list) else str(act_elim)
+        
+        pts_elim = 0
+        if isinstance(act_elim, list):
+            if isinstance(pred_elim, list):
+                for p in pred_elim:
+                    if p in act_elim and p not in ["None", None, ""]:
+                        pts_elim += 5
+            elif isinstance(pred_elim, str) and pred_elim in act_elim and pred_elim not in ["None", None, ""]:
+                pts_elim += 5
+        elif act_elim == "None":
+            pts_elim = 0
+        else:
+            if isinstance(pred_elim, list):
+                if act_elim in pred_elim and act_elim not in ["None", None, ""]:
+                    pts_elim += 5
+            elif pred_elim == act_elim and pred_elim not in ["None", None, ""]:
+                pts_elim += 5
+
+        items.append({
+            "Category": "❌ Eliminated Baker",
+            "Your Prediction": pred_elim_str,
+            "Actual Result": act_elim_str,
+            "Points": f"{pts_elim} pts",
+            "Details": f"Correctly predicted elimination (+{pts_elim} pts)" if pts_elim > 0 else ("Grace / Sickness Week (0 pts)" if act_elim == "None" else "No Match (0 pts)")
+        })
+
+    # Technical Challenge Breakdown
+    if week >= 8:
+        pred_rank = predictions.get("tech_rank", [])
+        act_rank = actuals.get("tech_rank", [])
+        
+        pred_rank_str = ", ".join(pred_rank) if pred_rank else "None"
+        act_rank_str = ", ".join(act_rank) if act_rank else "N/A"
+        
+        expected_len = 5 if week == 8 else (4 if week == 9 else 3)
+        max_sweep = 25 if week == 8 else (20 if week == 9 else 15)
+        
+        pts_tech = 0
+        tech_note = ""
+        if len(pred_rank) == expected_len and len(act_rank) == expected_len:
+            exact_count = sum(1 for idx, b in enumerate(pred_rank) if act_rank[idx] == b)
+            if exact_count == expected_len:
+                pts_tech = max_sweep
+                tech_note = f"🎉 Perfect {expected_len}-for-{expected_len} Technical Sweep! (+{max_sweep} pts)"
+            else:
+                matches_detail = []
+                for idx, b in enumerate(pred_rank):
+                    if act_rank[idx] == b and b not in ["None", None, ""]:
+                        if week == 8:
+                            p_val = 3 if idx in [0, 4] else 2
+                        elif week == 9:
+                            p_val = 3 if idx in [0, 3] else 2
+                        else:
+                            p_val = 3 if idx == 0 else 2
+                        pts_tech += p_val
+                        ord_s = "1st" if idx == 0 else (f"{idx+1}th")
+                        matches_detail.append(f"{b} ({ord_s}: +{p_val}pt)")
+                tech_note = f"Exact position matches: {', '.join(matches_detail)}" if matches_detail else "No position matches (0 pts)"
+        else:
+            tech_note = "Incomplete technical placement prediction"
+
+        items.append({
+            "Category": f"📊 Technical Rankings (Full {expected_len} Bakers)",
+            "Your Prediction": pred_rank_str,
+            "Actual Result": act_rank_str,
+            "Points": f"{pts_tech} pts",
+            "Details": tech_note
+        })
+    else:
+        # Standard Weeks 1-7
+        pred_top3 = predictions.get("tech_top_3", [])
+        act_top3 = actuals.get("tech_top_3", [])
+        
+        pred_top3_str = ", ".join(pred_top3) if pred_top3 else "None"
+        act_top3_str = ", ".join(act_top3) if act_top3 else "N/A"
+        
+        pts_top3 = 0
+        top3_note = ""
+        if len(pred_top3) == 3 and len(act_top3) == 3:
+            if pred_top3 == act_top3:
+                pts_top3 = 10
+                top3_note = "🎉 Perfect Top 3 Combo Sweep Bonus (+10 pts)!"
+            else:
+                matches = []
+                if pred_top3[0] == act_top3[0] and pred_top3[0] not in ["None", None, ""]:
+                    pts_top3 += 3
+                    matches.append(f"{pred_top3[0]} (Exact 1st: +3pts)")
+                if pred_top3[1] == act_top3[1] and pred_top3[1] not in ["None", None, ""]:
+                    pts_top3 += 2
+                    matches.append(f"{pred_top3[1]} (Exact 2nd: +2pts)")
+                if pred_top3[2] == act_top3[2] and pred_top3[2] not in ["None", None, ""]:
+                    pts_top3 += 2
+                    matches.append(f"{pred_top3[2]} (Exact 3rd: +2pts)")
+                    
+                for idx, baker in enumerate(pred_top3):
+                    if baker in act_top3 and baker != act_top3[idx] and baker not in ["None", None, ""]:
+                        pts_top3 += 1
+                        matches.append(f"{baker} (In Top 3 wrong spot: +1pt)")
+                top3_note = ", ".join(matches) if matches else "No matches in Top 3 (0 pts)"
+        else:
+            top3_note = "Incomplete Top 3 prediction"
+
+        items.append({
+            "Category": "🥇 Technical Challenge Top 3",
+            "Your Prediction": pred_top3_str,
+            "Actual Result": act_top3_str,
+            "Points": f"{pts_top3} pts",
+            "Details": top3_note
+        })
+
+        # Bottom 3
+        pred_bot3 = predictions.get("tech_bottom_3", [])
+        act_bot3 = actuals.get("tech_bottom_3", [])
+        
+        pred_bot3_str = ", ".join(pred_bot3) if pred_bot3 else "None"
+        act_bot3_str = ", ".join(act_bot3) if act_bot3 else "N/A"
+        
+        pts_bot3 = 0
+        bot3_note = ""
+        if len(pred_bot3) == 3 and len(act_bot3) == 3:
+            if pred_bot3 == act_bot3:
+                pts_bot3 = 10
+                bot3_note = "🎉 Perfect Bottom 3 Combo Sweep Bonus (+10 pts)!"
+            else:
+                matches = []
+                if pred_bot3[0] == act_bot3[0] and pred_bot3[0] not in ["None", None, ""]:
+                    pts_bot3 += 2
+                    matches.append(f"{pred_bot3[0]} (Exact 3rd-to-last: +2pts)")
+                if pred_bot3[1] == act_bot3[1] and pred_bot3[1] not in ["None", None, ""]:
+                    pts_bot3 += 2
+                    matches.append(f"{pred_bot3[1]} (Exact 2nd-to-last: +2pts)")
+                if pred_bot3[2] == act_bot3[2] and pred_bot3[2] not in ["None", None, ""]:
+                    pts_bot3 += 3
+                    matches.append(f"{pred_bot3[2]} (Exact Last: +3pts)")
+                    
+                for idx, baker in enumerate(pred_bot3):
+                    if baker in act_bot3 and baker != act_bot3[idx] and baker not in ["None", None, ""]:
+                        pts_bot3 += 1
+                        matches.append(f"{baker} (In Bottom 3 wrong spot: +1pt)")
+                bot3_note = ", ".join(matches) if matches else "No matches in Bottom 3 (0 pts)"
+        else:
+            bot3_note = "Incomplete Bottom 3 prediction"
+
+        items.append({
+            "Category": "🔻 Technical Challenge Bottom 3",
+            "Your Prediction": pred_bot3_str,
+            "Actual Result": act_bot3_str,
+            "Points": f"{pts_bot3} pts",
+            "Details": bot3_note
+        })
+
+    # Consolations
+    if week < 9:
+        act_sb = actuals.get("star_baker")
+        act_inl = actuals.get("in_line_sb", [])
+        if isinstance(act_inl, str): act_inl = [act_inl]
+        pred_inl = predictions.get("in_line_sb", "None")
+        act_inl_str = ", ".join(act_inl) if act_inl else "None"
+        
+        pts_inl = 0
+        if pred_inl and pred_inl in act_inl and pred_inl != act_sb and pred_inl not in ["None", None, ""]:
+            pts_inl = 2
+            
+        items.append({
+            "Category": "📈 In Line Nominee Consolation",
+            "Your Prediction": pred_inl,
+            "Actual Result": act_inl_str,
+            "Points": f"{pts_inl} pts",
+            "Details": f"Picked 'In Line' nominee {pred_inl} (+2 pts)" if pts_inl > 0 else "No Consolation (0 pts)"
+        })
+
+        act_trbl = actuals.get("in_trouble", [])
+        if isinstance(act_trbl, str): act_trbl = [act_trbl]
+        pred_trbl = predictions.get("in_trouble", "None")
+        act_trbl_str = ", ".join(act_trbl) if act_trbl else "None"
+        
+        act_elim_raw = actuals.get("eliminated", [])
+        if isinstance(act_elim_raw, str): act_elim_raw = [act_elim_raw]
+        
+        pts_trb = 0
+        if pred_trbl and pred_trbl in act_trbl and pred_trbl not in act_elim_raw and pred_trbl not in ["None", None, ""]:
+            pts_trb = 2
+
+        items.append({
+            "Category": "⚠️ In Trouble Nominee Consolation",
+            "Your Prediction": pred_trbl,
+            "Actual Result": act_trbl_str,
+            "Points": f"{pts_trb} pts",
+            "Details": f"Picked 'In Trouble' saved nominee {pred_trbl} (+2 pts)" if pts_trb > 0 else "No Consolation (0 pts)"
+        })
+
+    return items
+
+
+def get_season_score_breakdown(predictions, actuals):
+    """Returns list of itemized dicts for season-long projections scorecard."""
+    items = []
+    if not predictions or not actuals:
+        return items
+
+    act_winner = actuals.get("winner")
+    act_semis = actuals.get("semifinalists", [])
+    act_finalists = actuals.get("finalists", act_semis)
+
+    # 1. Winner
+    pred_winner = predictions.get("winner", "None")
+    pts_win = 0
+    win_note = "No Match (0 pts)"
+    if pred_winner and pred_winner == act_winner and pred_winner != "None":
+        pts_win = 40
+        win_note = "🎉 Exact Season Winner Match (+40 pts)"
+    elif pred_winner and pred_winner in act_finalists and pred_winner != "None":
+        pts_win = 15
+        win_note = "🥈 Finalist Consolation (+15 pts)"
+
+    items.append({
+        "Category": "🏆 Season Winner (Show Champion)",
+        "Your Projection": pred_winner,
+        "Actual Result": act_winner if act_winner else "N/A",
+        "Points": f"{pts_win} pts",
+        "Details": win_note
+    })
+
+    # 2. Semifinalists
+    pred_semis = predictions.get("semifinalists", [])
+    pred_semis_str = ", ".join(pred_semis) if pred_semis else "None"
+    act_semis_str = ", ".join(act_semis) if act_semis else "N/A"
+    
+    pts_semis = 0
+    semi_matches = []
+    for b in pred_semis:
+        if b in act_semis and b != pred_winner and b not in ["None", None, ""]:
+            pts_semis += 10
+            semi_matches.append(b)
+
+    semi_note = f"Matched: {', '.join(semi_matches)} (+{pts_semis} pts)" if semi_matches else "No Semifinalist matches (0 pts)"
+    items.append({
+        "Category": "🎖️ Other 3 Semifinalists",
+        "Your Projection": pred_semis_str,
+        "Actual Result": act_semis_str,
+        "Points": f"{pts_semis} pts",
+        "Details": semi_note
+    })
+
+    # 3. Handshakes
+    pred_hs = predictions.get("handshakes", 0)
+    act_hs = actuals.get("handshakes", 0)
+    diff_hs = abs(int(pred_hs) - int(act_hs)) if (pred_hs is not None and act_hs is not None) else 999
+    if diff_hs == 0:
+        pts_hs = 20
+        hs_note = "🎯 Spot-on prediction! (+20 pts)"
+    elif diff_hs <= 1:
+        pts_hs = 10
+        hs_note = "Bullseye margin (+/-1 handshake) (+10 pts)"
+    else:
+        pts_hs = 0
+        hs_note = f"Off by {diff_hs} handshakes (0 pts)"
+
+    items.append({
+        "Category": "🤝 Hollywood Handshakes Count",
+        "Your Projection": str(pred_hs),
+        "Actual Result": str(act_hs),
+        "Points": f"{pts_hs} pts",
+        "Details": hs_note
+    })
+
+    # 4. Crying
+    pred_cry = predictions.get("crying", 0)
+    act_cry = actuals.get("crying", 0)
+    diff_cry = abs(int(pred_cry) - int(act_cry)) if (pred_cry is not None and act_cry is not None) else 999
+    if diff_cry == 0:
+        pts_cry = 20
+        cry_note = "🎯 Spot-on prediction! (+20 pts)"
+    elif diff_cry <= 5:
+        pts_cry = 10
+        cry_note = f"Bullseye margin (+/-{diff_cry} crying scenes) (+10 pts)"
+    else:
+        pts_cry = 0
+        cry_note = f"Off by {diff_cry} crying scenes (0 pts)"
+
+    items.append({
+        "Category": "😢 Crying Incidents Count",
+        "Your Projection": str(pred_cry),
+        "Actual Result": str(act_cry),
+        "Points": f"{pts_cry} pts",
+        "Details": cry_note
+    })
+
+    # 5. Innuendos
+    pred_inn = predictions.get("innuendos", 0)
+    act_inn = actuals.get("innuendos", 0)
+    diff_inn = abs(int(pred_inn) - int(act_inn)) if (pred_inn is not None and act_inn is not None) else 999
+    if diff_inn == 0:
+        pts_inn = 20
+        inn_note = "🎯 Spot-on prediction! (+20 pts)"
+    elif diff_inn <= 5:
+        pts_inn = 10
+        inn_note = f"Bullseye margin (+/-{diff_inn} innuendos) (+10 pts)"
+    else:
+        pts_inn = 0
+        inn_note = f"Off by {diff_inn} innuendos (0 pts)"
+
+    items.append({
+        "Category": "💬 Sexual Innuendos Count",
+        "Your Projection": str(pred_inn),
+        "Actual Result": str(act_inn),
+        "Points": f"{pts_inn} pts",
+        "Details": inn_note
+    })
+
+    return items
+
+
 def load_ai_brian_avatar():
     """Smart image loader for AI Brian's avatar (prioritizes assets/aibrian.jpg)."""
     priority_paths = [
@@ -801,7 +1151,7 @@ with tab_lead:
                 res = get_weekly_result(w_num)
                 pred_w = p_data["weekly_picks"].get(w_num, {})
                 
-                with st.expander(f"Week {w_num} Breakdown (Episode Results)", expanded=False):
+                with st.expander(f"Week {w_num} Line-Item Scoring Matrix (Episode Results)", expanded=False):
                     raw_pts = calculate_weekly_score(pred_w, res, w_num)
                     
                     # Check for Star Member bonus
@@ -809,19 +1159,35 @@ with tab_lead:
                     max_score_w = max(weekly_scores_all.values()) if weekly_scores_all else 0
                     has_star_bonus = (raw_pts == max_score_w and raw_pts > 0)
                     
-                    st.write(f"**Episode Results:** Star Baker: `{res.get('star_baker', 'N/A')}` | Eliminated: `{res.get('eliminated', 'N/A')}`")
-                    st.write(f"**Your Predictions:** Star Baker: `{pred_w.get('star_baker', 'None')}` | Eliminated: `{pred_w.get('eliminated', 'None')}`")
-                    st.markdown(f"**Episodic Raw Score:** `{raw_pts} pts`" + (f" | 🌟 **Star League Member Bonus:** `+5 pts` *(Highest weekly scorer!)*" if has_star_bonus else ""))
-                    st.markdown(f"**Week {w_num} Total Awarded:** `{p_data['weekly_breakdown'].get(w_num, raw_pts + (5 if has_star_bonus else 0))} pts`")
+                    breakdown_items = get_weekly_score_breakdown(pred_w, res, w_num)
+                    if has_star_bonus:
+                        breakdown_items.append({
+                            "Category": "🌟 Star League Member Bonus",
+                            "Your Prediction": "Highest Weekly Scorer",
+                            "Actual Result": f"Highest Score ({raw_pts} pts)",
+                            "Points": "+5 pts",
+                            "Details": "Awarded +5 bonus pts for top weekly performance!"
+                        })
+                        
+                    if breakdown_items:
+                        st.dataframe(pd.DataFrame(breakdown_items), use_container_width=True, hide_index=True)
+                    else:
+                        st.info("No predictions submitted for this week.")
+                        
+                    tot_w_pts = p_data['weekly_breakdown'].get(w_num, raw_pts + (5 if has_star_bonus else 0))
+                    st.markdown(f"**Week {w_num} Total Points Awarded:** `{tot_w_pts} pts`")
 
             if st.session_state.season_results:
                 st.markdown("#### 🌟 Season-Long Predictions")
-                with st.expander("Final Season Projections Scorecard", expanded=True):
+                with st.expander("Final Season Projections Itemized Scorecard", expanded=True):
                     s_pred = p_data["season_picks"]
                     s_act = st.session_state.season_results
                     s_pts = calculate_season_score(s_pred, s_act)
-                    st.write(f"**Season Winner Pick:** `{s_pred.get('winner', 'None')}` (Actual: `{s_act.get('winner', 'N/A')}`)")
-                    st.write(f"**Semifinalists Pick:** `{', '.join(s_pred.get('semifinalists', []))}`")
+                    
+                    s_breakdown = get_season_score_breakdown(s_pred, s_act)
+                    if s_breakdown:
+                        st.dataframe(pd.DataFrame(s_breakdown), use_container_width=True, hide_index=True)
+                        
                     st.markdown(f"**Season Projections Total Points Earned:** `{s_pts} pts`")
 
 # --- TAB 2: SUBMIT PREDICTIONS ---
@@ -890,7 +1256,7 @@ with tab_submit:
                         st.markdown(f"[🔗 View Photo Page]({info['url']})")
 
         # 2. SEASON-LONG PREDICTIONS FORM (LOCKS PRE-WEEK 2)
-        if st.session_state.current_week == 2:
+        if st.session_state.current_week <= 2:
             st.markdown("---")
             with st.expander("🌟 Season-Long Projections (130 Max Pts | Locks Pre-Week 2)", expanded=(st.session_state.current_week == 2)):
                 existing_s = st.session_state.league_members[active_sub_player].get("season_picks", {})
