@@ -1143,7 +1143,7 @@ with tab_analytics:
     st.header("📈 Contestant Analytics & Career Performance Matrix")
     st.write("Inspect how contestants are performing across Star Baker wins, nomination consolations, Hollywood Handshakes, and technical challenge finishes.")
     
-    current_eliminated_latest = get_current_eliminated_bakers(10)
+    current_eliminated_latest = get_current_eliminated_bakers(st.session_state.current_week)
     
     # A. Overall Baker Performance Matrix
     baker_stats = {}
@@ -1208,22 +1208,20 @@ with tab_analytics:
 
     # B. Individual Baker Inspection
     st.markdown("---")
-    selected_ana_baker = st.selectbox("Select Baker to Inspect:", ALL_BAKERS, key="ana_baker_select")
+    active_inspect_bakers = [b for b in ALL_BAKERS if b not in current_eliminated_latest]
+    if not active_inspect_bakers:
+        active_inspect_bakers = ALL_BAKERS
+    selected_ana_baker = st.selectbox("Select Baker to Inspect:", active_inspect_bakers, key="ana_baker_select")
     
     ana_s = baker_stats[selected_ana_baker]
-    is_baker_elim = selected_ana_baker in current_eliminated_latest
     b_img_orig = load_baker_image(selected_ana_baker)
     
     col_ana1, col_ana2 = st.columns([1, 3])
     with col_ana1:
         if b_img_orig is not None:
-            if is_baker_elim:
-                disp_img = apply_elimination_overlay(b_img_orig)
-                st.image(disp_img, caption=f"{selected_ana_baker} (Eliminated)", use_container_width=True)
-            else:
-                st.image(b_img_orig, caption=f"{selected_ana_baker} (Active)", use_container_width=True)
+            st.image(b_img_orig, caption=f"{selected_ana_baker} (Active)", use_container_width=True)
         else:
-            st.markdown(f"### **{selected_ana_baker}**" + (" *(Eliminated)*" if is_baker_elim else ""))
+            st.markdown(f"### **{selected_ana_baker}**")
 
     with col_ana2:
         st.markdown(f"#### 🏅 {selected_ana_baker}'s Career Accolades")
