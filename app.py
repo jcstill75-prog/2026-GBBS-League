@@ -873,18 +873,29 @@ with tab_submit:
         st.markdown("---")
         
         # 1. VISUAL BAKER GALLERY
+        current_eliminated_gal = get_current_eliminated_bakers(st.session_state.current_week)
         with st.expander("📸 Visual Baker Gallery (Class of 2026)", expanded=False):
             cols = st.columns(4)
             for idx, baker in enumerate(ALL_BAKERS):
                 info = BAKER_INFO.get(baker, {"url": "#"})
+                is_elim_gal = baker in current_eliminated_gal
                 with cols[idx % 4]:
                     img = load_baker_image(baker)
                     if img is not None:
-                        st.image(img, use_container_width=True)
-                        st.markdown(f"**{baker}**")
+                        if is_elim_gal:
+                            disp_img = apply_elimination_overlay(img)
+                            st.image(disp_img, use_container_width=True)
+                            st.markdown(f"**{baker} ❌** *(Eliminated)*")
+                        else:
+                            st.image(img, use_container_width=True)
+                            st.markdown(f"**{baker}**")
                     else:
-                        st.markdown(f"**{baker}**")
-                        st.markdown(f"[🔗 View Photo Page]({info['url']})")
+                        if is_elim_gal:
+                            st.markdown(f"**{baker} ❌** *(Eliminated)*")
+                            st.markdown(f"[🔗 View Photo Page]({info['url']})")
+                        else:
+                            st.markdown(f"**{baker}**")
+                            st.markdown(f"[🔗 View Photo Page]({info['url']})")
 
         # 2. SEASON-LONG PREDICTIONS FORM (LOCKS PRE-WEEK 2)
         if st.session_state.current_week <= 2:
@@ -1173,14 +1184,14 @@ with tab_analytics:
     with st.expander("📊 Contestant Performance Matrix Summary", expanded=True):
         matrix_rows = []
         for baker in ALL_BAKERS:
-            if baker in current_eliminated_latest:
-                continue  # Exclude eliminated bakers from the performance matrix
             s = baker_stats[baker]
             avg_fin = round(sum(pos for _, pos in s["tech_ranks"]) / len(s["tech_ranks"]), 1) if s["tech_ranks"] else "N/A"
             avg_pct = round(sum(s["tech_rank_pcts"]) / len(s["tech_rank_pcts"]), 1) if s["tech_rank_pcts"] else "N/A"
+            is_elim = baker in current_eliminated_latest
             
             matrix_rows.append({
-                "Contestant": baker + " 🧁",
+                "Contestant": baker + (" ❌" if is_elim else " 🧁"),
+                "Status": "Eliminated" if is_elim else "Active",
                 "Star Baker Titles 🌟": s["star_baker_cnt"],
                 "In Line Nominee 📈": s["in_line_cnt"],
                 "In Trouble Nominee ⚠️": s["in_trouble_cnt"],
@@ -1188,7 +1199,7 @@ with tab_analytics:
                 "Relative Tech Rank %": f"{avg_pct}%" if avg_pct != "N/A" else "N/A",
                 "Handshakes 🤝": s["handshake_cnt"]
             })
-        st.dataframe(pd.DataFrame(matrix_rows), use_container_width=True, hide_index=True)
+        st.dataframe(pd.DataFrame(matrix_rows), use_container_width=True)
 
     # B. Individual Baker Inspection
     st.markdown("---")
