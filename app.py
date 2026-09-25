@@ -72,8 +72,12 @@ def save_league_data(league_members, weekly_results, season_results):
         members_copy = {}
         for name, data in league_members.items():
             m_dict = dict(data)
-            if "avatar" in m_dict and not isinstance(m_dict["avatar"], (str, type(None))):
-                m_dict["avatar"] = None
+            av = m_dict.get("avatar")
+            if isinstance(av, Image.Image):
+                buffered = io.BytesIO()
+                av.save(buffered, format="PNG")
+                img_str = base64.b64encode(buffered.getvalue()).decode()
+                m_dict["avatar"] = f"data:image/png;base64,{img_str}"
             members_copy[name] = m_dict
             
         payload = {
@@ -85,6 +89,26 @@ def save_league_data(league_members, weekly_results, season_results):
             json.dump(payload, f, indent=2)
     except Exception:
         pass
+
+
+def render_player_avatar(avatar_val, player_name, width=50, caption=None):
+    if avatar_val:
+        if isinstance(avatar_val, Image.Image):
+            st.image(avatar_val, caption=caption, width=width)
+            return True
+        elif isinstance(avatar_val, str) and avatar_val.startswith("data:image"):
+            st.image(avatar_val, caption=caption, width=width)
+            return True
+        elif isinstance(avatar_val, str) and os.path.exists(avatar_val):
+            st.image(avatar_val, caption=caption, width=width)
+            return True
+            
+    if player_name == "AI Brian":
+        b_img = load_ai_brian_avatar()
+        if b_img:
+            st.image(b_img, caption=caption, width=width)
+            return True
+    return False
 
 def load_league_data():
     """Loads saved league session state from league_data.json if present."""
@@ -999,13 +1023,19 @@ with st.sidebar:
             if uploaded_file is not None:
                 image = Image.open(uploaded_file)
                 image = image.resize((150, 150))
-                st.session_state.league_members[sb_player]["avatar"] = image
-                st.image(image, caption=f"{sb_player}'s Active Avatar", width=150)
+                buffered = io.BytesIO()
+                image.save(buffered, format="PNG")
+                img_str = base64.b64encode(buffered.getvalue()).decode()
+                b64_avatar = f"data:image/png;base64,{img_str}"
+                
+                st.session_state.league_members[sb_player]["avatar"] = b64_avatar
+                save_league_data(st.session_state.league_members, st.session_state.weekly_results, st.session_state.season_results)
+                st.image(b64_avatar, caption=f"{sb_player}'s Active Avatar", width=150)
                 st.success(f"Avatar updated for {sb_player}!")
             else:
                 cur_av = st.session_state.league_members[sb_player].get("avatar")
-                if isinstance(cur_av, Image.Image):
-                    st.image(cur_av, caption=f"{sb_player}'s Avatar", width=150)
+                if not render_player_avatar(cur_av, sb_player, width=150, caption=f"{sb_player}'s Avatar"):
+                    st.info("No profile photo uploaded yet.")
 
     st.markdown("---")
     st.subheader("🗓️ Active Competition Week")
@@ -1098,15 +1128,7 @@ with tab_lead:
             st.markdown(f"<div style='padding-top:12px;'><h3>{rank_badge}</h3></div>", unsafe_allow_html=True)
         with col_a:
             p_av = data.get("avatar")
-            if isinstance(p_av, Image.Image):
-                st.image(p_av, width=50)
-            elif member_name == "AI Brian":
-                b_img = load_ai_brian_avatar()
-                if b_img:
-                    st.image(b_img, width=50)
-                else:
-                    st.markdown("<h2 style='margin:0;'>🤖</h2>", unsafe_allow_html=True)
-            else:
+            if not render_player_avatar(p_av, member_name, width=50):
                 st.markdown("<h2 style='margin:0;'>🍪</h2>", unsafe_allow_html=True)
         with col_p:
             st.markdown(f"<div style='padding-top:12px;'><h3><strong>{member_name}</strong></h3></div>", unsafe_allow_html=True)
@@ -1127,15 +1149,7 @@ with tab_lead:
     
     col_sc1, col_sc2 = st.columns([1, 4])
     with col_sc1:
-        if isinstance(p_avatar, Image.Image):
-            st.image(p_avatar, caption=f"{selected_player}'s Avatar", width=120)
-        elif selected_player == "AI Brian":
-            b_img = load_ai_brian_avatar()
-            if b_img:
-                st.image(b_img, caption="AI Brian", width=120)
-            else:
-                st.markdown("<h1 style='font-size: 60px; margin: 0;'>🤖</h1>", unsafe_allow_html=True)
-        else:
+        if not render_player_avatar(p_avatar, selected_player, width=120, caption=f"{selected_player}'s Avatar"):
             st.markdown("<h1 style='font-size: 60px; margin: 0;'>🍪</h1>", unsafe_allow_html=True)
             
     with col_sc2:
