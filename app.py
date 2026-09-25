@@ -3,6 +3,10 @@ import pandas as pd
 import random
 from PIL import Image
 import io
+import os
+import base64
+import json
+import glob
 
 # --- 1. SETUP & PAGE CONFIG ---
 st.set_page_config(
@@ -278,22 +282,31 @@ BAKER_INFO = {
 }
 
 # Streamlit Session State Initialization for persistence
-# Roster Initialization (14 Human Players + AI Brian)
+
+# Ensure assets/avatars directory exists
+os.makedirs("assets/avatars", exist_ok=True)
+
+# Full 15-member roster (14 human players + AI Brian)
 DEFAULT_ROSTER = [
-    "Jasmine", "Ana", "Brian", "Cassie", "Emma", "Gisselle", "Jennifer", 
-    "Mark", "Becca", "Sam", "Stacie W.", "Stacy C.", "Taliah", "Tressa"
+    "Jasmine", "Ana", "Brian", "Cassie", "Emma", "Gisselle", 
+    "Jennifer", "Mark", "Becca", "Sam", "Stacie W.", "Stacy C.", 
+    "Taliah", "Tressa"
 ]
 
 if "league_members" not in st.session_state:
     st.session_state.league_members = {}
-    for m in DEFAULT_ROSTER:
-        st.session_state.league_members[m] = {
+
+for p_name in DEFAULT_ROSTER:
+    if p_name not in st.session_state.league_members:
+        st.session_state.league_members[p_name] = {
             "avatar": None,
             "weekly_picks": {},
             "season_picks": {},
             "total_score": 0,
             "weekly_breakdown": {}
         }
+
+if "AI Brian" not in st.session_state.league_members:
     st.session_state.league_members["AI Brian"] = {
         "avatar": "🤖",
         "weekly_picks": {},
@@ -302,29 +315,17 @@ if "league_members" not in st.session_state:
         "weekly_breakdown": {}
     }
 
-# Automatic Disk Avatar Recovery Scan on Startup / Page Refresh
-os.makedirs("assets/avatars", exist_ok=True)
-for member_name, member_data in st.session_state.league_members.items():
-    if member_data.get("avatar") is None and member_name != "AI Brian":
-        for ext in ["png", "jpg", "jpeg", "webp"]:
-            avatar_path = f"assets/avatars/{member_name}.{ext}"
-            if os.path.exists(avatar_path):
-                member_data["avatar"] = avatar_path
-                break
-
-# Check for AI Brian's custom profile picture
-import os
-brian_avatar_img = None
-for brian_path in ["ai_brian.jpg", "AI Brian.jpg", "assets/ai_brian.jpg", "assets/AI_Brian.jpg", "assets/ai_brian.png", "assets/AI_Brian.png"]:
-    if os.path.exists(brian_path):
+# Startup scan: automatically recover saved avatars from disk on refresh
+for p_name in DEFAULT_ROSTER:
+    avatar_file = os.path.join("assets", "avatars", f"{p_name}.png")
+    if os.path.exists(avatar_file):
         try:
-            brian_avatar_img = Image.open(brian_path)
-            break
+            with open(avatar_file, "rb") as f:
+                b64_str = base64.b64encode(f.read()).decode("utf-8")
+            st.session_state.league_members[p_name]["avatar"] = f"data:image/png;base64,{b64_str}"
         except Exception:
             pass
 
-if brian_avatar_img is not None:
-    st.session_state.league_members["AI Brian"]["avatar"] = brian_avatar_img
 
 if "current_week" not in st.session_state:
     st.session_state.current_week = 2
@@ -443,30 +444,21 @@ st.markdown("### Powered by the Balanced 2026 Competition Rules Engine")
 
 # --- SIDEBAR: USER ACCOUNT, AVATAR UPLOAD & PERSISTENT POINTS REMINDER ---
 with st.sidebar:
-    st.header("📸 Player Profile & Avatar")
-    roster_players = sorted([m for m in st.session_state.league_members if m != "AI Brian"])
-    sb_player = st.selectbox("Select Player Profile:", ["-- Select Your Name --"] + roster_players)
+    st.header("👤 Your Profile")
+    uploaded_file = st.file_uploader("Upload an Avatar Photo", type=["png", "jpg", "jpeg"])
     
-    if sb_player != "-- Select Your Name --":
-        curr_av = st.session_state.league_members[sb_player].get("avatar")
-        if curr_av is not None and isinstance(curr_av, str) and os.path.exists(curr_av):
-            st.image(curr_av, caption=f"{sb_player}'s Active Avatar", width=130)
-        elif curr_av is not None and not isinstance(curr_av, str):
-            st.image(curr_av, caption=f"{sb_player}'s Active Avatar", width=130)
-        else:
-            st.info(f"No custom avatar for {sb_player} yet.")
-            
-        uploaded_file = st.file_uploader(f"Upload Avatar for {sb_player}", type=["png", "jpg", "jpeg", "webp"], key=f"uploader_{sb_player}")
-        if uploaded_file is not None:
-            os.makedirs("assets/avatars", exist_ok=True)
-            save_path = f"assets/avatars/{sb_player}.png"
-            with open(save_path, "wb") as f:
-                f.write(uploaded_file.getbuffer())
-            st.session_state.league_members[sb_player]["avatar"] = save_path
-            st.success(f"Avatar saved to disk for {sb_player}!")
-            st.rerun()
+    if uploaded_file is not None:
+        image = Image.open(uploaded_file)
+        # Resize image for circular presentation
+        image = image.resize((150, 150))
+        st.session_state.league_members["You"]["avatar"] = image
+        st.image(image, caption="Your Active Avatar", width=150)
     else:
-        st.caption("Select your name above to upload a photo that persists across sessions!")
+        if st.session_state.league_members["You"]["avatar"] is not None:
+            st.image(st.session_state.league_members["You"]["avatar"], caption="Your Active Avatar", width=150)
+        else:
+            st.info("No avatar uploaded yet. Using default.")
+            st.markdown("<h1 style='font-size: 70px; margin: 0;'>🍪</h1>", unsafe_allow_html=True)
             
     st.markdown("---")
     st.header("⚙️ Game Controls")
