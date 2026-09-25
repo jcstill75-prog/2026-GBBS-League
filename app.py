@@ -183,6 +183,22 @@ def get_tech_options(active_bakers, current_key, default_val=None, placeholder="
     return opts, idx
 
 def render_player_avatar(avatar_val, width=50, caption=None):
+    if not avatar_val:
+        st.markdown(f"<h2 style='margin:0;'>🍪</h2>", unsafe_allow_html=True)
+        return
+
+    # Base64 string directly stored in JSON
+    if isinstance(avatar_val, str) and avatar_val.startswith("data:image"):
+        try:
+            header, b64_data = avatar_val.split(",", 1)
+            img_bytes = base64.b64decode(b64_data)
+            img = Image.open(io.BytesIO(img_bytes))
+            st.image(img, width=width, caption=caption)
+            return
+        except Exception:
+            pass
+
+    # Disk file fallback
     if isinstance(avatar_val, str) and os.path.exists(avatar_val):
         try:
             img = Image.open(avatar_val)
@@ -190,13 +206,14 @@ def render_player_avatar(avatar_val, width=50, caption=None):
             return
         except Exception:
             pass
-    if isinstance(avatar_val, str) and avatar_val.startswith("data:image"):
-        st.markdown(f'<img src="{avatar_val}" style="width:{width}px; height:{width}px; border-radius:50%; object-fit:cover;">', unsafe_allow_html=True)
-        if caption:
-            st.caption(caption)
-    elif isinstance(avatar_val, Image.Image):
+
+    # PIL Image object
+    if isinstance(avatar_val, Image.Image):
         st.image(avatar_val, width=width, caption=caption)
-    elif avatar_val == "🤖":
+        return
+
+    # Robot avatar or default cookie
+    if avatar_val == "🤖":
         b_img = load_ai_brian_avatar()
         if b_img:
             st.image(b_img, width=width, caption=caption)
@@ -299,7 +316,9 @@ def calculate_weekly_score(predictions, actuals, week=2):
         act_trbl = actuals.get("in_trouble", [])
         if isinstance(act_trbl, str): act_trbl = [act_trbl]
         pred_trbl = predictions.get("in_trouble")
-        if pred_trbl and pred_trbl in act_trbl:
+        act_elim_raw = actuals.get("eliminated", [])
+        if isinstance(act_elim_raw, str): act_elim_raw = [act_elim_raw]
+        if pred_trbl and pred_trbl in act_trbl and pred_trbl not in act_elim_raw:
             score += 2
             
     return score
@@ -484,13 +503,15 @@ def get_weekly_itemized_breakdown(pred, act, week):
         p_trb = pred.get("in_trouble", "None")
         a_trb = act.get("in_trouble", [])
         if isinstance(a_trb, str): a_trb = [a_trb]
-        pts_trb = 2 if (p_trb != "None" and p_trb in a_trb) else 0
+        a_el_r = act.get("eliminated", [])
+        if isinstance(a_el_r, str): a_el_r = [a_el_r]
+        pts_trb = 2 if (p_trb != "None" and p_trb in a_trb and p_trb not in a_el_r) else 0
         rows.append({
             "Category": "⚠️ In Trouble Nominee Consolation",
             "Your Prediction": p_trb,
             "Actual Broadcast Result": ", ".join(a_trb) if a_trb else "None",
             "Points Awarded": f"{pts_trb} pts",
-            "Details & Explanations": f"Picked 'In Trouble' nominee {p_trb} (+2 pts)" if pts_trb == 2 else "Nominee pick not awarded (0 pts)"
+            "Details & Explanations": f"Picked 'In Trouble' saved nominee {p_trb} (+2 pts)" if pts_trb == 2 else "Nominee pick not awarded (0 pts)"
         })
 
     return rows
@@ -636,27 +657,34 @@ with st.sidebar:
             st.warning(f"🔒 Profile locked for **{sb_player}**.")
             st.info("Unlock your profile in the **📝 Submit Predictions** tab using your 4-digit PIN to upload an avatar!")
         else:
-            os.makedirs("assets/avatars", exist_ok=True)
-            avatar_path = f"assets/avatars/{sb_player}.png"
-            
             uploaded_file = st.file_uploader(f"Choose Photo for {sb_player}", type=["png", "jpg", "jpeg"], key=f"uploader_{sb_player}")
             if uploaded_file is not None:
                 try:
                     img = Image.open(uploaded_file)
                     img = img.convert("RGB")
-                    img = img.resize((300, 300))
-                    img.save(avatar_path, format="PNG")
-                    st.session_state.league_members[sb_player]["avatar"] = avatar_path
+                    img = img.resize((250, 200))
+                    
+                    # Convert to Base64 data URL
+                    buf = io.BytesIO()
+                    img.save(buf, format="PNG")
+                    b64_str = base64.b64encode(buf.getvalue()).decode("utf-8")
+                    data_url = f"data:image/png;base64,{b64_str}"
+                    
+                    st.session_state.league_members[sb_player]["avatar"] = data_url
+                    
+                    # Also save disk backup
+                    os.makedirs("assets/avatars", exist_ok=True)
+                    try:
+                        img.save(f"assets/avatars/{sb_player}.png", format="PNG")
+                    except Exception:
+                        pass
+                        
                     save_league_data(st.session_state.league_members, st.session_state.weekly_results, st.session_state.season_results)
                     st.success(f"Avatar updated and saved permanently for {sb_player}!")
                 except Exception as e:
                     st.error(f"Error saving image: {e}")
             
             cur_av = st.session_state.league_members[sb_player].get("avatar")
-            if not cur_av and os.path.exists(avatar_path):
-                cur_av = avatar_path
-                st.session_state.league_members[sb_player]["avatar"] = avatar_path
-            
             if cur_av:
                 render_player_avatar(cur_av, width=150, caption=f"{sb_player}'s Avatar")
 
