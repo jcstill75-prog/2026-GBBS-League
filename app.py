@@ -154,6 +154,22 @@ def get_weekly_result(week):
     return st.session_state.weekly_results.get(w_int) or st.session_state.weekly_results.get(str(w_int)) or {}
 
 
+def get_filtered_tech_options(active_bakers, all_keys, current_key, placeholder="-- Select --"):
+    """Dynamically filters available baker choices across technical placement dropdowns."""
+    others_selected = []
+    for k in all_keys:
+        if k != current_key:
+            val = st.session_state.get(k)
+            if val and not str(val).startswith("-- Select"):
+                others_selected.append(val)
+    available_bakers = [b for b in active_bakers if b not in others_selected]
+    opts = [placeholder] + available_bakers
+    curr_val = st.session_state.get(current_key)
+    idx = opts.index(curr_val) if curr_val in opts else 0
+    return opts, idx
+
+
+
 def calculate_weekly_score(predictions, actuals, week=2):
     score = 0
     if not predictions:
@@ -941,21 +957,18 @@ with tab_submit:
                 weekly_picks["show_champion"] = st.selectbox("Predict Show Champion [15 pts at stake]", active_bakers, index=def_champ_idx, placeholder="-- Select Show Champion --")
                 
                 st.write("Predict Technical Challenge Final Rank:")
-                w10_keys = [f"sub_{active_sub_player}_w10_t1", f"sub_{active_sub_player}_w10_t2", f"sub_{active_sub_player}_w10_t3"]
                 t_ranks_exist = existing_w.get("tech_rank", [])
-                d1 = t_ranks_exist[0] if len(t_ranks_exist) > 0 and t_ranks_exist[0] in active_bakers else None
-                d2 = t_ranks_exist[1] if len(t_ranks_exist) > 1 and t_ranks_exist[1] in active_bakers else None
-                d3 = t_ranks_exist[2] if len(t_ranks_exist) > 2 and t_ranks_exist[2] in active_bakers else None
+                t1_i = active_bakers.index(t_ranks_exist[0]) if len(t_ranks_exist) > 0 and t_ranks_exist[0] in active_bakers else 0
+                t2_i = active_bakers.index(t_ranks_exist[1]) if len(t_ranks_exist) > 1 and t_ranks_exist[1] in active_bakers else (1 if len(active_bakers) > 1 else 0)
+                t3_i = active_bakers.index(t_ranks_exist[2]) if len(t_ranks_exist) > 2 and t_ranks_exist[2] in active_bakers else (2 if len(active_bakers) > 2 else 0)
                 
-                o1, i1 = get_filtered_tech_options(active_bakers, w10_keys, w10_keys[0], "-- Select 1st Place --", d1)
-                tech_1st = st.selectbox("Technical 1st Place [3 pts]", o1, index=i1, key=w10_keys[0])
-                
-                o2, i2 = get_filtered_tech_options(active_bakers, w10_keys, w10_keys[1], "-- Select 2nd Place --", d2)
-                tech_2nd = st.selectbox("Technical 2nd Place [2 pts]", o2, index=i2, key=w10_keys[1])
-                
-                o3, i3 = get_filtered_tech_options(active_bakers, w10_keys, w10_keys[2], "-- Select 3rd Place --", d3)
-                tech_3rd = st.selectbox("Technical 3rd Place [2 pts]", o3, index=i3, key=w10_keys[2])
-                
+                w10_keys = [f"{active_sub_player}_w10_t1", f"{active_sub_player}_w10_t2", f"{active_sub_player}_w10_t3"]
+                opts1, idx1 = get_filtered_tech_options(active_bakers, w10_keys, f"{active_sub_player}_w10_t1", "-- Select 1st Place --")
+                tech_1st = st.selectbox("Technical 1st Place [3 pts]", opts1, index=idx1, key=f"{active_sub_player}_w10_t1")
+                opts2, idx2 = get_filtered_tech_options(active_bakers, w10_keys, f"{active_sub_player}_w10_t2", "-- Select 2nd Place --")
+                tech_2nd = st.selectbox("Technical 2nd Place [2 pts]", opts2, index=idx2, key=f"{active_sub_player}_w10_t2")
+                opts3, idx3 = get_filtered_tech_options(active_bakers, w10_keys, f"{active_sub_player}_w10_t3", "-- Select 3rd Place --")
+                tech_3rd = st.selectbox("Technical 3rd Place [2 pts]", opts3, index=idx3, key=f"{active_sub_player}_w10_t3")
                 weekly_picks["tech_rank"] = [tech_1st, tech_2nd, tech_3rd]
                 
             elif st.session_state.current_week == 9:
@@ -977,25 +990,21 @@ with tab_submit:
                     weekly_picks["eliminated"] = st.selectbox("Predict Eliminated Baker [5 pts at stake]", active_bakers, index=def_el_i, placeholder="-- Select Eliminated Baker --")
                 
                 st.write("Predict Technical Challenge Final Rank:")
-                w9_keys = [f"sub_{active_sub_player}_w9_t1", f"sub_{active_sub_player}_w9_t2", f"sub_{active_sub_player}_w9_t3", f"sub_{active_sub_player}_w9_t4"]
                 t_ranks_exist = existing_w.get("tech_rank", [])
-                d1 = t_ranks_exist[0] if len(t_ranks_exist) > 0 and t_ranks_exist[0] in active_bakers else None
-                d2 = t_ranks_exist[1] if len(t_ranks_exist) > 1 and t_ranks_exist[1] in active_bakers else None
-                d3 = t_ranks_exist[2] if len(t_ranks_exist) > 2 and t_ranks_exist[2] in active_bakers else None
-                d4 = t_ranks_exist[3] if len(t_ranks_exist) > 3 and t_ranks_exist[3] in active_bakers else None
+                t1_i = active_bakers.index(t_ranks_exist[0]) if len(t_ranks_exist) > 0 and t_ranks_exist[0] in active_bakers else 0
+                t2_i = active_bakers.index(t_ranks_exist[1]) if len(t_ranks_exist) > 1 and t_ranks_exist[1] in active_bakers else (1 if len(active_bakers) > 1 else 0)
+                t3_i = active_bakers.index(t_ranks_exist[2]) if len(t_ranks_exist) > 2 and t_ranks_exist[2] in active_bakers else (2 if len(active_bakers) > 2 else 0)
+                t4_i = active_bakers.index(t_ranks_exist[3]) if len(t_ranks_exist) > 3 and t_ranks_exist[3] in active_bakers else (3 if len(active_bakers) > 3 else 0)
                 
-                o1, i1 = get_filtered_tech_options(active_bakers, w9_keys, w9_keys[0], "-- Select 1st Place --", d1)
-                t1 = st.selectbox("Technical 1st Place [3 pts]", o1, index=i1, key=w9_keys[0])
-                
-                o2, i2 = get_filtered_tech_options(active_bakers, w9_keys, w9_keys[1], "-- Select 2nd Place --", d2)
-                t2 = st.selectbox("Technical 2nd Place [2 pts]", o2, index=i2, key=w9_keys[1])
-                
-                o3, i3 = get_filtered_tech_options(active_bakers, w9_keys, w9_keys[2], "-- Select 3rd Place --", d3)
-                t3 = st.selectbox("Technical 3rd Place [2 pts]", o3, index=i3, key=w9_keys[2])
-                
-                o4, i4 = get_filtered_tech_options(active_bakers, w9_keys, w9_keys[3], "-- Select 4th Place --", d4)
-                t4 = st.selectbox("Technical 4th Place [3 pts]", o4, index=i4, key=w9_keys[3])
-                
+                w9_keys = [f"{active_sub_player}_w9_t{r}" for r in range(1, 5)]
+                opts1, idx1 = get_filtered_tech_options(active_bakers, w9_keys, f"{active_sub_player}_w9_t1", "-- Select 1st Place --")
+                t1 = st.selectbox("Technical 1st Place [3 pts]", opts1, index=idx1, key=f"{active_sub_player}_w9_t1")
+                opts2, idx2 = get_filtered_tech_options(active_bakers, w9_keys, f"{active_sub_player}_w9_t2", "-- Select 2nd Place --")
+                t2 = st.selectbox("Technical 2nd Place [2 pts]", opts2, index=idx2, key=f"{active_sub_player}_w9_t2")
+                opts3, idx3 = get_filtered_tech_options(active_bakers, w9_keys, f"{active_sub_player}_w9_t3", "-- Select 3rd Place --")
+                t3 = st.selectbox("Technical 3rd Place [2 pts]", opts3, index=idx3, key=f"{active_sub_player}_w9_t3")
+                opts4, idx4 = get_filtered_tech_options(active_bakers, w9_keys, f"{active_sub_player}_w9_t4", "-- Select 4th Place --")
+                t4 = st.selectbox("Technical 4th Place [3 pts]", opts4, index=idx4, key=f"{active_sub_player}_w9_t4")
                 weekly_picks["tech_rank"] = [t1, t2, t3, t4]
 
             elif st.session_state.current_week == 8:
@@ -1026,29 +1035,24 @@ with tab_submit:
                         weekly_picks["in_trouble"] = st.selectbox("Predict In Trouble of Elimination [2 pts if bottom nominated but saved]", active_bakers, index=def_trb_i, placeholder="-- Select In Trouble Baker --")
                 
                 st.write("Predict Technical Challenge Final Rank:")
-                w8_keys = [f"sub_{active_sub_player}_w8_t1", f"sub_{active_sub_player}_w8_t2", f"sub_{active_sub_player}_w8_t3", f"sub_{active_sub_player}_w8_t4", f"sub_{active_sub_player}_w8_t5"]
                 t_ranks_exist = existing_w.get("tech_rank", [])
-                d1 = t_ranks_exist[0] if len(t_ranks_exist) > 0 and t_ranks_exist[0] in active_bakers else None
-                d2 = t_ranks_exist[1] if len(t_ranks_exist) > 1 and t_ranks_exist[1] in active_bakers else None
-                d3 = t_ranks_exist[2] if len(t_ranks_exist) > 2 and t_ranks_exist[2] in active_bakers else None
-                d4 = t_ranks_exist[3] if len(t_ranks_exist) > 3 and t_ranks_exist[3] in active_bakers else None
-                d5 = t_ranks_exist[4] if len(t_ranks_exist) > 4 and t_ranks_exist[4] in active_bakers else None
+                t1_i = active_bakers.index(t_ranks_exist[0]) if len(t_ranks_exist) > 0 and t_ranks_exist[0] in active_bakers else 0
+                t2_i = active_bakers.index(t_ranks_exist[1]) if len(t_ranks_exist) > 1 and t_ranks_exist[1] in active_bakers else (1 if len(active_bakers) > 1 else 0)
+                t3_i = active_bakers.index(t_ranks_exist[2]) if len(t_ranks_exist) > 2 and t_ranks_exist[2] in active_bakers else (2 if len(active_bakers) > 2 else 0)
+                t4_i = active_bakers.index(t_ranks_exist[3]) if len(t_ranks_exist) > 3 and t_ranks_exist[3] in active_bakers else (3 if len(active_bakers) > 3 else 0)
+                t5_i = active_bakers.index(t_ranks_exist[4]) if len(t_ranks_exist) > 4 and t_ranks_exist[4] in active_bakers else (4 if len(active_bakers) > 4 else 0)
                 
-                o1, i1 = get_filtered_tech_options(active_bakers, w8_keys, w8_keys[0], "-- Select 1st Place --", d1)
-                t1 = st.selectbox("Technical 1st Place [3 pts]", o1, index=i1, key=w8_keys[0])
-                
-                o2, i2 = get_filtered_tech_options(active_bakers, w8_keys, w8_keys[1], "-- Select 2nd Place --", d2)
-                t2 = st.selectbox("Technical 2nd Place [2 pts]", o2, index=i2, key=w8_keys[1])
-                
-                o3, i3 = get_filtered_tech_options(active_bakers, w8_keys, w8_keys[2], "-- Select 3rd Place --", d3)
-                t3 = st.selectbox("Technical 3rd Place [2 pts]", o3, index=i3, key=w8_keys[2])
-                
-                o4, i4 = get_filtered_tech_options(active_bakers, w8_keys, w8_keys[3], "-- Select 4th Place --", d4)
-                t4 = st.selectbox("Technical 4th Place [2 pts]", o4, index=i4, key=w8_keys[3])
-                
-                o5, i5 = get_filtered_tech_options(active_bakers, w8_keys, w8_keys[4], "-- Select 5th Place --", d5)
-                t5 = st.selectbox("Technical 5th Place [3 pts]", o5, index=i5, key=w8_keys[4])
-                
+                w8_keys = [f"{active_sub_player}_w8_t{r}" for r in range(1, 6)]
+                opts1, idx1 = get_filtered_tech_options(active_bakers, w8_keys, f"{active_sub_player}_w8_t1", "-- Select 1st Place --")
+                t1 = st.selectbox("Technical 1st Place [3 pts]", opts1, index=idx1, key=f"{active_sub_player}_w8_t1")
+                opts2, idx2 = get_filtered_tech_options(active_bakers, w8_keys, f"{active_sub_player}_w8_t2", "-- Select 2nd Place --")
+                t2 = st.selectbox("Technical 2nd Place [2 pts]", opts2, index=idx2, key=f"{active_sub_player}_w8_t2")
+                opts3, idx3 = get_filtered_tech_options(active_bakers, w8_keys, f"{active_sub_player}_w8_t3", "-- Select 3rd Place --")
+                t3 = st.selectbox("Technical 3rd Place [2 pts]", opts3, index=idx3, key=f"{active_sub_player}_w8_t3")
+                opts4, idx4 = get_filtered_tech_options(active_bakers, w8_keys, f"{active_sub_player}_w8_t4", "-- Select 4th Place --")
+                t4 = st.selectbox("Technical 4th Place [2 pts]", opts4, index=idx4, key=f"{active_sub_player}_w8_t4")
+                opts5, idx5 = get_filtered_tech_options(active_bakers, w8_keys, f"{active_sub_player}_w8_t5", "-- Select 5th Place --")
+                t5 = st.selectbox("Technical 5th Place [3 pts]", opts5, index=idx5, key=f"{active_sub_player}_w8_t5")
                 weekly_picks["tech_rank"] = [t1, t2, t3, t4, t5]
                 
             else:
@@ -1086,43 +1090,26 @@ with tab_submit:
                 def_top3 = [b for b in existing_w.get("tech_top_3", []) if b in active_bakers]
                 def_bot3 = [b for b in existing_w.get("tech_bottom_3", []) if b in active_bakers]
                 
-                std_keys = [
-                    f"sub_std_{active_sub_player}_w{st.session_state.current_week}_t1",
-                    f"sub_std_{active_sub_player}_w{st.session_state.current_week}_t2",
-                    f"sub_std_{active_sub_player}_w{st.session_state.current_week}_t3",
-                    f"sub_std_{active_sub_player}_w{st.session_state.current_week}_b3",
-                    f"sub_std_{active_sub_player}_w{st.session_state.current_week}_b2",
-                    f"sub_std_{active_sub_player}_w{st.session_state.current_week}_b1"
-                ]
-                dt1 = def_top3[0] if len(def_top3) > 0 else None
-                dt2 = def_top3[1] if len(def_top3) > 1 else None
-                dt3 = def_top3[2] if len(def_top3) > 2 else None
-                db3 = def_bot3[0] if len(def_bot3) > 0 else None
-                db2 = def_bot3[1] if len(def_bot3) > 1 else None
-                db1 = def_bot3[2] if len(def_bot3) > 2 else None
+                std_top_keys = [f"{active_sub_player}_std_t1", f"{active_sub_player}_std_t2", f"{active_sub_player}_std_t3"]
+                std_bot_keys = [f"{active_sub_player}_std_b3", f"{active_sub_player}_std_b2", f"{active_sub_player}_std_b1"]
+                std_all_tech = std_top_keys + std_bot_keys
                 
                 with col_t_top:
-                    o1, i1 = get_filtered_tech_options(active_bakers, std_keys, std_keys[0], "-- Select 1st Place --", dt1)
-                    t1 = st.selectbox("1st Place [3 pts]", o1, index=i1, key=std_keys[0])
-                    
-                    o2, i2 = get_filtered_tech_options(active_bakers, std_keys, std_keys[1], "-- Select 2nd Place --", dt2)
-                    t2 = st.selectbox("2nd Place [2 pts]", o2, index=i2, key=std_keys[1])
-                    
-                    o3, i3 = get_filtered_tech_options(active_bakers, std_keys, std_keys[2], "-- Select 3rd Place --", dt3)
-                    t3 = st.selectbox("3rd Place [2 pts]", o3, index=i3, key=std_keys[2])
-                    
+                    opts1, idx1 = get_filtered_tech_options(active_bakers, std_all_tech, f"{active_sub_player}_std_t1", "-- Select 1st Place --")
+                    t1 = st.selectbox("1st Place [3 pts]", opts1, index=idx1, key=f"{active_sub_player}_std_t1")
+                    opts2, idx2 = get_filtered_tech_options(active_bakers, std_all_tech, f"{active_sub_player}_std_t2", "-- Select 2nd Place --")
+                    t2 = st.selectbox("2nd Place [2 pts]", opts2, index=idx2, key=f"{active_sub_player}_std_t2")
+                    opts3, idx3 = get_filtered_tech_options(active_bakers, std_all_tech, f"{active_sub_player}_std_t3", "-- Select 3rd Place --")
+                    t3 = st.selectbox("3rd Place [2 pts]", opts3, index=idx3, key=f"{active_sub_player}_std_t3")
                     weekly_picks["tech_top_3"] = [t1, t2, t3]
                     
                 with col_t_bot:
-                    ob3, ib3 = get_filtered_tech_options(active_bakers, std_keys, std_keys[3], "-- Select 3rd-to-last Place --", db3)
-                    b_3rd_last = st.selectbox("3rd-to-last Place [2 pts]", ob3, index=ib3, key=std_keys[3])
-                    
-                    ob2, ib2 = get_filtered_tech_options(active_bakers, std_keys, std_keys[4], "-- Select 2nd-to-last Place --", db2)
-                    b_2nd_last = st.selectbox("2nd-to-last Place [2 pts]", ob2, index=ib2, key=std_keys[4])
-                    
-                    ob1, ib1 = get_filtered_tech_options(active_bakers, std_keys, std_keys[5], "-- Select Last Place --", db1)
-                    b_last = st.selectbox("Last Place [3 pts]", ob1, index=ib1, key=std_keys[5])
-                    
+                    opts_b3, idx_b3 = get_filtered_tech_options(active_bakers, std_all_tech, f"{active_sub_player}_std_b3", "-- Select 3rd-to-last Place --")
+                    b_3rd_last = st.selectbox("3rd-to-last Place [2 pts]", opts_b3, index=idx_b3, key=f"{active_sub_player}_std_b3")
+                    opts_b2, idx_b2 = get_filtered_tech_options(active_bakers, std_all_tech, f"{active_sub_player}_std_b2", "-- Select 2nd-to-last Place --")
+                    b_2nd_last = st.selectbox("2nd-to-last Place [2 pts]", opts_b2, index=idx_b2, key=f"{active_sub_player}_std_b2")
+                    opts_b1, idx_b1 = get_filtered_tech_options(active_bakers, std_all_tech, f"{active_sub_player}_std_b1", "-- Select Last Place --")
+                    b_last = st.selectbox("Last Place [3 pts]", opts_b1, index=idx_b1, key=f"{active_sub_player}_std_b1")
                     weekly_picks["tech_bottom_3"] = [b_3rd_last, b_2nd_last, b_last]
 
             submitted = st.form_submit_button("Submit Predictions")
