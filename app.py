@@ -524,25 +524,111 @@ with tab_lead:
         df_lb = df_lb.sort_values(by="points", ascending=False).reset_index(drop=True)
         df_lb.index = df_lb.index + 1
         
-        # Display clean, native Streamlit leaderboard dataframe (no raw HTML leaks)
-        display_rows = []
+        # Display custom styled leaderboard table
+        st.markdown("""
+        <style>
+            .lb-table {
+                width: 100%;
+                border-collapse: collapse;
+                margin-top: 10px;
+                margin-bottom: 25px;
+            }
+            .lb-table th {
+                background-color: #5D4037;
+                color: #FFFFFF;
+                padding: 12px 14px;
+                text-align: left;
+                font-size: 1.05rem;
+                font-weight: 700;
+            }
+            .lb-table td {
+                padding: 12px 14px;
+                border-bottom: 1px solid rgba(128, 128, 128, 0.2);
+                vertical-align: middle;
+            }
+            .lb-rank {
+                font-weight: 800;
+                font-size: 1.15rem;
+                color: var(--text-color, #2C1810);
+            }
+            .lb-name {
+                font-weight: 800;
+                font-size: 1.2rem;
+                color: var(--text-color, #2C1810);
+            }
+            .lb-pts {
+                font-weight: 800;
+                font-size: 1.25rem;
+                color: #D36B5F;
+                text-align: right;
+            }
+            [data-theme="dark"] .lb-name,
+            .stApp[data-theme="dark"] .lb-name,
+            [data-theme="dark"] .lb-rank,
+            .stApp[data-theme="dark"] .lb-rank,
+            @media (prefers-color-scheme: dark) {
+                .lb-name, .lb-rank {
+                    color: #FFFFFF !important;
+                }
+                .lb-pts {
+                    color: #FF8A80 !important;
+                }
+            }
+        </style>
+        """, unsafe_allow_html=True)
+        
+        html_rows = []
         for rank, row in df_lb.iterrows():
             m_name = row["member"]
             m_pts = row["points"]
+            av_val = row["avatar"]
             
+            # Render avatar
+            if isinstance(av_val, str) and av_val.startswith("data:image"):
+                av_html = f'<img src="{av_val}" style="width:42px; height:42px; border-radius:50%; object-fit:cover;">'
+            elif isinstance(av_val, str) and os.path.exists(av_val):
+                try:
+                    with open(av_val, "rb") as f:
+                        b64 = base64.b64encode(f.read()).decode("utf-8")
+                    ext = "png" if av_val.endswith(".png") else "jpeg"
+                    av_html = f'<img src="data:image/{ext};base64,{b64}" style="width:42px; height:42px; border-radius:50%; object-fit:cover;">'
+                except Exception:
+                    av_html = "🍪"
+            elif av_val == "🤖" or m_name == "AI Brian":
+                av_html = "🤖"
+            else:
+                av_html = "🍪"
+                
             rank_badge = f"#{rank}"
             if rank == 1: rank_badge = "🥇 #1"
             elif rank == 2: rank_badge = "🥈 #2"
             elif rank == 3: rank_badge = "🥉 #3"
             
-            display_rows.append({
-                "Rank": rank_badge,
-                "League Member": m_name,
-                "Total Points": f"{m_pts} pts"
-            })
+            html_rows.append(f"""
+            <tr>
+                <td class="lb-rank">{rank_badge}</td>
+                <td style="width: 50px; text-align: center;">{av_html}</td>
+                <td class="lb-name">{m_name}</td>
+                <td class="lb-pts">{m_pts} pts</td>
+            </tr>
+            """)
             
-        df_display = pd.DataFrame(display_rows)
-        st.dataframe(df_display, use_container_width=True, hide_index=True)
+        table_html = f"""
+        <table class="lb-table">
+            <thead>
+                <tr>
+                    <th style="width: 80px;">Rank</th>
+                    <th style="width: 60px; text-align: center;">Avatar</th>
+                    <th>League Member</th>
+                    <th style="text-align: right; width: 120px;">Total Points</th>
+                </tr>
+            </thead>
+            <tbody>
+                {''.join(html_rows)}
+            </tbody>
+        </table>
+        """
+        st.markdown(table_html, unsafe_allow_html=True)
 
     st.markdown("---")
     st.subheader("📋 Individual Player Scorecards & Projections")
@@ -691,6 +777,7 @@ with tab_submit:
     
     # Dynamic active bakers list
     eliminated_bakers_by_week = {
+        1: [],  # Week 1: All 12 bakers active in the tent!
         2: ["Yannis"],
         3: ["Yannis", "Nikki"],
         4: ["Yannis", "Nikki", "Connie"],
@@ -953,62 +1040,4 @@ with tab_admin:
             act_finalists = st.multiselect("Actual Finalists (Select 3)", ALL_BAKERS, max_selections=3)
             
             act_handshakes = st.number_input("Actual Total Handshakes", min_value=0, value=5)
-            act_crying = st.number_input("Actual Total Crying Scenes", min_value=0, value=12)
-            act_innuendos = st.number_input("Actual Total Sexual Innuendos", min_value=0, value=48)
-            
-            actuals_season = {
-                "winner": act_winner,
-                "semifinalists": act_semis,
-                "finalists": act_finalists,
-                "handshakes": act_handshakes,
-                "crying": act_crying,
-                "innuendos": act_innuendos
-            }
-            
-        submit_actuals = st.form_submit_button("Publish Actual Results & Recalculate Standings")
-        if submit_actuals:
-            st.session_state.weekly_results[st.session_state.current_week] = actuals
-            if st.session_state.current_week == 10:
-                st.session_state.season_results = actuals_season
-                
-            # TRIGGER RECALCULATION
-            # Reset scores and build from logs to ensure clean database states
-            for member_name in st.session_state.league_members:
-                st.session_state.league_members[member_name]["total_score"] = 0
-                st.session_state.league_members[member_name]["weekly_breakdown"] = {}
-                
-            # Score each week that has results
-            all_weeks_scored = sorted(list(st.session_state.weekly_results.keys()))
-            
-            for w in all_weeks_scored:
-                act_w = st.session_state.weekly_results[w]
-                
-                # Determine weekly scores before star bonus
-                weekly_raw = {}
-                for m_name, m_data in st.session_state.league_members.items():
-                    pred_w = m_data["weekly_picks"].get(w, {})
-                    raw_score = calculate_weekly_score(pred_w, act_w, w)
-                    weekly_raw[m_name] = raw_score
-                    m_data["weekly_breakdown"][w] = raw_score
-                    
-                # Weekly Star Member Bonus (+5 points) to the weekly high scorer (using episodic points only)
-                if weekly_raw:
-                    max_raw = max(weekly_raw.values())
-                    for m_name, raw_s in weekly_raw.items():
-                        if raw_s == max_raw:
-                            st.session_state.league_members[m_name]["weekly_breakdown"][w] += 5
-                            
-            # Score Season-Long projections if Week 10 has results
-            if st.session_state.season_results:
-                for m_name, m_data in st.session_state.league_members.items():
-                    season_pred = m_data["season_picks"]
-                    season_score = calculate_season_score(season_pred, st.session_state.season_results)
-                    m_data["season_score"] = season_score
-                    
-            # Recompile total scores
-            for m_name, m_data in st.session_state.league_members.items():
-                weekly_total = sum(m_data["weekly_breakdown"].values())
-                season_total = m_data.get("season_score", 0)
-                m_data["total_score"] = weekly_total + season_total
-                
-            st.success("Leaderboard updated! All predictions scored and verified against the 2026 rule constraints.")
+            act_crying = st.number_input("Actual Total Crying Sc
