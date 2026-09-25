@@ -873,9 +873,12 @@ with tab_submit:
         st.markdown("---")
         
         # 1. VISUAL BAKER GALLERY
+        current_elim_gallery = get_current_eliminated_bakers(st.session_state.current_week)
+        active_gallery_bakers = [b for b in ALL_BAKERS if b not in current_elim_gallery]
+
         with st.expander("📸 Visual Baker Gallery (Class of 2026)", expanded=False):
             cols = st.columns(4)
-            for idx, baker in enumerate(ALL_BAKERS):
+            for idx, baker in enumerate(active_gallery_bakers):
                 info = BAKER_INFO.get(baker, {"url": "#"})
                 with cols[idx % 4]:
                     img = load_baker_image(baker)
