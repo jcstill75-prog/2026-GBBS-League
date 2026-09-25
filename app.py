@@ -1,4 +1,56 @@
-import base64
+
+def load_ai_brian_avatar():
+    """Smart image loader for AI Brian robot avatar."""
+    for p in ["assets/aibrian.jpg", "assets/aibrian.png", "aibrian.jpg", "aibrian.png", "assets/ai_brian.jpg", "assets/AI_Brian.jpg"]:
+        if os.path.exists(p):
+            return p
+    return None
+
+def render_player_avatar(avatar_val, width=50, caption=None):
+    """Universal avatar renderer supporting file paths, base64 data URLs, and PIL Images."""
+    if not avatar_val:
+        st.markdown(f"<h2 style='margin:0;'>🍪</h2>", unsafe_allow_html=True)
+        return
+
+    if isinstance(avatar_val, str) and os.path.exists(avatar_val):
+        try:
+            img = Image.open(avatar_val)
+            st.image(img, width=width, caption=caption)
+            return
+        except Exception:
+            pass
+
+    if isinstance(avatar_val, str) and avatar_val.startswith("data:image"):
+        try:
+            header, b64_data = avatar_val.split(",", 1)
+            img_data = base64.b64decode(b64_data)
+            img = Image.open(io.BytesIO(img_data))
+            st.image(img, width=width, caption=caption)
+            return
+        except Exception:
+            pass
+
+    if isinstance(avatar_val, Image.Image):
+        st.image(avatar_val, width=width, caption=caption)
+        return
+
+    if avatar_val == "🤖":
+        b_img = load_ai_brian_avatar()
+        if b_img:
+            if isinstance(b_img, str) and os.path.exists(b_img):
+                try:
+                    st.image(Image.open(b_img), width=width, caption=caption)
+                    return
+                except Exception:
+                    pass
+            elif isinstance(b_img, Image.Image):
+                st.image(b_img, width=width, caption=caption)
+                return
+        st.markdown(f"<h2 style='margin:0;'>🤖</h2>", unsafe_allow_html=True)
+        return
+
+    st.markdown(f"<h2 style='margin:0;'>🍪</h2>", unsafe_allow_html=True)
+
 import streamlit as st
 import pandas as pd
 import random
@@ -210,51 +262,6 @@ def calculate_season_score(predictions, actuals):
             
     return score
 
-
-
-def render_player_avatar(avatar_val, width=50, caption=None):
-    if not avatar_val:
-        st.markdown(f"<h2 style='margin:0;'>🍪</h2>", unsafe_allow_html=True)
-        return
-
-    if isinstance(avatar_val, str) and os.path.exists(avatar_val):
-        try:
-            img = Image.open(avatar_val)
-            st.image(img, width=width, caption=caption)
-            return
-        except Exception:
-            pass
-
-    if isinstance(avatar_val, str) and avatar_val.startswith("data:image"):
-        try:
-            header, b64_data = avatar_val.split(",", 1)
-            img_data = base64.b64decode(b64_data)
-            img = Image.open(io.BytesIO(img_data))
-            st.image(img, width=width, caption=caption)
-            return
-        except Exception:
-            pass
-
-    if isinstance(avatar_val, Image.Image):
-        st.image(avatar_val, width=width, caption=caption)
-        return
-
-    if avatar_val == "🤖":
-        b_img = load_ai_brian_avatar()
-        if b_img:
-            if isinstance(b_img, str) and os.path.exists(b_img):
-                try:
-                    st.image(Image.open(b_img), width=width, caption=caption)
-                    return
-                except Exception:
-                    pass
-            elif isinstance(b_img, Image.Image):
-                st.image(b_img, width=width, caption=caption)
-                return
-        st.markdown(f"<h2 style='margin:0;'>🤖</h2>", unsafe_allow_html=True)
-        return
-
-    st.markdown(f"<h2 style='margin:0;'>🍪</h2>", unsafe_allow_html=True)
 
 def load_baker_image(baker_name):
     """Smart case-insensitive and multi-extension image loader."""
@@ -468,107 +475,81 @@ if not st.session_state.league_members["AI Brian"]["season_picks"]:
     st.session_state.league_members["AI Brian"]["season_picks"] = generate_ai_brian_season_picks()
 
 # --- 5. APP INTERFACE LAYOUT ---
-# --- 6. HEADER ---
-norman_path = None
-for p in ["normanbeaver.jpg", "assets/normanbeaver.jpg", "normanbeaver.png", "assets/normanbeaver.png"]:
-    if os.path.exists(p):
-        norman_path = p
-        break
-
-if norman_path:
-    try:
-        with open(norman_path, "rb") as f:
-            b64_beaver = base64.b64encode(f.read()).decode("utf-8")
-        ext = "png" if norman_path.endswith(".png") else "jpeg"
-        st.markdown(f"""
-        <style>
-            .header-container {{
-                display: flex;
-                align-items: center;
-                gap: 18px;
-                margin-top: 5px;
-                margin-bottom: 22px;
-            }}
-            .header-title {{
-                margin: 0;
-                padding: 0;
-                font-size: 2.2rem;
-                font-weight: 800;
-                line-height: 1.2;
-                color: var(--text-color, #2C1810);
-            }}
-            [data-theme="dark"] .header-title,
-            .stApp[data-theme="dark"] .header-title,
-            @media (prefers-color-scheme: dark) {{
-                .header-title {{
-                    color: #FFFFFF !important;
-                }}
-            }}
-        </style>
-        <div class="header-container">
-            <img src="data:image/{ext};base64,{b64_beaver}" style="height: 80px; width: auto; border-radius: 8px; object-fit: contain;">
-            <h1 class="header-title">Great British Baking Show Fantasy League 2026</h1>
-        </div>
-        """, unsafe_allow_html=True)
-    except Exception:
-        col_logo, col_title = st.columns([1, 6])
-        with col_logo: st.image(norman_path, width=80)
-        with col_title: st.title("Great British Baking Show Fantasy League 2026")
-else:
-    st.title("Great British Baking Show Fantasy League 2026")
+st.title("🧁 Great British Baking Show Fantasy League 2026")
+st.markdown("### Powered by the Balanced 2026 Competition Rules Engine")
 
 # --- SIDEBAR: USER ACCOUNT, AVATAR UPLOAD & PERSISTENT POINTS REMINDER ---
 with st.sidebar:
-    st.header("📸 Upload Avatar Photo")
-    st.write("Select your player name below to upload or manage your profile picture!")
+    st.header("👤 Your Profile")
+    uploaded_file = st.file_uploader("Upload an Avatar Photo", type=["png", "jpg", "jpeg"])
     
-    roster_players = sorted([m for m in st.session_state.league_members if m != "AI Brian"])
-    sb_player = st.selectbox("Select Player Profile:", ["-- Select Your Name --"] + roster_players)
-    
-    if sb_player != "-- Select Your Name --":
-        os.makedirs("assets/avatars", exist_ok=True)
-        avatar_path = f"assets/avatars/{sb_player}.png"
-        
-        uploaded_file = st.file_uploader(f"Choose Photo for {sb_player}", type=["png", "jpg", "jpeg"], key=f"uploader_{sb_player}")
-        if uploaded_file is not None:
-            try:
-                img = Image.open(uploaded_file)
-                img = img.convert("RGB")
-                img = img.resize((300, 300))
-                img.save(avatar_path, format="PNG")
-                
-                st.session_state.league_members[sb_player]["avatar"] = avatar_path
-                save_league_data(st.session_state.league_members, st.session_state.weekly_results, st.session_state.season_results)
-                st.success(f"Avatar updated and saved permanently for {sb_player}!")
-            except Exception as e:
-                st.error(f"Error saving image: {e}")
-        
-        cur_av = st.session_state.league_members[sb_player].get("avatar")
-        if not cur_av or (isinstance(cur_av, str) and not os.path.exists(cur_av) and not cur_av.startswith("data:image")):
-            if os.path.exists(avatar_path):
-                cur_av = avatar_path
-                st.session_state.league_members[sb_player]["avatar"] = avatar_path
-        
-        if cur_av:
-            render_player_avatar(cur_av, width=150, caption=f"{sb_player}'s Avatar")
+    if uploaded_file is not None:
+        image = Image.open(uploaded_file)
+        # Resize image for circular presentation
+        image = image.resize((150, 150))
+        st.session_state.league_members["You"]["avatar"] = image
+        st.image(image, caption="Your Active Avatar", width=150)
+    else:
+        if st.session_state.league_members["You"]["avatar"] is not None:
+            st.image(st.session_state.league_members["You"]["avatar"], caption="Your Active Avatar", width=150)
+        else:
+            st.info("No avatar uploaded yet. Using default.")
+            st.markdown("<h1 style='font-size: 70px; margin: 0;'>🍪</h1>", unsafe_allow_html=True)
             
     st.markdown("---")
     st.header("⚙️ Game Controls")
-    selected_week = st.slider("Select App Active Week", min_value=2, max_value=10, value=st.session_state.current_week)
+    selected_week = st.slider("Select App Active Week", min_value=1, max_value=10, value=st.session_state.current_week)
     st.session_state.current_week = selected_week
 
     st.markdown("---")
-    st.header("📜 Competition Rules Overview")
-    st.markdown("""
-    - **Scouting Phase:** Week 1 allows evaluating bakers before locking projections.
-    - **Lock Projections:** Season projections lock in Week 2.
-    - **Weekly Ballots:** Due prior to the broadcast each week.
-    - **Star Baker:** +5 pts.
-    - **Eliminated Baker:** +5 pts.
-    - **Technical Placements:** Top 3 / Bottom 3 scoring in Weeks 2-7; Full Rankings in Weeks 8-10.
-    - **In Line / In Trouble:** +2 pts each.
-    - **Chaos Counts:** Hollywood Handshakes, Crying, and Sexual Innuendos.
-    """)
+    st.header("🎯 Points Reference Guide")
+    st.write("A persistent reminder of what points are at stake for each prediction!")
+    st.warning("⏰ **Weekly voting window ends on Tuesdays right before the show airs in the UK.**")
+    
+    with st.expander("🌟 Season-Long Projections", expanded=False):
+        st.markdown("""
+        *   **Season Winner:** 40 pts
+        *   **Finalist Consolation:** 15 pts *(if picked winner makes Top 3 but loses)*
+        *   **Other 3 Semifinalists:** 10 pts each *(30 pts max)*
+        *   **Handshakes Count:** 20 pts *(spot-on)* / 10 pts *(+/- 1)*
+        *   **Crying Events:** 20 pts *(spot-on)* / 10 pts *(+/- 5)*
+        *   **Innuendos Count:** 20 pts *(spot-on)* / 10 pts *(+/- 5)*
+        """)
+        
+    with st.expander("📅 Standard Weeks (Weeks 2-7)", expanded=False):
+        st.markdown("""
+        *   **Star Baker:** 5 pts
+        *   **Eliminated Baker:** 5 pts
+        *   **In Line (Star Baker consolation):** 2 pts
+        *   **In Trouble (Elimination consolation):** 2 pts
+        *   **Top 3 Technical Challenge:**
+            *   *Exact:* 3 pts for 1st, 2 pts for 2nd/3rd
+            *   *Wrong Spot:* 1 pt for any correct Top 3 baker
+            *   *Combo Sweep:* **10 pts** *(flat)*
+        *   **Bottom 3 Technical Challenge:**
+            *   *Exact:* 2 pts for 9th/10th, 3 pts for 11th
+            *   *Wrong Spot:* 1 pt for any correct Bottom 3 baker
+            *   *Combo Sweep:* **10 pts** *(flat)*
+        *   **Star League Member:** +5 pts *(weekly high scorer)*
+        """)
+        
+    with st.expander("🏁 Weeks 8, 9 & 10 (Dynamic Scaling)", expanded=False):
+        st.markdown("""
+        *   **Week 8 (Quarterfinal episodic - 5 bakers):**
+            *   *Star Baker:* 5 pts
+            *   *Eliminated:* 5 pts
+            *   *Technical:* Exact positions 1st/5th (3 pts), 2nd/3rd/4th (2 pts)
+            *   *Perfect 5-for-5 Sweep:* **25 pts** *(flat)*
+        *   **Week 9 (Semifinal episodic - 4 bakers):**
+            *   *Star Baker:* 5 pts
+            *   *Eliminated:* 5 pts
+            *   *Technical:* Exact positions 1st/4th (3 pts), 2nd/3rd (2 pts)
+            *   *Perfect 4-for-4 Sweep:* **20 pts** *(flat)*
+        *   **Week 10 (Grand Finale episodic - 3 bakers):**
+            *   *Show Champion:* 15 pts
+            *   *Technical:* Exact positions 1st (3 pts), 2nd/3rd (2 pts)
+            *   *Perfect 3-for-3 Sweep:* **15 pts** *(flat)*
+        """)
 
 # --- MAIN TABS ---
 tab_lead, tab_submit, tab_admin = st.tabs(["📊 Leaderboard & Standings", "📝 Submit Predictions", "👑 Admin Panel"])
