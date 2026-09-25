@@ -189,6 +189,13 @@ def get_filtered_tech_options(active_bakers, all_keys, current_key, placeholder=
     return opts, idx
 
 def render_player_avatar(avatar_val, width=50, caption=None):
+    if isinstance(avatar_val, str) and os.path.exists(avatar_val):
+        try:
+            img = Image.open(avatar_val)
+            st.image(img, width=width, caption=caption)
+            return
+        except Exception:
+            pass
     if isinstance(avatar_val, str) and avatar_val.startswith("data:image"):
         st.markdown(f'<img src="{avatar_val}" style="width:{width}px; height:{width}px; border-radius:50%; object-fit:cover;">', unsafe_allow_html=True)
         if caption:
@@ -639,20 +646,29 @@ with st.sidebar:
             st.warning(f"🔒 Profile locked for **{sb_player}**.")
             st.info("Unlock your profile in the **📝 Submit Predictions** tab using your 4-digit PIN to upload an avatar!")
         else:
-            uploaded_file = st.file_uploader(f"Choose Photo for {sb_player}", type=["png", "jpg", "jpeg"])
+            os.makedirs("assets/avatars", exist_ok=True)
+            avatar_path = f"assets/avatars/{sb_player}.png"
+            
+            uploaded_file = st.file_uploader(f"Choose Photo for {sb_player}", type=["png", "jpg", "jpeg"], key=f"uploader_{sb_player}")
             if uploaded_file is not None:
-                img_bytes = uploaded_file.read()
-                b64_str = base64.b64encode(img_bytes).decode("utf-8")
-                mime = uploaded_file.type or "image/png"
-                data_url = f"data:{mime};base64,{b64_str}"
-                st.session_state.league_members[sb_player]["avatar"] = data_url
-                save_league_data(st.session_state.league_members, st.session_state.weekly_results, st.session_state.season_results)
-                st.success(f"Avatar photo uploaded and saved for {sb_player}!")
-                st.rerun()
-            else:
-                cur_av = st.session_state.league_members[sb_player].get("avatar")
-                if cur_av:
-                    render_player_avatar(cur_av, width=150, caption=f"{sb_player}'s Avatar")
+                try:
+                    img = Image.open(uploaded_file)
+                    img = img.convert("RGB")
+                    img = img.resize((300, 300))
+                    img.save(avatar_path, format="PNG")
+                    st.session_state.league_members[sb_player]["avatar"] = avatar_path
+                    save_league_data(st.session_state.league_members, st.session_state.weekly_results, st.session_state.season_results)
+                    st.success(f"Avatar updated and saved permanently for {sb_player}!")
+                except Exception as e:
+                    st.error(f"Error saving image: {e}")
+            
+            cur_av = st.session_state.league_members[sb_player].get("avatar")
+            if not cur_av and os.path.exists(avatar_path):
+                cur_av = avatar_path
+                st.session_state.league_members[sb_player]["avatar"] = avatar_path
+            
+            if cur_av:
+                render_player_avatar(cur_av, width=150, caption=f"{sb_player}'s Avatar")
 
     st.markdown("---")
     st.subheader("🗓️ Active Competition Week")
