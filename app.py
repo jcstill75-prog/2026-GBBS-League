@@ -299,9 +299,7 @@ def calculate_weekly_score(predictions, actuals, week=2):
         act_trbl = actuals.get("in_trouble", [])
         if isinstance(act_trbl, str): act_trbl = [act_trbl]
         pred_trbl = predictions.get("in_trouble")
-        act_elim_raw = actuals.get("eliminated", [])
-        if isinstance(act_elim_raw, str): act_elim_raw = [act_elim_raw]
-        if pred_trbl and pred_trbl in act_trbl and pred_trbl not in act_elim_raw:
+        if pred_trbl and pred_trbl in act_trbl:
             score += 2
             
     return score
@@ -486,15 +484,13 @@ def get_weekly_itemized_breakdown(pred, act, week):
         p_trb = pred.get("in_trouble", "None")
         a_trb = act.get("in_trouble", [])
         if isinstance(a_trb, str): a_trb = [a_trb]
-        a_el_r = act.get("eliminated", [])
-        if isinstance(a_el_r, str): a_el_r = [a_el_r]
-        pts_trb = 2 if (p_trb != "None" and p_trb in a_trb and p_trb not in a_el_r) else 0
+        pts_trb = 2 if (p_trb != "None" and p_trb in a_trb) else 0
         rows.append({
             "Category": "⚠️ In Trouble Nominee Consolation",
             "Your Prediction": p_trb,
             "Actual Broadcast Result": ", ".join(a_trb) if a_trb else "None",
             "Points Awarded": f"{pts_trb} pts",
-            "Details & Explanations": f"Picked 'In Trouble' saved nominee {p_trb} (+2 pts)" if pts_trb == 2 else "Nominee pick not awarded (0 pts)"
+            "Details & Explanations": f"Picked 'In Trouble' nominee {p_trb} (+2 pts)" if pts_trb == 2 else "Nominee pick not awarded (0 pts)"
         })
 
     return rows
@@ -1113,43 +1109,10 @@ with tab_submit:
 
                 submitted = st.form_submit_button("Submit Predictions")
                 if submitted:
-                    import collections
-                    
-                    # 1. Main Category Picks (Star Baker, Eliminated, In Line, In Trouble, Show Champion)
-                    main_bakers = []
-                    for k in ["star_baker", "in_line_sb", "in_trouble", "show_champion"]:
-                        v = weekly_picks.get(k)
-                        if v and isinstance(v, str) and not v.startswith("-- Select") and v != "None":
-                            main_bakers.append(v)
-                    el = weekly_picks.get("eliminated")
-                    if isinstance(el, list):
-                        for b in el:
-                            if b and not b.startswith("-- Select") and b != "None":
-                                main_bakers.append(b)
-                    elif isinstance(el, str) and not el.startswith("-- Select") and el != "None":
-                        main_bakers.append(el)
-                    
-                    main_dups = sorted(list(set([b for b, cnt in collections.Counter(main_bakers).items() if cnt > 1])))
-
-                    # 2. Technical Placement Picks (Top 3, Bottom 3, or Full Ranks)
-                    tech_bakers = []
-                    for tk in ["tech_top_3", "tech_bottom_3", "tech_rank"]:
-                        tv = weekly_picks.get(tk)
-                        if isinstance(tv, list):
-                            for b in tv:
-                                if b and not b.startswith("-- Select") and b != "None":
-                                    tech_bakers.append(b)
-
-                    tech_dups = sorted(list(set([b for b, cnt in collections.Counter(tech_bakers).items() if cnt > 1])))
-
-                    if main_dups or tech_dups:
-                        err_msgs = []
-                        if main_dups:
-                            err_msgs.append(f"• **Main Categories:** **{', '.join(main_dups)}** cannot be selected multiple times among Star Baker, Eliminated, In Line, and In Trouble.")
-                        if tech_dups:
-                            err_msgs.append(f"• **Technical Placements:** **{', '.join(tech_dups)}** cannot be selected multiple times within Technical rankings.")
-                        
-                        st.error("⚠️ **Duplicate Selection Error:**\n\n" + "\n".join(err_msgs) + "\n\nPlease fix the duplicates and submit again.")
+                    all_selected_bakers = [b for b in raw_selections if b in active_bakers and not str(b).startswith("-- Select") and b != "None"]
+                    duplicates = sorted(list(set([b for b in all_selected_bakers if all_selected_bakers.count(b) > 1])))
+                    if duplicates:
+                        st.error(f"⚠️ **Duplicate Selection Error:** You cannot select the same baker for more than one category on your ballot. The following baker(s) were selected multiple times: **{', '.join(duplicates)}**. Please ensure each baker is selected only once across your ballot, then submit again.")
                     else:
                         st.session_state.league_members[active_sub_player]["weekly_picks"][cur_w] = weekly_picks
                         ai_picks = generate_ai_brian_weekly_picks(cur_w, active_bakers, is_double_elim=is_double_elim)
