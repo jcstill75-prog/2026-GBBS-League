@@ -1173,14 +1173,14 @@ with tab_analytics:
     with st.expander("📊 Contestant Performance Matrix Summary", expanded=True):
         matrix_rows = []
         for baker in ALL_BAKERS:
+            if baker in current_eliminated_latest:
+                continue  # Exclude eliminated bakers from the performance matrix
             s = baker_stats[baker]
             avg_fin = round(sum(pos for _, pos in s["tech_ranks"]) / len(s["tech_ranks"]), 1) if s["tech_ranks"] else "N/A"
             avg_pct = round(sum(s["tech_rank_pcts"]) / len(s["tech_rank_pcts"]), 1) if s["tech_rank_pcts"] else "N/A"
-            is_elim = baker in current_eliminated_latest
             
             matrix_rows.append({
-                "Contestant": baker + (" ❌" if is_elim else " 🧁"),
-                "Status": "Eliminated" if is_elim else "Active",
+                "Contestant": baker + " 🧁",
                 "Star Baker Titles 🌟": s["star_baker_cnt"],
                 "In Line Nominee 📈": s["in_line_cnt"],
                 "In Trouble Nominee ⚠️": s["in_trouble_cnt"],
@@ -1188,7 +1188,7 @@ with tab_analytics:
                 "Relative Tech Rank %": f"{avg_pct}%" if avg_pct != "N/A" else "N/A",
                 "Handshakes 🤝": s["handshake_cnt"]
             })
-        st.dataframe(pd.DataFrame(matrix_rows), use_container_width=True)
+        st.dataframe(pd.DataFrame(matrix_rows), use_container_width=True, hide_index=True)
 
     # B. Individual Baker Inspection
     st.markdown("---")
