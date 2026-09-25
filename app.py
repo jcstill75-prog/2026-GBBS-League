@@ -120,7 +120,7 @@ BAKER_INFO = {
     "Yannis": {"url": "https://thegreatbritishbakeoff.co.uk/bakers/series-17-yannis/"}
 }
 
-DEFAULT_ROSTER = ["Ana", "Steve", "Craig", "You"]
+DEFAULT_ROSTER = ["Ana", "Becca", "Brian", "Cassie", "Emma", "Gisselle", "Jasmine", "Jennifer", "Mark", "Sam", "Stacie W.", "Stacy C.", "Taliah", "Tressa"]
 
 def load_baker_image(baker_name):
     filename = f"assets/{baker_name.lower()}.jpg"
@@ -588,6 +588,22 @@ if "league_members" not in st.session_state:
         if b_av:
             clean_m["AI Brian"]["avatar"] = b_av
         st.session_state.league_members = clean_m
+
+# Auto-migrate roster to remove legacy test profiles and add missing members
+for p in DEFAULT_ROSTER:
+    if p not in st.session_state.league_members:
+        st.session_state.league_members[p] = {
+            "avatar": None,
+            "weekly_picks": {},
+            "season_picks": {},
+            "total_score": 0,
+            "weekly_breakdown": {},
+            "pin": None
+        }
+
+for old_key in ["Steve", "Craig", "You"]:
+    if old_key in st.session_state.league_members:
+        del st.session_state.league_members[old_key]
 
 if "weekly_results" not in st.session_state:
     st.session_state.weekly_results = saved_weekly if saved_weekly is not None else {}
