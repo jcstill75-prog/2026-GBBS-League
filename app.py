@@ -1,56 +1,3 @@
-
-def load_ai_brian_avatar():
-    """Smart image loader for AI Brian robot avatar."""
-    for p in ["assets/aibrian.jpg", "assets/aibrian.png", "aibrian.jpg", "aibrian.png", "assets/ai_brian.jpg", "assets/AI_Brian.jpg"]:
-        if os.path.exists(p):
-            return p
-    return None
-
-def render_player_avatar(avatar_val, width=50, caption=None):
-    """Universal avatar renderer supporting file paths, base64 data URLs, and PIL Images."""
-    if not avatar_val:
-        st.markdown(f"<h2 style='margin:0;'>🍪</h2>", unsafe_allow_html=True)
-        return
-
-    if isinstance(avatar_val, str) and os.path.exists(avatar_val):
-        try:
-            img = Image.open(avatar_val)
-            st.image(img, width=width, caption=caption)
-            return
-        except Exception:
-            pass
-
-    if isinstance(avatar_val, str) and avatar_val.startswith("data:image"):
-        try:
-            header, b64_data = avatar_val.split(",", 1)
-            img_data = base64.b64decode(b64_data)
-            img = Image.open(io.BytesIO(img_data))
-            st.image(img, width=width, caption=caption)
-            return
-        except Exception:
-            pass
-
-    if isinstance(avatar_val, Image.Image):
-        st.image(avatar_val, width=width, caption=caption)
-        return
-
-    if avatar_val == "🤖":
-        b_img = load_ai_brian_avatar()
-        if b_img:
-            if isinstance(b_img, str) and os.path.exists(b_img):
-                try:
-                    st.image(Image.open(b_img), width=width, caption=caption)
-                    return
-                except Exception:
-                    pass
-            elif isinstance(b_img, Image.Image):
-                st.image(b_img, width=width, caption=caption)
-                return
-        st.markdown(f"<h2 style='margin:0;'>🤖</h2>", unsafe_allow_html=True)
-        return
-
-    st.markdown(f"<h2 style='margin:0;'>🍪</h2>", unsafe_allow_html=True)
-
 import streamlit as st
 import pandas as pd
 import random
@@ -498,7 +445,7 @@ with st.sidebar:
             
     st.markdown("---")
     st.header("⚙️ Game Controls")
-    selected_week = st.slider("Select App Active Week", min_value=1, max_value=10, value=st.session_state.current_week)
+    selected_week = st.slider("Select App Active Week", min_value=2, max_value=10, value=st.session_state.current_week)
     st.session_state.current_week = selected_week
 
     st.markdown("---")
@@ -559,173 +506,45 @@ with tab_lead:
     st.header("🏆 Live Leaderboard")
     
     # Compile scoring
-    lb_data = []
-    for name, data in st.session_state.league_members.items():
-        if name in ["Steve", "Craig", "You"]:
-            continue
-        tot_pts = data.get("total_score", 0)
-        av_val = data.get("avatar")
-        lb_data.append({
-            "member": name,
-            "points": tot_pts,
-            "avatar": av_val,
-            "data": data
+    rows = []
+    for member_name, data in st.session_state.league_members.items():
+        avatar_display = "🍪"
+        if member_name == "AI Brian":
+            if isinstance(data["avatar"], Image.Image):
+                avatar_display = "📸 AI Brian Photo"
+            else:
+                avatar_display = "🤖"
+        elif data["avatar"] is not None:
+            avatar_display = "📸 Custom Avatar"
+            
+        rows.append({
+            "Avatar": avatar_display,
+            "Player": member_name,
+            "Total Score": data["total_score"],
+            "Winner Prediction": data["season_picks"].get("winner", "None"),
+            "Handshakes Predict": data["season_picks"].get("handshakes", 0),
+            "Crying Predict": data["season_picks"].get("crying", 0),
+            "Innuendos Predict": data["season_picks"].get("innuendos", 0)
         })
         
-    df_lb = pd.DataFrame(lb_data)
-    if not df_lb.empty:
-        df_lb = df_lb.sort_values(by="points", ascending=False).reset_index(drop=True)
-        df_lb.index = df_lb.index + 1
-        
-        # Display custom styled leaderboard table
-        st.markdown("""
-        <style>
-            .lb-table {
-                width: 100%;
-                border-collapse: collapse;
-                margin-top: 10px;
-                margin-bottom: 25px;
-            }
-            .lb-table th {
-                background-color: #5D4037;
-                color: #FFFFFF;
-                padding: 12px 14px;
-                text-align: left;
-                font-size: 1.05rem;
-                font-weight: 700;
-            }
-            .lb-table td {
-                padding: 12px 14px;
-                border-bottom: 1px solid rgba(128, 128, 128, 0.2);
-                vertical-align: middle;
-            }
-            .lb-rank {
-                font-weight: 800;
-                font-size: 1.15rem;
-                color: var(--text-color, #2C1810);
-            }
-            .lb-name {
-                font-weight: 800;
-                font-size: 1.2rem;
-                color: var(--text-color, #2C1810);
-            }
-            .lb-pts {
-                font-weight: 800;
-                font-size: 1.25rem;
-                color: #D36B5F;
-                text-align: right;
-            }
-            [data-theme="dark"] .lb-name,
-            .stApp[data-theme="dark"] .lb-name,
-            [data-theme="dark"] .lb-rank,
-            .stApp[data-theme="dark"] .lb-rank,
-            @media (prefers-color-scheme: dark) {
-                .lb-name, .lb-rank {
-                    color: #FFFFFF !important;
-                }
-                .lb-pts {
-                    color: #FF8A80 !important;
-                }
-            }
-        </style>
-        """, unsafe_allow_html=True)
-        
-        html_rows = []
-        for rank, row in df_lb.iterrows():
-            m_name = row["member"]
-            m_pts = row["points"]
-            av_val = row["avatar"]
-            
-            # Render avatar
-            if isinstance(av_val, str) and av_val.startswith("data:image"):
-                av_html = f'<img src="{av_val}" style="width:42px; height:42px; border-radius:50%; object-fit:cover;">'
-            elif isinstance(av_val, str) and os.path.exists(av_val):
-                try:
-                    with open(av_val, "rb") as f:
-                        b64 = base64.b64encode(f.read()).decode("utf-8")
-                    ext = "png" if av_val.endswith(".png") else "jpeg"
-                    av_html = f'<img src="data:image/{ext};base64,{b64}" style="width:42px; height:42px; border-radius:50%; object-fit:cover;">'
-                except Exception:
-                    av_html = "🍪"
-            elif av_val == "🤖" or m_name == "AI Brian":
-                av_html = "🤖"
-            else:
-                av_html = "🍪"
-                
-            rank_badge = f"#{rank}"
-            if rank == 1: rank_badge = "🥇 #1"
-            elif rank == 2: rank_badge = "🥈 #2"
-            elif rank == 3: rank_badge = "🥉 #3"
-            
-            html_rows.append(f"""
-            <tr>
-                <td class="lb-rank">{rank_badge}</td>
-                <td style="width: 50px; text-align: center;">{av_html}</td>
-                <td class="lb-name">{m_name}</td>
-                <td class="lb-pts">{m_pts} pts</td>
-            </tr>
-            """)
-            
-        table_html = f"""
-        <table class="lb-table">
-            <thead>
-                <tr>
-                    <th style="width: 80px;">Rank</th>
-                    <th style="width: 60px; text-align: center;">Avatar</th>
-                    <th>League Member</th>
-                    <th style="text-align: right; width: 120px;">Total Points</th>
-                </tr>
-            </thead>
-            <tbody>
-                {''.join(html_rows)}
-            </tbody>
-        </table>
-        """
-        st.markdown(table_html, unsafe_allow_html=True)
-
-    st.markdown("---")
-    st.subheader("📋 Individual Player Scorecards & Projections")
+    df_lead = pd.DataFrame(rows).sort_values(by="Total Score", ascending=False)
+    st.dataframe(df_lead, use_container_width=True)
     
-    for rank, row in df_lb.iterrows():
-        p_name = row["member"]
-        p_data = row["data"]
-        p_pts = row["points"]
-        p_season = p_data.get("season_picks", {})
-        p_weekly = p_data.get("weekly_picks", {})
-        
-        with st.expander(f"👤 {p_name} — Total Score: {p_pts} pts", expanded=(p_name == "AI Brian")):
-            col_av, col_details = st.columns([1, 3])
-            with col_av:
-                render_player_avatar(p_data.get("avatar"), width=120, caption=f"{p_name}'s Profile")
-            with col_details:
-                st.markdown(f"### **{p_name}'s Season Projections**")
-                win_pick = p_season.get("winner", "Not submitted yet")
-                semis_pick = ", ".join(p_season.get("semifinalists", [])) if p_season.get("semifinalists") else "Not submitted yet"
-                hs_pick = p_season.get("handshakes", "N/A")
-                cry_pick = p_season.get("crying", "N/A")
-                inn_pick = p_season.get("innuendos", "N/A")
-                
-                st.write(f"🏆 **Predicted Winner:** {win_pick}")
-                st.write(f"🏅 **Predicted Semifinalists:** {semis_pick}")
-                st.write(f"🤝 **Predicted Handshakes:** {hs_pick} | 😢 **Crying:** {cry_pick} | 💬 **Innuendos:** {inn_pick}")
-                
-            if p_weekly:
-                st.markdown("#### **Weekly Predictions Log:**")
-                w_rows = []
-                for w_num in sorted(p_weekly.keys()):
-                    w_picks = p_weekly[w_num]
-                    sb = w_picks.get("star_baker", w_picks.get("show_champion", "N/A"))
-                    el = w_picks.get("eliminated", "N/A")
-                    if isinstance(el, list): el = ", ".join(el)
-                    t3 = ", ".join(w_picks.get("tech_top_3", [])) if w_picks.get("tech_top_3") else "N/A"
-                    
-                    w_rows.append({
-                        "Week": f"Week {w_num}",
-                        "Star Baker Pick": sb,
-                        "Eliminated Pick": el,
-                        "Technical Top 3": t3
-                    })
-                st.dataframe(pd.DataFrame(w_rows), use_container_width=True)
+    st.subheader("🍪 AI Brian's Automated Profile")
+    brian_avatar = st.session_state.league_members["AI Brian"]["avatar"]
+    if isinstance(brian_avatar, Image.Image):
+        st.image(brian_avatar, caption="AI Brian", width=150)
+    else:
+        st.markdown("<h1 style='font-size: 70px; margin: 0;'>🤖</h1>", unsafe_allow_html=True)
+    st.write("AI Brian is an automated simulator. His weekly and season-long picks are auto-generated randomly according to the 2026 rule constraints.")
+    
+    col_brian1, col_brian2 = st.columns(2)
+    with col_brian1:
+        st.markdown("**AI Brian's Locked Season Projections:**")
+        st.json(st.session_state.league_members["AI Brian"]["season_picks"])
+    with col_brian2:
+        st.markdown("**AI Brian's Weekly Predictions Log:**")
+        st.write(st.session_state.league_members["AI Brian"]["weekly_picks"])
 
     st.markdown("---")
     st.header("📺 Broadcast Audit & Video Timestamps (Verify Counts)")
