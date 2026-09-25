@@ -1467,24 +1467,58 @@ with tab_admin:
         # --- POST-TESTING SEASON RESET TOOL ---
         st.markdown("---")
         st.subheader("🧹 Reset Season Data (Post-Testing Wipe)")
-        st.write("Use this tool when you are finished testing and ready to launch Episode 1. Resetting clears all test predictions, weekly scores, breakdown logs, and published broadcast actuals.")
+        st.write("Use this tool when you are finished testing and ready to launch Episode 1. Resetting clears all test predictions, weekly scores, breakdown logs, published broadcast actuals, player PINs, and widget selections.")
         
+        if st.session_state.get("reset_banner"):
+            st.success("🎉 All league data, predictions, player scores, and submitted ballots have been completely reset to zero! The league is fresh and ready for Episode 1.")
+            st.session_state.reset_banner = False
+
         confirm_reset = st.checkbox("I confirm I want to wipe all test predictions, weekly scores, and published results for all participants.", key="chk_confirm_season_reset")
         if st.button("🧹 Reset All League Data To Zero", type="primary"):
             if not confirm_reset:
                 st.error("⚠️ Please check the confirmation box above before resetting!")
             else:
+                # 1. Build clean default roster
+                clean_members = {
+                    "AI Brian": {
+                        "avatar": "🤖",
+                        "weekly_picks": {},
+                        "season_picks": {},
+                        "total_score": 0,
+                        "weekly_breakdown": {},
+                        "pin": None
+                    }
+                }
+                for p_name in DEFAULT_ROSTER:
+                    clean_members[p_name] = {
+                        "avatar": None,
+                        "weekly_picks": {},
+                        "season_picks": {},
+                        "total_score": 0,
+                        "weekly_breakdown": {},
+                        "pin": None
+                    }
+                
+                # Check for AI Brian custom avatar
+                b_av = load_ai_brian_avatar()
+                if b_av is not None:
+                    clean_members["AI Brian"]["avatar"] = b_av
+                
+                # 2. Save clean payload directly to league_data.json
+                save_league_data(clean_members, {}, {})
+                
+                # 3. Clear all widget keys from session state so selectboxes/form inputs don't retain old selections
+                keys_to_clear = [k for k in list(st.session_state.keys()) if k != "admin_authenticated"]
+                for k in keys_to_clear:
+                    del st.session_state[k]
+                
+                # 4. Re-assign clean session state variables
+                st.session_state.league_members = clean_members
                 st.session_state.weekly_results = {}
                 st.session_state.season_results = {}
-                
-                for m_name, m_data in st.session_state.league_members.items():
-                    m_data["weekly_picks"] = {}
-                    m_data["season_picks"] = {}
-                    m_data["total_score"] = 0
-                    m_data["weekly_breakdown"] = {}
-                    m_data["season_score"] = 0
-                    
+                st.session_state.disputes = []
                 st.session_state.current_week = 1
-                save_league_data(st.session_state.league_members, st.session_state.weekly_results, st.session_state.season_results)
-                st.success("🎉 All league data has been reset to zero! The app is now fresh and ready for Episode 1.")
+                st.session_state.authenticated_players = {}
+                st.session_state.reset_banner = True
+                
                 st.rerun()
