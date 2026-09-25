@@ -305,9 +305,7 @@ def calculate_weekly_score(predictions, actuals, week=2):
         act_trbl = actuals.get("in_trouble", [])
         if isinstance(act_trbl, str): act_trbl = [act_trbl]
         pred_trbl = predictions.get("in_trouble")
-        act_elim_raw = actuals.get("eliminated", [])
-        if isinstance(act_elim_raw, str): act_elim_raw = [act_elim_raw]
-        if pred_trbl and pred_trbl in act_trbl and pred_trbl not in act_elim_raw:
+        if pred_trbl and pred_trbl in act_trbl:
             score += 2
             
     return score
@@ -492,15 +490,13 @@ def get_weekly_itemized_breakdown(pred, act, week):
         p_trb = pred.get("in_trouble", "None")
         a_trb = act.get("in_trouble", [])
         if isinstance(a_trb, str): a_trb = [a_trb]
-        a_el_r = act.get("eliminated", [])
-        if isinstance(a_el_r, str): a_el_r = [a_el_r]
-        pts_trb = 2 if (p_trb != "None" and p_trb in a_trb and p_trb not in a_el_r) else 0
+        pts_trb = 2 if (p_trb != "None" and p_trb in a_trb) else 0
         rows.append({
             "Category": "⚠️ In Trouble Nominee Consolation",
             "Your Prediction": p_trb,
             "Actual Broadcast Result": ", ".join(a_trb) if a_trb else "None",
             "Points Awarded": f"{pts_trb} pts",
-            "Details & Explanations": f"Picked 'In Trouble' saved nominee {p_trb} (+2 pts)" if pts_trb == 2 else "Nominee pick not awarded (0 pts)"
+            "Details & Explanations": f"Picked 'In Trouble' nominee {p_trb} (+2 pts)" if pts_trb == 2 else "Nominee pick not awarded (0 pts)"
         })
 
     return rows
