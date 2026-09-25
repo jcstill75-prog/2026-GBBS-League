@@ -651,17 +651,41 @@ if norman_path:
             b64_beaver = base64.b64encode(f.read()).decode("utf-8")
         ext = "png" if norman_path.endswith(".png") else "jpeg"
         st.markdown(f"""
-        <div style="display: flex; align-items: center; gap: 18px; margin-top: 10px; margin-bottom: 25px;">
+        <style>
+            .header-container {{
+                display: flex;
+                align-items: center;
+                gap: 18px;
+                margin-top: 5px;
+                margin-bottom: 22px;
+            }}
+            .header-title {{
+                margin: 0;
+                padding: 0;
+                font-size: 2.2rem;
+                font-weight: 800;
+                line-height: 1.2;
+                color: var(--text-color, #2C1810);
+            }}
+            [data-theme="dark"] .header-title,
+            .stApp[data-theme="dark"] .header-title,
+            @media (prefers-color-scheme: dark) {{
+                .header-title {{
+                    color: #FFFFFF !important;
+                }}
+            }}
+        </style>
+        <div class="header-container">
             <img src="data:image/{ext};base64,{b64_beaver}" style="height: 80px; width: auto; border-radius: 8px; object-fit: contain;">
-            <h1 style="margin: 0; padding: 0; color: #5D4037; font-size: 2.2rem; font-weight: 700; line-height: 1.2;">Great British Baking Show Fantasy League 2026</h1>
+            <h1 class="header-title">Great British Baking Show Fantasy League 2026</h1>
         </div>
         """, unsafe_allow_html=True)
     except Exception:
-        col_logo, col_title = st.columns([1, 7])
+        col_logo, col_title = st.columns([1, 6])
         with col_logo:
             st.image(norman_path, width=80)
         with col_title:
-            st.markdown("<h1 style='margin-top: 10px; color: #5D4037;'>Great British Baking Show Fantasy League 2026</h1>", unsafe_allow_html=True)
+            st.title("Great British Baking Show Fantasy League 2026")
 else:
     st.title("Great British Baking Show Fantasy League 2026")
 
