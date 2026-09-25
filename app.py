@@ -873,29 +873,18 @@ with tab_submit:
         st.markdown("---")
         
         # 1. VISUAL BAKER GALLERY
-        current_eliminated_gal = get_current_eliminated_bakers(st.session_state.current_week)
         with st.expander("📸 Visual Baker Gallery (Class of 2026)", expanded=False):
             cols = st.columns(4)
             for idx, baker in enumerate(ALL_BAKERS):
                 info = BAKER_INFO.get(baker, {"url": "#"})
-                is_elim_gal = baker in current_eliminated_gal
                 with cols[idx % 4]:
                     img = load_baker_image(baker)
                     if img is not None:
-                        if is_elim_gal:
-                            disp_img = apply_elimination_overlay(img)
-                            st.image(disp_img, use_container_width=True)
-                            st.markdown(f"**{baker} ❌** *(Eliminated)*")
-                        else:
-                            st.image(img, use_container_width=True)
-                            st.markdown(f"**{baker}**")
+                        st.image(img, use_container_width=True)
+                        st.markdown(f"**{baker}**")
                     else:
-                        if is_elim_gal:
-                            st.markdown(f"**{baker} ❌** *(Eliminated)*")
-                            st.markdown(f"[🔗 View Photo Page]({info['url']})")
-                        else:
-                            st.markdown(f"**{baker}**")
-                            st.markdown(f"[🔗 View Photo Page]({info['url']})")
+                        st.markdown(f"**{baker}**")
+                        st.markdown(f"[🔗 View Photo Page]({info['url']})")
 
         # 2. SEASON-LONG PREDICTIONS FORM (LOCKS PRE-WEEK 2)
         if st.session_state.current_week <= 2:
@@ -905,12 +894,16 @@ with tab_submit:
                 def_winner = existing_s.get("winner")
                 def_winner_idx = ALL_BAKERS.index(def_winner) if def_winner in ALL_BAKERS else 0
                 
-                user_winner = st.selectbox(
+                opts_win = ["-- Select Season Winner --"] + ALL_BAKERS
+                def_winner_idx = opts_win.index(def_winner) if def_winner in opts_win else 0
+                
+                user_winner_raw = st.selectbox(
                     "Predict Season Winner (Show Champion) [40 pts if winner, 15 pts if runner-up consolation]", 
-                    ALL_BAKERS, 
+                    opts_win, 
                     index=def_winner_idx,
                     key=f"{active_sub_player}_win_pick_w2"
                 )
+                user_winner = user_winner_raw if not user_winner_raw.startswith("-- Select") else "None"
                 remaining_for_semis = [b for b in ALL_BAKERS if b != user_winner]
                 def_semis = [b for b in existing_s.get("semifinalists", []) if b in remaining_for_semis]
                 
@@ -922,9 +915,9 @@ with tab_submit:
                     key=f"{active_sub_player}_semis_pick_w2"
                 )
                 
-                user_handshakes = st.number_input("Predict Seasonal Handshakes [Spot-on = 20 pts, +/-1 = 10 pts]", min_value=0, value=existing_s.get("handshakes", 5), key=f"{active_sub_player}_hs_pick_w2")
-                user_crying = st.number_input("Predict Seasonal Crying [Spot-on = 20 pts, +/-5 = 10 pts]", min_value=0, value=existing_s.get("crying", 12), key=f"{active_sub_player}_cry_pick_w2")
-                user_innuendos = st.number_input("Predict Seasonal Innuendos [Spot-on = 20 pts, +/-5 = 10 pts]", min_value=0, value=existing_s.get("innuendos", 48), key=f"{active_sub_player}_inn_pick_w2")
+                user_handshakes = st.number_input("Predict Seasonal Handshakes [Spot-on = 20 pts, +/-1 = 10 pts]", min_value=0, value=existing_s.get("handshakes", 0), key=f"{active_sub_player}_hs_pick_w2")
+                user_crying = st.number_input("Predict Seasonal Crying [Spot-on = 20 pts, +/-5 = 10 pts]", min_value=0, value=existing_s.get("crying", 0), key=f"{active_sub_player}_cry_pick_w2")
+                user_innuendos = st.number_input("Predict Seasonal Innuendos [Spot-on = 20 pts, +/-5 = 10 pts]", min_value=0, value=existing_s.get("innuendos", 0), key=f"{active_sub_player}_inn_pick_w2")
                 
                 if st.button(f"Lock Season-Long Predictions for {active_sub_player}", key=f"btn_lock_season_{active_sub_player}"):
                     if len(user_semis) != 3:
@@ -964,15 +957,12 @@ with tab_submit:
             
             if st.session_state.current_week == 10:
                 def_champ = existing_w.get("show_champion")
-                def_champ_idx = active_bakers.index(def_champ) if def_champ in active_bakers else 0
-                weekly_picks["show_champion"] = st.selectbox("Predict Show Champion [15 pts at stake]", active_bakers, index=def_champ_idx, placeholder="-- Select Show Champion --")
+                opts_champ = ["-- Select Show Champion --"] + active_bakers
+                def_champ_idx = opts_champ.index(def_champ) if def_champ in opts_champ else 0
+                champ_sel = st.selectbox("Predict Show Champion [15 pts at stake]", opts_champ, index=def_champ_idx, key=f"{active_sub_player}_w10_champ")
+                weekly_picks["show_champion"] = champ_sel if not champ_sel.startswith("-- Select") else "None"
                 
                 st.write("Predict Technical Challenge Final Rank:")
-                t_ranks_exist = existing_w.get("tech_rank", [])
-                t1_i = active_bakers.index(t_ranks_exist[0]) if len(t_ranks_exist) > 0 and t_ranks_exist[0] in active_bakers else 0
-                t2_i = active_bakers.index(t_ranks_exist[1]) if len(t_ranks_exist) > 1 and t_ranks_exist[1] in active_bakers else (1 if len(active_bakers) > 1 else 0)
-                t3_i = active_bakers.index(t_ranks_exist[2]) if len(t_ranks_exist) > 2 and t_ranks_exist[2] in active_bakers else (2 if len(active_bakers) > 2 else 0)
-                
                 w10_keys = [f"{active_sub_player}_w10_t1", f"{active_sub_player}_w10_t2", f"{active_sub_player}_w10_t3"]
                 opts1, idx1 = get_filtered_tech_options(active_bakers, w10_keys, f"{active_sub_player}_w10_t1", "-- Select 1st Place --")
                 tech_1st = st.selectbox("Technical 1st Place [3 pts]", opts1, index=idx1, key=f"{active_sub_player}_w10_t1")
@@ -984,29 +974,29 @@ with tab_submit:
                 
             elif st.session_state.current_week == 9:
                 def_sb = existing_w.get("star_baker")
-                def_sb_i = active_bakers.index(def_sb) if def_sb in active_bakers else 0
-                weekly_picks["star_baker"] = st.selectbox("Predict Star Baker [5 pts at stake]", active_bakers, index=def_sb_i, placeholder="-- Select Star Baker --")
+                opts_sb = ["-- Select Star Baker --"] + active_bakers
+                def_sb_i = opts_sb.index(def_sb) if def_sb in opts_sb else 0
+                sb_sel = st.selectbox("Predict Star Baker [5 pts at stake]", opts_sb, index=def_sb_i, key=f"{active_sub_player}_w9_sb")
+                weekly_picks["star_baker"] = sb_sel if not sb_sel.startswith("-- Select") else "None"
                 
                 def_el = existing_w.get("eliminated")
                 if is_double_elim:
                     el1 = def_el[0] if isinstance(def_el, list) and len(def_el) > 0 else None
                     el2 = def_el[1] if isinstance(def_el, list) and len(def_el) > 1 else None
-                    el1_i = active_bakers.index(el1) if el1 in active_bakers else 0
-                    el2_i = active_bakers.index(el2) if el2 in active_bakers else (1 if len(active_bakers) > 1 else 0)
-                    elim_1 = st.selectbox("Predict Eliminated Baker #1 [5 pts at stake]", active_bakers, index=el1_i, placeholder="-- Select Eliminated Baker #1 --", key="pred_elim_1_w9")
-                    elim_2 = st.selectbox("Predict Eliminated Baker #2 [5 pts at stake]", active_bakers, index=el2_i, placeholder="-- Select Eliminated Baker #2 --", key="pred_elim_2_w9")
-                    weekly_picks["eliminated"] = [elim_1, elim_2]
+                    opts_el1 = ["-- Select Eliminated Baker #1 --"] + active_bakers
+                    opts_el2 = ["-- Select Eliminated Baker #2 --"] + active_bakers
+                    el1_i = opts_el1.index(el1) if el1 in opts_el1 else 0
+                    el2_i = opts_el2.index(el2) if el2 in opts_el2 else 0
+                    elim_1 = st.selectbox("Predict Eliminated Baker #1 [5 pts at stake]", opts_el1, index=el1_i, key=f"{active_sub_player}_w9_el1")
+                    elim_2 = st.selectbox("Predict Eliminated Baker #2 [5 pts at stake]", opts_el2, index=el2_i, key=f"{active_sub_player}_w9_el2")
+                    weekly_picks["eliminated"] = [b for b in [elim_1, elim_2] if not b.startswith("-- Select")]
                 else:
-                    def_el_i = active_bakers.index(def_el) if isinstance(def_el, str) and def_el in active_bakers else 0
-                    weekly_picks["eliminated"] = st.selectbox("Predict Eliminated Baker [5 pts at stake]", active_bakers, index=def_el_i, placeholder="-- Select Eliminated Baker --")
+                    opts_el = ["-- Select Eliminated Baker --"] + active_bakers
+                    def_el_i = opts_el.index(def_el) if isinstance(def_el, str) and def_el in opts_el else 0
+                    el_sel = st.selectbox("Predict Eliminated Baker [5 pts at stake]", opts_el, index=def_el_i, key=f"{active_sub_player}_w9_el")
+                    weekly_picks["eliminated"] = el_sel if not el_sel.startswith("-- Select") else "None"
                 
                 st.write("Predict Technical Challenge Final Rank:")
-                t_ranks_exist = existing_w.get("tech_rank", [])
-                t1_i = active_bakers.index(t_ranks_exist[0]) if len(t_ranks_exist) > 0 and t_ranks_exist[0] in active_bakers else 0
-                t2_i = active_bakers.index(t_ranks_exist[1]) if len(t_ranks_exist) > 1 and t_ranks_exist[1] in active_bakers else (1 if len(active_bakers) > 1 else 0)
-                t3_i = active_bakers.index(t_ranks_exist[2]) if len(t_ranks_exist) > 2 and t_ranks_exist[2] in active_bakers else (2 if len(active_bakers) > 2 else 0)
-                t4_i = active_bakers.index(t_ranks_exist[3]) if len(t_ranks_exist) > 3 and t_ranks_exist[3] in active_bakers else (3 if len(active_bakers) > 3 else 0)
-                
                 w9_keys = [f"{active_sub_player}_w9_t{r}" for r in range(1, 5)]
                 opts1, idx1 = get_filtered_tech_options(active_bakers, w9_keys, f"{active_sub_player}_w9_t1", "-- Select 1st Place --")
                 t1 = st.selectbox("Technical 1st Place [3 pts]", opts1, index=idx1, key=f"{active_sub_player}_w9_t1")
@@ -1022,37 +1012,41 @@ with tab_submit:
                 col1, col2 = st.columns(2)
                 with col1:
                     def_sb = existing_w.get("star_baker")
-                    def_sb_i = active_bakers.index(def_sb) if def_sb in active_bakers else 0
+                    opts_sb = ["-- Select Star Baker --"] + active_bakers
+                    def_sb_i = opts_sb.index(def_sb) if def_sb in opts_sb else 0
+                    sb_sel = st.selectbox("Predict Star Baker [5 pts at stake]", opts_sb, index=def_sb_i, key=f"{active_sub_player}_w8_sb")
+                    weekly_picks["star_baker"] = sb_sel if not sb_sel.startswith("-- Select") else "None"
+                    
                     def_inl = existing_w.get("in_line_sb")
-                    def_inl_i = active_bakers.index(def_inl) if def_inl in active_bakers else 0
-                    weekly_picks["star_baker"] = st.selectbox("Predict Star Baker [5 pts at stake]", active_bakers, index=def_sb_i, placeholder="-- Select Star Baker --")
-                    weekly_picks["in_line_sb"] = st.selectbox("Predict In Line for Star Baker [2 pts if nominated but doesn't win]", active_bakers, index=def_inl_i, placeholder="-- Select In Line Baker --")
+                    opts_inl = ["-- Select In Line Baker --"] + active_bakers
+                    def_inl_i = opts_inl.index(def_inl) if def_inl in opts_inl else 0
+                    inl_sel = st.selectbox("Predict In Line for Star Baker [2 pts if nominated but doesn't win]", opts_inl, index=def_inl_i, key=f"{active_sub_player}_w8_inl")
+                    weekly_picks["in_line_sb"] = inl_sel if not inl_sel.startswith("-- Select") else "None"
                 with col2:
                     def_el = existing_w.get("eliminated")
                     def_trb = existing_w.get("in_trouble")
-                    def_trb_i = active_bakers.index(def_trb) if def_trb in active_bakers else 0
+                    opts_trb = ["-- Select In Trouble Baker --"] + active_bakers
+                    def_trb_i = opts_trb.index(def_trb) if def_trb in opts_trb else 0
+                    trb_sel = st.selectbox("Predict In Trouble of Elimination [2 pts if bottom nominated but saved]", opts_trb, index=def_trb_i, key=f"{active_sub_player}_w8_trb")
+                    weekly_picks["in_trouble"] = trb_sel if not trb_sel.startswith("-- Select") else "None"
+                    
                     if is_double_elim:
                         el1 = def_el[0] if isinstance(def_el, list) and len(def_el) > 0 else None
                         el2 = def_el[1] if isinstance(def_el, list) and len(def_el) > 1 else None
-                        el1_i = active_bakers.index(el1) if el1 in active_bakers else 0
-                        el2_i = active_bakers.index(el2) if el2 in active_bakers else (1 if len(active_bakers) > 1 else 0)
-                        elim_1 = st.selectbox("Predict Eliminated Baker #1 [5 pts at stake]", active_bakers, index=el1_i, placeholder="-- Select Eliminated Baker #1 --", key="pred_elim_1_w8")
-                        elim_2 = st.selectbox("Predict Eliminated Baker #2 [5 pts at stake]", active_bakers, index=el2_i, placeholder="-- Select Eliminated Baker #2 --", key="pred_elim_2_w8")
-                        weekly_picks["eliminated"] = [elim_1, elim_2]
-                        weekly_picks["in_trouble"] = st.selectbox("Predict In Trouble of Elimination [2 pts if bottom nominated but saved]", active_bakers, index=def_trb_i, placeholder="-- Select In Trouble Baker --")
+                        opts_el1 = ["-- Select Eliminated Baker #1 --"] + active_bakers
+                        opts_el2 = ["-- Select Eliminated Baker #2 --"] + active_bakers
+                        el1_i = opts_el1.index(el1) if el1 in opts_el1 else 0
+                        el2_i = opts_el2.index(el2) if el2 in opts_el2 else 0
+                        elim_1 = st.selectbox("Predict Eliminated Baker #1 [5 pts at stake]", opts_el1, index=el1_i, key=f"{active_sub_player}_w8_el1")
+                        elim_2 = st.selectbox("Predict Eliminated Baker #2 [5 pts at stake]", opts_el2, index=el2_i, key=f"{active_sub_player}_w8_el2")
+                        weekly_picks["eliminated"] = [b for b in [elim_1, elim_2] if not b.startswith("-- Select")]
                     else:
-                        def_el_i = active_bakers.index(def_el) if isinstance(def_el, str) and def_el in active_bakers else 0
-                        weekly_picks["eliminated"] = st.selectbox("Predict Eliminated Baker [5 pts at stake]", active_bakers, index=def_el_i, placeholder="-- Select Eliminated Baker --")
-                        weekly_picks["in_trouble"] = st.selectbox("Predict In Trouble of Elimination [2 pts if bottom nominated but saved]", active_bakers, index=def_trb_i, placeholder="-- Select In Trouble Baker --")
+                        opts_el = ["-- Select Eliminated Baker --"] + active_bakers
+                        def_el_i = opts_el.index(def_el) if isinstance(def_el, str) and def_el in opts_el else 0
+                        el_sel = st.selectbox("Predict Eliminated Baker [5 pts at stake]", opts_el, index=def_el_i, key=f"{active_sub_player}_w8_el")
+                        weekly_picks["eliminated"] = el_sel if not el_sel.startswith("-- Select") else "None"
                 
                 st.write("Predict Technical Challenge Final Rank:")
-                t_ranks_exist = existing_w.get("tech_rank", [])
-                t1_i = active_bakers.index(t_ranks_exist[0]) if len(t_ranks_exist) > 0 and t_ranks_exist[0] in active_bakers else 0
-                t2_i = active_bakers.index(t_ranks_exist[1]) if len(t_ranks_exist) > 1 and t_ranks_exist[1] in active_bakers else (1 if len(active_bakers) > 1 else 0)
-                t3_i = active_bakers.index(t_ranks_exist[2]) if len(t_ranks_exist) > 2 and t_ranks_exist[2] in active_bakers else (2 if len(active_bakers) > 2 else 0)
-                t4_i = active_bakers.index(t_ranks_exist[3]) if len(t_ranks_exist) > 3 and t_ranks_exist[3] in active_bakers else (3 if len(active_bakers) > 3 else 0)
-                t5_i = active_bakers.index(t_ranks_exist[4]) if len(t_ranks_exist) > 4 and t_ranks_exist[4] in active_bakers else (4 if len(active_bakers) > 4 else 0)
-                
                 w8_keys = [f"{active_sub_player}_w8_t{r}" for r in range(1, 6)]
                 opts1, idx1 = get_filtered_tech_options(active_bakers, w8_keys, f"{active_sub_player}_w8_t1", "-- Select 1st Place --")
                 t1 = st.selectbox("Technical 1st Place [3 pts]", opts1, index=idx1, key=f"{active_sub_player}_w8_t1")
@@ -1071,28 +1065,39 @@ with tab_submit:
                 col1, col2 = st.columns(2)
                 with col1:
                     def_sb = existing_w.get("star_baker")
-                    def_sb_i = active_bakers.index(def_sb) if def_sb in active_bakers else 0
+                    opts_sb = ["-- Select Star Baker --"] + active_bakers
+                    def_sb_i = opts_sb.index(def_sb) if def_sb in opts_sb else 0
+                    sb_sel = st.selectbox("Predict Star Baker [5 pts at stake]", opts_sb, index=def_sb_i, key=f"{active_sub_player}_std_sb_w{st.session_state.current_week}")
+                    weekly_picks["star_baker"] = sb_sel if not sb_sel.startswith("-- Select") else "None"
+                    
                     def_inl = existing_w.get("in_line_sb")
-                    def_inl_i = active_bakers.index(def_inl) if def_inl in active_bakers else 0
-                    weekly_picks["star_baker"] = st.selectbox("Predict Star Baker [5 pts at stake]", active_bakers, index=def_sb_i, placeholder="-- Select Star Baker --")
-                    weekly_picks["in_line_sb"] = st.selectbox("Predict In Line for Star Baker [2 pts if nominated but doesn't win]", active_bakers, index=def_inl_i, placeholder="-- Select In Line Baker --")
+                    opts_inl = ["-- Select In Line Baker --"] + active_bakers
+                    def_inl_i = opts_inl.index(def_inl) if def_inl in opts_inl else 0
+                    inl_sel = st.selectbox("Predict In Line for Star Baker [2 pts if nominated but doesn't win]", opts_inl, index=def_inl_i, key=f"{active_sub_player}_std_inl_w{st.session_state.current_week}")
+                    weekly_picks["in_line_sb"] = inl_sel if not inl_sel.startswith("-- Select") else "None"
                 with col2:
                     def_el = existing_w.get("eliminated")
                     def_trb = existing_w.get("in_trouble")
-                    def_trb_i = active_bakers.index(def_trb) if def_trb in active_bakers else 0
+                    opts_trb = ["-- Select In Trouble Baker --"] + active_bakers
+                    def_trb_i = opts_trb.index(def_trb) if def_trb in opts_trb else 0
+                    trb_sel = st.selectbox("Predict In Trouble of Elimination [2 pts if bottom nominated but saved]", opts_trb, index=def_trb_i, key=f"{active_sub_player}_std_trb_w{st.session_state.current_week}")
+                    weekly_picks["in_trouble"] = trb_sel if not trb_sel.startswith("-- Select") else "None"
+                    
                     if is_double_elim:
                         el1 = def_el[0] if isinstance(def_el, list) and len(def_el) > 0 else None
                         el2 = def_el[1] if isinstance(def_el, list) and len(def_el) > 1 else None
-                        el1_i = active_bakers.index(el1) if el1 in active_bakers else 0
-                        el2_i = active_bakers.index(el2) if el2 in active_bakers else (1 if len(active_bakers) > 1 else 0)
-                        elim_1 = st.selectbox("Predict Eliminated Baker #1 [5 pts at stake]", active_bakers, index=el1_i, placeholder="-- Select Eliminated Baker #1 --", key="pred_elim_1_std")
-                        elim_2 = st.selectbox("Predict Eliminated Baker #2 [5 pts at stake]", active_bakers, index=el2_i, placeholder="-- Select Eliminated Baker #2 --", key="pred_elim_2_std")
-                        weekly_picks["eliminated"] = [elim_1, elim_2]
-                        weekly_picks["in_trouble"] = st.selectbox("Predict In Trouble of Elimination [2 pts if bottom nominated but saved]", active_bakers, index=def_trb_i, placeholder="-- Select In Trouble Baker --")
+                        opts_el1 = ["-- Select Eliminated Baker #1 --"] + active_bakers
+                        opts_el2 = ["-- Select Eliminated Baker #2 --"] + active_bakers
+                        el1_i = opts_el1.index(el1) if el1 in opts_el1 else 0
+                        el2_i = opts_el2.index(el2) if el2 in opts_el2 else 0
+                        elim_1 = st.selectbox("Predict Eliminated Baker #1 [5 pts at stake]", opts_el1, index=el1_i, key=f"{active_sub_player}_std_el1_w{st.session_state.current_week}")
+                        elim_2 = st.selectbox("Predict Eliminated Baker #2 [5 pts at stake]", opts_el2, index=el2_i, key=f"{active_sub_player}_std_el2_w{st.session_state.current_week}")
+                        weekly_picks["eliminated"] = [b for b in [elim_1, elim_2] if not b.startswith("-- Select")]
                     else:
-                        def_el_i = active_bakers.index(def_el) if isinstance(def_el, str) and def_el in active_bakers else 0
-                        weekly_picks["eliminated"] = st.selectbox("Predict Eliminated Baker [5 pts at stake]", active_bakers, index=def_el_i, placeholder="-- Select Eliminated Baker --")
-                        weekly_picks["in_trouble"] = st.selectbox("Predict In Trouble of Elimination [2 pts if bottom nominated but saved]", active_bakers, index=def_trb_i, placeholder="-- Select In Trouble Baker --")
+                        opts_el = ["-- Select Eliminated Baker --"] + active_bakers
+                        def_el_i = opts_el.index(def_el) if isinstance(def_el, str) and def_el in opts_el else 0
+                        el_sel = st.selectbox("Predict Eliminated Baker [5 pts at stake]", opts_el, index=def_el_i, key=f"{active_sub_player}_std_el_w{st.session_state.current_week}")
+                        weekly_picks["eliminated"] = el_sel if not el_sel.startswith("-- Select") else "None"
                     
                 st.markdown("---")
                 st.write("Predict Technical Challenge Placements:")
