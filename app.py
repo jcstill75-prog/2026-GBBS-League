@@ -277,39 +277,54 @@ BAKER_INFO = {
     }
 }
 
-# Streamlit Session State Initialization for persistence
-DEFAULT_ROSTER = ['Ana', 'Becca', 'Craig', 'Emma', 'Jasmine', 'Sam', 'Stacie W.', 'Stacy C.', 'Steve', 'Taliah', 'Tressa']
+DEFAULT_PLAYERS = [
+    "Jasmine", "Ana", "Brian", "Cassie", "Emma", "Gisselle", 
+    "Jennifer", "Mark", "Becca", "Sam", "Stacie W.", "Stacy C.", 
+    "Taliah", "Tressa"
+]
 
+# Streamlit Session State Initialization for persistence
 if "league_members" not in st.session_state:
-    m_dict = {
-        "AI Brian": {
-            "avatar": "🤖",
-            "weekly_picks": {},
-            "season_picks": {},
-            "total_score": 0,
-            "weekly_breakdown": {}
-        }
-    }
-    for p in DEFAULT_ROSTER:
-        m_dict[p] = {
+    clean_m = {}
+    for p in DEFAULT_PLAYERS:
+        clean_m[p] = {
             "avatar": None,
             "weekly_picks": {},
             "season_picks": {},
             "total_score": 0,
-            "weekly_breakdown": {}
+            "weekly_breakdown": {},
+            "pin": None
         }
-    st.session_state.league_members = m_dict
+    clean_m["AI Brian"] = {
+        "avatar": "🤖",
+        "weekly_picks": {},
+        "season_picks": {},
+        "total_score": 0,
+        "weekly_breakdown": {},
+        "pin": None
+    }
+    st.session_state.league_members = clean_m
 
-# Ensure default roster members exist
-for p in DEFAULT_ROSTER:
+# Auto-migrate roster to ensure all 14 human players + AI Brian are present
+for p in DEFAULT_PLAYERS:
     if p not in st.session_state.league_members:
         st.session_state.league_members[p] = {
             "avatar": None,
             "weekly_picks": {},
             "season_picks": {},
             "total_score": 0,
-            "weekly_breakdown": {}
+            "weekly_breakdown": {},
+            "pin": None
         }
+if "AI Brian" not in st.session_state.league_members:
+    st.session_state.league_members["AI Brian"] = {
+        "avatar": "🤖",
+        "weekly_picks": {},
+        "season_picks": {},
+        "total_score": 0,
+        "weekly_breakdown": {},
+        "pin": None
+    }
 
 # Check for AI Brian's custom profile picture
 import os
@@ -437,102 +452,30 @@ if not st.session_state.league_members["AI Brian"]["season_picks"]:
     st.session_state.league_members["AI Brian"]["season_picks"] = generate_ai_brian_season_picks()
 
 # --- 5. APP INTERFACE LAYOUT ---
-# --- 6. HEADER ---
-norman_path = None
-for p in ["normanbeaver.jpg", "assets/normanbeaver.jpg", "normanbeaver.png", "assets/normanbeaver.png"]:
-    if os.path.exists(p):
-        norman_path = p
-        break
-
-if norman_path:
-    try:
-        with open(norman_path, "rb") as f:
-            b64_beaver = base64.b64encode(f.read()).decode("utf-8")
-        ext = "png" if norman_path.endswith(".png") else "jpeg"
-        st.markdown(f"""
-        <style>
-            .header-container {{
-                display: flex;
-                align-items: center;
-                gap: 18px;
-                margin-top: 5px;
-                margin-bottom: 22px;
-            }}
-            .header-title {{
-                margin: 0;
-                padding: 0;
-                font-size: 2.2rem;
-                font-weight: 800;
-                line-height: 1.2;
-                color: var(--text-color, #2C1810);
-            }}
-            [data-theme="dark"] .header-title,
-            .stApp[data-theme="dark"] .header-title,
-            @media (prefers-color-scheme: dark) {{
-                .header-title {{
-                    color: #FFFFFF !important;
-                }}
-            }}
-        </style>
-        <div class="header-container">
-            <img src="data:image/{ext};base64,{b64_beaver}" style="height: 80px; width: auto; border-radius: 8px; object-fit: contain;">
-            <h1 class="header-title">Great British Baking Show Fantasy League 2026</h1>
-        </div>
-        """, unsafe_allow_html=True)
-    except Exception:
-        col_logo, col_title = st.columns([1, 6])
-        with col_logo:
-            st.image(norman_path, width=80)
-        with col_title:
-            st.title("Great British Baking Show Fantasy League 2026")
-else:
-    st.title("Great British Baking Show Fantasy League 2026")
-
+st.title("🧁 Great British Baking Show Fantasy League 2026")
 st.markdown("### Powered by the Balanced 2026 Competition Rules Engine")
 
 # --- SIDEBAR: USER ACCOUNT, AVATAR UPLOAD & PERSISTENT POINTS REMINDER ---
 with st.sidebar:
-    st.header("📸 Upload Avatar Photo")
-    st.write("Select your player profile below to upload or update your picture!")
+    st.header("👤 Your Profile")
+    uploaded_file = st.file_uploader("Upload an Avatar Photo", type=["png", "jpg", "jpeg"])
     
-    roster_players = sorted([m for m in st.session_state.league_members if m != "AI Brian"])
-    sb_player = st.selectbox("Select Player Profile:", ["-- Select Your Name --"] + roster_players)
-    
-    if sb_player != "-- Select Your Name --":
-        os.makedirs("assets/avatars", exist_ok=True)
-        avatar_path = f"assets/avatars/{sb_player}.png"
-        
-        uploaded_file = st.file_uploader(f"Choose Photo for {sb_player}", type=["png", "jpg", "jpeg"], key=f"uploader_{sb_player}")
-        if uploaded_file is not None:
-            try:
-                img = Image.open(uploaded_file)
-                img = img.convert("RGB")
-                img = img.resize((300, 300))
-                img.save(avatar_path, format="PNG")
-                
-                buf = io.BytesIO()
-                img.save(buf, format="PNG")
-                b64_str = base64.b64encode(buf.getvalue()).decode("utf-8")
-                data_url = f"data:image/png;base64,{b64_str}"
-                
-                st.session_state.league_members[sb_player]["avatar"] = avatar_path
-                save_league_data(st.session_state.league_members, st.session_state.weekly_results, st.session_state.season_results)
-                st.success(f"Avatar saved permanently for {sb_player}!")
-            except Exception as e:
-                st.error(f"Error saving avatar image: {e}")
-        
-        cur_av = st.session_state.league_members[sb_player].get("avatar")
-        if not cur_av or (isinstance(cur_av, str) and not os.path.exists(cur_av) and not cur_av.startswith("data:image")):
-            if os.path.exists(avatar_path):
-                cur_av = avatar_path
-                st.session_state.league_members[sb_player]["avatar"] = avatar_path
-        
-        if cur_av:
-            render_player_avatar(cur_av, width=150, caption=f"{sb_player}'s Avatar")
+    if uploaded_file is not None:
+        image = Image.open(uploaded_file)
+        # Resize image for circular presentation
+        image = image.resize((150, 150))
+        st.session_state.league_members["You"]["avatar"] = image
+        st.image(image, caption="Your Active Avatar", width=150)
+    else:
+        if st.session_state.league_members["You"]["avatar"] is not None:
+            st.image(st.session_state.league_members["You"]["avatar"], caption="Your Active Avatar", width=150)
+        else:
+            st.info("No avatar uploaded yet. Using default.")
+            st.markdown("<h1 style='font-size: 70px; margin: 0;'>🍪</h1>", unsafe_allow_html=True)
             
     st.markdown("---")
     st.header("⚙️ Game Controls")
-    selected_week = st.slider("Select App Active Week", min_value=1, max_value=10, value=st.session_state.current_week)
+    selected_week = st.slider("Select App Active Week", min_value=2, max_value=10, value=st.session_state.current_week)
     st.session_state.current_week = selected_week
 
     st.markdown("---")
@@ -595,8 +538,7 @@ with tab_lead:
     # Compile scoring
     lb_data = []
     for name, data in st.session_state.league_members.items():
-        if name in ["Steve", "Craig", "You"]:
-            continue
+# Include all 15 league members on leaderboard
         tot_pts = data.get("total_score", 0)
         av_val = data.get("avatar")
         lb_data.append({
@@ -808,7 +750,7 @@ with tab_lead:
 
     with st.expander("📝 Submit a Result Dispute / Timestamp Correction", expanded=False):
         with st.form("dispute_form"):
-            disp_player = st.selectbox("Your Name / Player Profile", ["You"] + [m for m in st.session_state.league_members if m != "You"])
+            disp_player = st.selectbox("Your Name / Player Profile", sorted([m for m in st.session_state.league_members if m != "AI Brian"]))
             disp_week = st.selectbox("Week to Contest", [f"Week {w}" for w in sorted(st.session_state.weekly_results.keys())] if st.session_state.weekly_results else ["Week 2"])
             disp_cat = st.selectbox("Category Contested", [
                 "Hollywood Handshake Count / Recipient",
