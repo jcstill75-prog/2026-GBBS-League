@@ -1121,4 +1121,35 @@ with tab_admin:
                                 if pts == max_pts:
                                     st.session_state.league_members[m_name]["weekly_breakdown"][w_num_int] += 5
                                     
-                for m_name in ALL_HUMAN
+                for m_name in ALL_HUMANS_AND_AI:
+                    m_data = st.session_state.league_members[m_name]
+                    m_data["total_score"] = sum(m_data["weekly_breakdown"].values())
+                    if st.session_state.season_results:
+                        m_data["total_score"] += calculate_season_score(m_data["season_picks"], st.session_state.season_results)
+                        
+                save_league_data()
+                st.success(f"🎉 Official Week {admin_selected_week} results published! All league standings updated.")
+
+        st.markdown("---")
+        st.subheader("🔑 Player PIN Reset Console")
+        pin_reset_player = st.selectbox("Select Player to Reset PIN:", ROSTER_HUMANS, key="pin_reset_sel")
+        if st.button("Reset Player PIN"):
+            if pin_reset_player in st.session_state.player_pins:
+                del st.session_state.player_pins[pin_reset_player]
+                save_league_data()
+                st.success(f"✅ PIN reset for {pin_reset_player}. They can now set a new PIN on the prediction tab.")
+            else:
+                st.info(f"{pin_reset_player} does not have an active PIN set.")
+
+        st.markdown("---")
+        st.subheader("🚨 Emergency Reset Data")
+        confirm_erase = st.checkbox("I understand this will erase all player picks, PINs, and published broadcast actuals.")
+        if st.button("Erase All Saved League Data"):
+            if confirm_erase:
+                if os.path.exists(DATA_FILE):
+                    os.remove(DATA_FILE)
+                st.session_state.clear()
+                st.success("✅ All league data erased! App state reset.")
+                st.rerun()
+            else:
+                st.error("Please check the confirmation box above first.")
