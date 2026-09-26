@@ -1,11 +1,11 @@
 import streamlit as st
 import pandas as pd
 import random
+from PIL import Image
+import io
 import os
 import json
 import base64
-import io
-from PIL import Image
 
 # --- 1. SETUP & PAGE CONFIG ---
 st.set_page_config(
@@ -15,7 +15,7 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# Custom Styling for a cozy baking theme
+# Custom Styling
 st.markdown("""
 <style>
     .reportview-container {
@@ -58,17 +58,21 @@ def calculate_weekly_score(predictions, actuals, week=2):
         if isinstance(act_elim, list):
             if isinstance(pred_elim, list):
                 for p in pred_elim:
-                    if p in act_elim: score += 5
+                    if p in act_elim:
+                        score += 5
             elif isinstance(pred_elim, str):
-                if pred_elim in act_elim: score += 5
+                if pred_elim in act_elim:
+                    score += 5
         elif act_elim == "None":
             pass
         else:
             if isinstance(pred_elim, list):
-                if act_elim in pred_elim: score += 5
-            elif pred_elim == act_elim: score += 5
+                if act_elim in pred_elim:
+                    score += 5
+            elif pred_elim == act_elim:
+                score += 5
             
-    # Technical Challenge Scoring
+    # Technical Challenge
     if week >= 8:
         pred_rank = predictions.get("tech_rank", [])
         act_rank = actuals.get("tech_rank", [])
@@ -215,7 +219,6 @@ ROSTER_HUMANS = [
 ]
 ROSTER_ALL = sorted(ROSTER_HUMANS + ["AI Brian"])
 
-# Data Persistence
 DATA_FILE = "league_data.json"
 
 def load_league_data():
@@ -259,12 +262,7 @@ if "league_members" not in st.session_state:
             }
 
 if "weekly_results" not in st.session_state:
-    if saved_data and "weekly_results" in saved_data:
-        # Convert string keys back to int if needed
-        raw_w = saved_data["weekly_results"]
-        st.session_state.weekly_results = {int(k): v for k, v in raw_w.items()}
-    else:
-        st.session_state.weekly_results = {}
+    st.session_state.weekly_results = saved_data.get("weekly_results", {}) if saved_data else {}
 
 if "season_results" not in st.session_state:
     st.session_state.season_results = saved_data.get("season_results", {}) if saved_data else {}
@@ -278,7 +276,7 @@ if "disputes" not in st.session_state:
 if "admin_authenticated" not in st.session_state:
     st.session_state.admin_authenticated = False
 
-# AI Brian Generator
+# AI Brian Simulator
 def generate_ai_brian_season_picks():
     w = random.choice(ALL_BAKERS)
     rem = [b for b in ALL_BAKERS if b != w]
@@ -407,12 +405,7 @@ with st.sidebar:
         """)
 
 # --- 5. MAIN NAVIGATION TABS --- 
-tab_lead, tab_submit, tab_analytics, tab_admin = st.tabs([
-    "📊 Leaderboard & Standings", 
-    "📝 Submit Predictions", 
-    "📈 Contestant Analytics",
-    "👑 Admin Panel"
-])
+tab_lead, tab_submit, tab_admin = st.tabs(["📊 Leaderboard & Standings", "📝 Submit Predictions", "👑 Admin Panel"])
 
 # --- TAB 1: LEADERBOARD & STANDINGS ---
 with tab_lead:
@@ -533,18 +526,22 @@ with tab_lead:
         st.markdown(table_html, unsafe_allow_html=True)
 
     st.markdown("---")
-    st.subheader("🌀 Running Subjective Chaos Categories Totals")
+    st.subheader("🌀 Chaos Categories Totals")
+    tot_hs = 0
     tot_cry = 0
     tot_inn = 0
     if st.session_state.weekly_results:
         for w_num, w_act in st.session_state.weekly_results.items():
+            tot_hs += w_act.get("handshake_count", len(w_act.get("handshake_bakers", [])))
             tot_cry += w_act.get("crying_count", 0)
             tot_inn += w_act.get("innuendo_count", 0)
             
-    col_c1, col_c2 = st.columns(2)
+    col_c1, col_c2, col_c3 = st.columns(3)
     with col_c1:
-        st.metric("😢 Crying Incidents", f"{tot_cry} total")
+        st.metric("🤝 Hollywood Handshakes", f"{tot_hs} total")
     with col_c2:
+        st.metric("😢 Crying Incidents", f"{tot_cry} total")
+    with col_c3:
         st.metric("💬 Sexual Innuendos", f"{tot_inn} total")
 
     st.markdown("---")
@@ -585,11 +582,11 @@ with tab_lead:
                         "Eliminated Pick": el,
                         "Technical Top 3": t3
                     })
-                st.dataframe(pd.DataFrame(w_rows), use_container_width=True)
+                st.dataframe(pd.DataFrame(w_rows), hide_index=True, use_container_width=True)
 
     st.markdown("---")
-    st.header("📺 Broadcast Audit & Video Timestamps (Subjective Categories)")
-    st.write("Contestants can review the administrator's logging of subjective episode categories (Crying and Sexual Innuendos), including video timestamps and context notes, to verify accuracy.")
+    st.header("📺 Crying and Innuendo Instances")
+    st.write("Contestants can review the administrator's episode logging, including video timestamps for Crying incidents and Sexual Innuendos, to verify accuracy.")
 
     if not st.session_state.weekly_results:
         st.info("No weekly broadcast results published yet. Results will appear here after Episode 1!")
@@ -604,8 +601,6 @@ with tab_lead:
 
             audit_rows.append({
                 "Week": f"Week {w_num}",
-                "Star Baker": w_act.get("star_baker", w_act.get("show_champion", "N/A")),
-                "Eliminated": ", ".join(w_act["eliminated"]) if isinstance(w_act.get("eliminated"), list) else w_act.get("eliminated", "N/A"),
                 "Crying Occurrences": cry_cnt,
                 "Crying Notes & Video Timestamps": cry_stamps,
                 "Innuendo Occurrences": inn_cnt,
@@ -613,25 +608,25 @@ with tab_lead:
             })
 
         df_audit = pd.DataFrame(audit_rows)
-        st.dataframe(df_audit, use_container_width=True)
+        st.dataframe(df_audit, hide_index=True, use_container_width=True)
 
     st.markdown("---")
     st.header("🚩 Contest / Dispute a Result")
-    st.write("If you spot an error or unrecorded crying scene / innuendo in an episode, submit a dispute below with video timestamp evidence. Disputes are reviewed democratically by league members on GroupMe via majority vote.")
+    st.write("If you spot an error, missed handshake, or unrecorded crying scene in an episode, submit a dispute below with video timestamp evidence. Disputes are reviewed democratically by league members on GroupMe via majority vote.")
 
     with st.expander("📝 Submit a Result Dispute / Timestamp Correction", expanded=False):
         with st.form("dispute_form"):
             disp_player = st.selectbox("Your Name / Player Profile", ROSTER_HUMANS)
             disp_week = st.selectbox("Week to Contest", [f"Week {w}" for w in sorted(st.session_state.weekly_results.keys())] if st.session_state.weekly_results else ["Week 1"])
             disp_cat = st.selectbox("Category Contested", [
-                "Crying Scene Timestamp / Count",
-                "Sexual Innuendo Count / Timestamp",
-                "Hollywood Handshake Recipient",
+                "Hollywood Handshake Count / Recipient",
+                "Crying Scene Timestamp",
+                "Sexual Innuendo Count",
                 "Technical Challenge Placement",
                 "Star Baker / Elimination Selection"
             ])
-            disp_evidence = st.text_area("Video Timestamp & Video Evidence (e.g., 'At 28:14 in Episode 3, Gabe clearly sheds tears during Showstopper judging')")
-            disp_correction = st.text_input("Requested Correction (e.g., 'Add +1 Crying for Gabe in Week 3')")
+            disp_evidence = st.text_area("Video Timestamp & Video Evidence (e.g., 'At 28:14 in Episode 3, Paul clearly shakes Tom's hand during Showstopper judging')")
+            disp_correction = st.text_input("Requested Correction (e.g., 'Add +1 Handshake for Tom in Week 3')")
             
             sub_disp = st.form_submit_button("Submit Dispute for League Vote")
             if sub_disp:
@@ -641,7 +636,7 @@ with tab_lead:
                     "Category": disp_cat,
                     "Evidence": disp_evidence,
                     "Correction": disp_correction,
-                    "Status": "Pending GroupMe Vote 🗳️"
+                    "Status": "Active 🗳️"
                 })
                 save_league_data()
                 st.success("Dispute submitted successfully! It has been logged below for democratic GroupMe review.")
@@ -649,7 +644,7 @@ with tab_lead:
     if st.session_state.disputes:
         st.subheader("📋 Active Contestations & Dispute Log")
         df_disp = pd.DataFrame(st.session_state.disputes)
-        st.dataframe(df_disp, use_container_width=True)
+        st.dataframe(df_disp, hide_index=True, use_container_width=True)
 
 # --- TAB 2: SUBMIT PREDICTIONS ---
 with tab_submit:
@@ -818,7 +813,7 @@ with tab_submit:
                     
                 submitted = st.form_submit_button("Submit Predictions")
                 if submitted:
-                    main_picks = []
+                    all_selected = []
                     if st.session_state.current_week < 8:
                         main_picks = [weekly_picks.get("star_baker"), weekly_picks.get("in_line_sb"), weekly_picks.get("in_trouble")]
                         if isinstance(weekly_picks.get("eliminated"), list):
@@ -856,28 +851,10 @@ with tab_submit:
                             save_league_data()
                             st.success(f"Predictions submitted successfully for {user_submitting_player} (Week {st.session_state.current_week})! AI Brian has also submitted his picks.")
 
-# --- TAB 3: CONTESTANT ANALYTICS ---
-with tab_analytics:
-    st.header("📈 Contestant Analytics & Baker Cards")
-    st.write("Detailed profiles and series trajectories for the Series 17 Bakers:")
-    selected_baker = st.selectbox("Select a Baker to Inspect:", ALL_BAKERS)
-    
-    col_img, col_details = st.columns([1, 2])
-    with col_img:
-        b_img = load_baker_image(selected_baker)
-        if b_img is not None:
-            st.image(b_img, caption=selected_baker, use_container_width=True)
-        else:
-            st.info(f"📸 Photograph of {selected_baker}")
-    with col_details:
-        st.subheader(f"Baker Profile: {selected_baker}")
-        b_info = BAKER_INFO.get(selected_baker, {})
-        st.markdown(f"[🔗 Official Show Profile Page]({b_info.get('url', '#')})")
-
-# --- TAB 4: ADMIN PANEL ---
+# --- TAB 3: ADMIN PANEL ---
 with tab_admin:
     st.header("👑 League Administrator Console")
-    st.write("Input, review, and lock actual broadcast results to calculate player scores and update the leaderboard.")
+    st.write("Input actual broadcast results here to calculate player scores and update the leaderboard.")
     
     admin_pin = st.text_input("Enter Administrator Security PIN:", type="password", key="admin_pin_input")
     if admin_pin == "6284":
@@ -887,35 +864,22 @@ with tab_admin:
     if not st.session_state.admin_authenticated:
         st.warning("🔒 Admin panel is locked. Please enter PIN 6284 above to gain administrative access.")
     else:
-        # Week selection dropdown to review or edit past weeks
-        admin_selected_week = st.selectbox(
-            "Select Week to Record or Review Broadcast Results:", 
-            list(range(1, 11)), 
-            index=min(st.session_state.current_week - 1, 9)
-        )
+        admin_selected_week = st.selectbox("Select Week to Record or Review Broadcast Results:", list(range(1, 11)), index=min(st.session_state.current_week - 1, 9))
         
-        # Check if selected week already has published results
-        is_week_published = admin_selected_week in st.session_state.weekly_results
-        saved_week_actuals = st.session_state.weekly_results.get(admin_selected_week, {})
+        # Check if selected week is already published
+        existing_results = st.session_state.weekly_results.get(admin_selected_week, {})
+        is_published = bool(existing_results)
         
-        # Unlock toggle for published weeks
-        edit_unlocked = False
-        if is_week_published:
-            st.info(f"📌 Results for **Week {admin_selected_week}** have already been published and locked.")
-            edit_unlock_pin = st.text_input(
-                f"Enter Admin Code (6284) to Unlock Edit Mode for Week {admin_selected_week}:", 
-                type="password", 
-                key=f"unlock_edit_pin_w{admin_selected_week}"
-            )
-            if edit_unlock_pin == "6284":
-                edit_unlocked = True
-                st.success(f"🔓 Edit Mode Unlocked for Week {admin_selected_week}! You can modify and re-publish entries below.")
-            else:
-                st.warning(f"🔒 Fields are currently locked for Week {admin_selected_week}. Enter PIN 6284 above to make changes.")
-        
-        # Determine if inputs should be disabled
-        is_disabled = is_week_published and not edit_unlocked
-        
+        st.markdown("---")
+        if is_published:
+            st.info(f"🔒 **Week {admin_selected_week} Results are currently Published & Locked.** To modify previously published results, enter PIN 6284 in the unlock field below.")
+            unlock_edit_pin = st.text_input(f"Enter PIN 6284 to Unlock Edit Mode for Week {admin_selected_week}:", type="password", key=f"unlock_edit_pin_w{admin_selected_week}")
+            allow_edit = (unlock_edit_pin == "6284")
+            if allow_edit:
+                st.success(f"🔓 Edit Mode Unlocked for Week {admin_selected_week}!")
+        else:
+            allow_edit = True
+
         eliminated_bakers_by_week = {
             1: [],
             2: ["Yannis"],
@@ -932,175 +896,165 @@ with tab_admin:
         active_bakers = [b for b in ALL_BAKERS if b not in current_eliminated]
         admin_baker_options = ["--Select Baker--"] + active_bakers
         
-        # Helper function for default dropdown index
-        def get_def_index(val, options):
-            if val in options:
-                return options.index(val)
-            return 0
-
+        disabled_flag = not allow_edit
+        
         with st.form("admin_actuals_form"):
-            st.subheader(f"Input / Review Broadcast Results for Week {admin_selected_week}")
+            st.subheader(f"Input Broadcast Results for Week {admin_selected_week}")
             actuals = {}
             
+            # Helper to safely retrieve index
+            def get_baker_idx(val):
+                if val in admin_baker_options:
+                    return admin_baker_options.index(val)
+                return 0
+
+            def get_multi_bakers(val_list):
+                if isinstance(val_list, list):
+                    return [b for b in val_list if b in active_bakers]
+                return []
+
             if admin_selected_week == 10:
-                def_champ = saved_week_actuals.get("show_champion", "--Select Baker--")
-                actuals["show_champion"] = st.selectbox("Actual Show Champion", admin_baker_options, index=get_def_index(def_champ, admin_baker_options), disabled=is_disabled)
-                
+                actuals["show_champion"] = st.selectbox("Actual Show Champion", admin_baker_options, index=get_baker_idx(existing_results.get("show_champion")), disabled=disabled_flag)
                 st.markdown("**Actual Technical Challenge Rankings:**")
-                saved_tech = saved_week_actuals.get("tech_rank", ["--Select Baker--"]*3)
-                act_t1 = st.selectbox("Actual Technical 1st Place", admin_baker_options, index=get_def_index(saved_tech[0] if len(saved_tech)>0 else "", admin_baker_options), disabled=is_disabled, key="act_t1_w10")
-                act_t2 = st.selectbox("Actual Technical 2nd Place", admin_baker_options, index=get_def_index(saved_tech[1] if len(saved_tech)>1 else "", admin_baker_options), disabled=is_disabled, key="act_t2_w10")
-                act_t3 = st.selectbox("Actual Technical 3rd Place", admin_baker_options, index=get_def_index(saved_tech[2] if len(saved_tech)>2 else "", admin_baker_options), disabled=is_disabled, key="act_t3_w10")
+                existing_tr = existing_results.get("tech_rank", ["", "", ""])
+                act_t1 = st.selectbox("Actual Technical 1st Place", admin_baker_options, index=get_baker_idx(existing_tr[0] if len(existing_tr) > 0 else ""), key="act_t1_w10", disabled=disabled_flag)
+                act_t2 = st.selectbox("Actual Technical 2nd Place", admin_baker_options, index=get_baker_idx(existing_tr[1] if len(existing_tr) > 1 else ""), key="act_t2_w10", disabled=disabled_flag)
+                act_t3 = st.selectbox("Actual Technical 3rd Place", admin_baker_options, index=get_baker_idx(existing_tr[2] if len(existing_tr) > 2 else ""), key="act_t3_w10", disabled=disabled_flag)
                 actuals["tech_rank"] = [act_t1, act_t2, act_t3]
                 
             elif admin_selected_week == 9:
-                def_sb = saved_week_actuals.get("star_baker", "--Select Baker--")
-                actuals["star_baker"] = st.selectbox("Actual Star Baker", admin_baker_options, index=get_def_index(def_sb, admin_baker_options), disabled=is_disabled)
-                
-                saved_elim = saved_week_actuals.get("eliminated")
-                is_saved_double = isinstance(saved_elim, list)
-                
-                elim_type = st.radio("Elimination Status", ["Single Elimination", "No Elimination (Sickness/Grace Week)", "Double Elimination"], index=(2 if is_saved_double else (1 if saved_elim=="None" else 0)), horizontal=True, disabled=is_disabled, key="admin_elim_type_w9")
-                
+                actuals["star_baker"] = st.selectbox("Actual Star Baker", admin_baker_options, index=get_baker_idx(existing_results.get("star_baker")), disabled=disabled_flag)
+                elim_type = st.radio("Elimination Status", ["Single Elimination", "No Elimination (Sickness/Grace Week)", "Double Elimination"], horizontal=True, key="admin_elim_type_w9", disabled=disabled_flag)
                 if elim_type == "Single Elimination":
-                    def_el = saved_elim if isinstance(saved_elim, str) else "--Select Baker--"
-                    actuals["eliminated"] = st.selectbox("Actual Eliminated Baker", admin_baker_options, index=get_def_index(def_el, admin_baker_options), disabled=is_disabled, key="act_elim_single_w9")
+                    existing_elim = existing_results.get("eliminated")
+                    elim_str = existing_elim[0] if isinstance(existing_elim, list) and existing_elim else (existing_elim if isinstance(existing_elim, str) else "")
+                    actuals["eliminated"] = st.selectbox("Actual Eliminated Baker", admin_baker_options, index=get_baker_idx(elim_str), key="act_elim_single_w9", disabled=disabled_flag)
                 elif elim_type == "No Elimination (Sickness/Grace Week)":
                     actuals["eliminated"] = "None"
                 else:
-                    def_el1 = saved_elim[0] if is_saved_double and len(saved_elim)>0 else "--Select Baker--"
-                    def_el2 = saved_elim[1] if is_saved_double and len(saved_elim)>1 else "--Select Baker--"
-                    act_elim_1 = st.selectbox("Actual Eliminated Baker #1", admin_baker_options, index=get_def_index(def_el1, admin_baker_options), disabled=is_disabled, key="admin_act_elim_1_w9")
-                    act_elim_2 = st.selectbox("Actual Eliminated Baker #2", admin_baker_options, index=get_def_index(def_el2, admin_baker_options), disabled=is_disabled, key="admin_act_elim_2_w9")
+                    existing_elim = existing_results.get("eliminated", ["", ""])
+                    e1 = existing_elim[0] if isinstance(existing_elim, list) and len(existing_elim) > 0 else ""
+                    e2 = existing_elim[1] if isinstance(existing_elim, list) and len(existing_elim) > 1 else ""
+                    act_elim_1 = st.selectbox("Actual Eliminated Baker #1", admin_baker_options, index=get_baker_idx(e1), key="admin_act_elim_1_w9", disabled=disabled_flag)
+                    act_elim_2 = st.selectbox("Actual Eliminated Baker #2", admin_baker_options, index=get_baker_idx(e2), key="admin_act_elim_2_w9", disabled=disabled_flag)
                     actuals["eliminated"] = [act_elim_1, act_elim_2]
                 
                 st.markdown("**Actual Technical Challenge Rankings:**")
-                saved_tech = saved_week_actuals.get("tech_rank", ["--Select Baker--"]*4)
-                act_t1 = st.selectbox("Actual Technical 1st Place", admin_baker_options, index=get_def_index(saved_tech[0] if len(saved_tech)>0 else "", admin_baker_options), disabled=is_disabled, key="act_t1_w9")
-                act_t2 = st.selectbox("Actual Technical 2nd Place", admin_baker_options, index=get_def_index(saved_tech[1] if len(saved_tech)>1 else "", admin_baker_options), disabled=is_disabled, key="act_t2_w9")
-                act_t3 = st.selectbox("Actual Technical 3rd Place", admin_baker_options, index=get_def_index(saved_tech[2] if len(saved_tech)>2 else "", admin_baker_options), disabled=is_disabled, key="act_t3_w9")
-                act_t4 = st.selectbox("Actual Technical 4th Place", admin_baker_options, index=get_def_index(saved_tech[3] if len(saved_tech)>3 else "", admin_baker_options), disabled=is_disabled, key="act_t4_w9")
+                existing_tr = existing_results.get("tech_rank", ["", "", "", ""])
+                act_t1 = st.selectbox("Actual Technical 1st Place", admin_baker_options, index=get_baker_idx(existing_tr[0] if len(existing_tr) > 0 else ""), key="act_t1_w9", disabled=disabled_flag)
+                act_t2 = st.selectbox("Actual Technical 2nd Place", admin_baker_options, index=get_baker_idx(existing_tr[1] if len(existing_tr) > 1 else ""), key="act_t2_w9", disabled=disabled_flag)
+                act_t3 = st.selectbox("Actual Technical 3rd Place", admin_baker_options, index=get_baker_idx(existing_tr[2] if len(existing_tr) > 2 else ""), key="act_t3_w9", disabled=disabled_flag)
+                act_t4 = st.selectbox("Actual Technical 4th Place", admin_baker_options, index=get_baker_idx(existing_tr[3] if len(existing_tr) > 3 else ""), key="act_t4_w9", disabled=disabled_flag)
                 actuals["tech_rank"] = [act_t1, act_t2, act_t3, act_t4]
 
             elif admin_selected_week == 8:
                 col1, col2 = st.columns(2)
                 with col1:
-                    def_sb = saved_week_actuals.get("star_baker", "--Select Baker--")
-                    actuals["star_baker"] = st.selectbox("Actual Star Baker", admin_baker_options, index=get_def_index(def_sb, admin_baker_options), disabled=is_disabled)
-                    def_inline = saved_week_actuals.get("in_line_sb", [])
-                    actuals["in_line_sb"] = st.multiselect("Actual 'In Line' Nominees", active_bakers, default=[b for b in def_inline if b in active_bakers], disabled=is_disabled)
+                    actuals["star_baker"] = st.selectbox("Actual Star Baker", admin_baker_options, index=get_baker_idx(existing_results.get("star_baker")), disabled=disabled_flag)
+                    actuals["in_line_sb"] = st.multiselect("Actual 'In Line' Nominees", active_bakers, default=get_multi_bakers(existing_results.get("in_line_sb")), disabled=disabled_flag)
                 with col2:
-                    saved_elim = saved_week_actuals.get("eliminated")
-                    is_saved_double = isinstance(saved_elim, list)
-                    elim_type = st.radio("Elimination Status", ["Single Elimination", "No Elimination (Sickness/Grace Week)", "Double Elimination"], index=(2 if is_saved_double else (1 if saved_elim=="None" else 0)), horizontal=True, disabled=is_disabled, key="admin_elim_type_w8")
-                    
-                    def_trouble = saved_week_actuals.get("in_trouble", [])
+                    elim_type = st.radio("Elimination Status", ["Single Elimination", "No Elimination (Sickness/Grace Week)", "Double Elimination"], horizontal=True, key="admin_elim_type_w8", disabled=disabled_flag)
                     if elim_type == "Single Elimination":
-                        def_el = saved_elim if isinstance(saved_elim, str) else "--Select Baker--"
-                        actuals["eliminated"] = st.selectbox("Actual Eliminated Baker", admin_baker_options, index=get_def_index(def_el, admin_baker_options), disabled=is_disabled, key="act_elim_single_w8")
-                        actuals["in_trouble"] = st.multiselect("Actual 'In Trouble' Nominees", active_bakers, default=[b for b in def_trouble if b in active_bakers], disabled=is_disabled, key="admin_trb_w8")
+                        existing_elim = existing_results.get("eliminated")
+                        elim_str = existing_elim[0] if isinstance(existing_elim, list) and existing_elim else (existing_elim if isinstance(existing_elim, str) else "")
+                        actuals["eliminated"] = st.selectbox("Actual Eliminated Baker", admin_baker_options, index=get_baker_idx(elim_str), key="act_elim_single_w8", disabled=disabled_flag)
+                        actuals["in_trouble"] = st.multiselect("Actual 'In Trouble' Nominees", active_bakers, default=get_multi_bakers(existing_results.get("in_trouble")), key="admin_trb_w8", disabled=disabled_flag)
                     elif elim_type == "No Elimination (Sickness/Grace Week)":
                         actuals["eliminated"] = "None"
-                        actuals["in_trouble"] = st.multiselect("Actual 'In Trouble' Nominees (Sickness consolations)", active_bakers, default=[b for b in def_trouble if b in active_bakers], disabled=is_disabled, key="admin_trb_w8")
+                        actuals["in_trouble"] = st.multiselect("Actual 'In Trouble' Nominees (Sickness consolations)", active_bakers, default=get_multi_bakers(existing_results.get("in_trouble")), key="admin_trb_w8", disabled=disabled_flag)
                     else:
-                        def_el1 = saved_elim[0] if is_saved_double and len(saved_elim)>0 else "--Select Baker--"
-                        def_el2 = saved_elim[1] if is_saved_double and len(saved_elim)>1 else "--Select Baker--"
-                        act_elim_1 = st.selectbox("Actual Eliminated Baker #1", admin_baker_options, index=get_def_index(def_el1, admin_baker_options), disabled=is_disabled, key="admin_act_elim_1_w8")
-                        act_elim_2 = st.selectbox("Actual Eliminated Baker #2", admin_baker_options, index=get_def_index(def_el2, admin_baker_options), disabled=is_disabled, key="admin_act_elim_2_w8")
+                        existing_elim = existing_results.get("eliminated", ["", ""])
+                        e1 = existing_elim[0] if isinstance(existing_elim, list) and len(existing_elim) > 0 else ""
+                        e2 = existing_elim[1] if isinstance(existing_elim, list) and len(existing_elim) > 1 else ""
+                        act_elim_1 = st.selectbox("Actual Eliminated Baker #1", admin_baker_options, index=get_baker_idx(e1), key="admin_act_elim_1_w8", disabled=disabled_flag)
+                        act_elim_2 = st.selectbox("Actual Eliminated Baker #2", admin_baker_options, index=get_baker_idx(e2), key="admin_act_elim_2_w8", disabled=disabled_flag)
                         actuals["eliminated"] = [act_elim_1, act_elim_2]
-                        actuals["in_trouble"] = st.multiselect("Actual 'In Trouble' Nominees", active_bakers, default=[b for b in def_trouble if b in active_bakers], disabled=is_disabled, key="admin_trb_w8")
+                        actuals["in_trouble"] = st.multiselect("Actual 'In Trouble' Nominees", active_bakers, default=get_multi_bakers(existing_results.get("in_trouble")), key="admin_trb_w8", disabled=disabled_flag)
                     
                 st.markdown("**Actual Technical Challenge Rankings:**")
-                saved_tech = saved_week_actuals.get("tech_rank", ["--Select Baker--"]*5)
-                act_t1 = st.selectbox("Actual Technical 1st Place", admin_baker_options, index=get_def_index(saved_tech[0] if len(saved_tech)>0 else "", admin_baker_options), disabled=is_disabled, key="act_t1_w8")
-                act_t2 = st.selectbox("Actual Technical 2nd Place", admin_baker_options, index=get_def_index(saved_tech[1] if len(saved_tech)>1 else "", admin_baker_options), disabled=is_disabled, key="act_t2_w8")
-                act_t3 = st.selectbox("Actual Technical 3rd Place", admin_baker_options, index=get_def_index(saved_tech[2] if len(saved_tech)>2 else "", admin_baker_options), disabled=is_disabled, key="act_t3_w8")
-                act_t4 = st.selectbox("Actual Technical 4th Place", admin_baker_options, index=get_def_index(saved_tech[3] if len(saved_tech)>3 else "", admin_baker_options), disabled=is_disabled, key="act_t4_w8")
-                act_t5 = st.selectbox("Actual Technical 5th Place", admin_baker_options, index=get_def_index(saved_tech[4] if len(saved_tech)>4 else "", admin_baker_options), disabled=is_disabled, key="act_t5_w8")
+                existing_tr = existing_results.get("tech_rank", ["", "", "", "", ""])
+                act_t1 = st.selectbox("Actual Technical 1st Place", admin_baker_options, index=get_baker_idx(existing_tr[0] if len(existing_tr) > 0 else ""), key="act_t1_w8", disabled=disabled_flag)
+                act_t2 = st.selectbox("Actual Technical 2nd Place", admin_baker_options, index=get_baker_idx(existing_tr[1] if len(existing_tr) > 1 else ""), key="act_t2_w8", disabled=disabled_flag)
+                act_t3 = st.selectbox("Actual Technical 3rd Place", admin_baker_options, index=get_baker_idx(existing_tr[2] if len(existing_tr) > 2 else ""), key="act_t3_w8", disabled=disabled_flag)
+                act_t4 = st.selectbox("Actual Technical 4th Place", admin_baker_options, index=get_baker_idx(existing_tr[3] if len(existing_tr) > 3 else ""), key="act_t4_w8", disabled=disabled_flag)
+                act_t5 = st.selectbox("Actual Technical 5th Place", admin_baker_options, index=get_baker_idx(existing_tr[4] if len(existing_tr) > 4 else ""), key="act_t5_w8", disabled=disabled_flag)
                 actuals["tech_rank"] = [act_t1, act_t2, act_t3, act_t4, act_t5]
                 
             else:
                 col1, col2 = st.columns(2)
                 with col1:
-                    def_sb = saved_week_actuals.get("star_baker", "--Select Baker--")
-                    actuals["star_baker"] = st.selectbox("Actual Star Baker", admin_baker_options, index=get_def_index(def_sb, admin_baker_options), disabled=is_disabled)
-                    def_inline = saved_week_actuals.get("in_line_sb", [])
-                    actuals["in_line_sb"] = st.multiselect("Actual 'In Line' Nominees", active_bakers, default=[b for b in def_inline if b in active_bakers], disabled=is_disabled)
+                    actuals["star_baker"] = st.selectbox("Actual Star Baker", admin_baker_options, index=get_baker_idx(existing_results.get("star_baker")), disabled=disabled_flag)
+                    actuals["in_line_sb"] = st.multiselect("Actual 'In Line' Nominees", active_bakers, default=get_multi_bakers(existing_results.get("in_line_sb")), disabled=disabled_flag)
                 with col2:
-                    saved_elim = saved_week_actuals.get("eliminated")
-                    is_saved_double = isinstance(saved_elim, list)
-                    elim_type = st.radio("Elimination Status", ["Single Elimination", "No Elimination (Sickness/Grace Week)", "Double Elimination"], index=(2 if is_saved_double else (1 if saved_elim=="None" else 0)), horizontal=True, disabled=is_disabled, key="admin_elim_type_std")
-                    
-                    def_trouble = saved_week_actuals.get("in_trouble", [])
+                    elim_type = st.radio("Elimination Status", ["Single Elimination", "No Elimination (Sickness/Grace Week)", "Double Elimination"], horizontal=True, key="admin_elim_type_std", disabled=disabled_flag)
                     if elim_type == "Single Elimination":
-                        def_el = saved_elim if isinstance(saved_elim, str) else "--Select Baker--"
-                        actuals["eliminated"] = st.selectbox("Actual Eliminated Baker", admin_baker_options, index=get_def_index(def_el, admin_baker_options), disabled=is_disabled, key="act_elim_single_std")
-                        actuals["in_trouble"] = st.multiselect("Actual 'In Trouble' Nominees", active_bakers, default=[b for b in def_trouble if b in active_bakers], disabled=is_disabled, key="admin_trb_std")
+                        existing_elim = existing_results.get("eliminated")
+                        elim_str = existing_elim[0] if isinstance(existing_elim, list) and existing_elim else (existing_elim if isinstance(existing_elim, str) else "")
+                        actuals["eliminated"] = st.selectbox("Actual Eliminated Baker", admin_baker_options, index=get_baker_idx(elim_str), key="act_elim_single_std", disabled=disabled_flag)
+                        actuals["in_trouble"] = st.multiselect("Actual 'In Trouble' Nominees", active_bakers, default=get_multi_bakers(existing_results.get("in_trouble")), key="admin_trb_std", disabled=disabled_flag)
                     elif elim_type == "No Elimination (Sickness/Grace Week)":
                         actuals["eliminated"] = "None"
-                        actuals["in_trouble"] = st.multiselect("Actual 'In Trouble' Nominees (Sickness consolations)", active_bakers, default=[b for b in def_trouble if b in active_bakers], disabled=is_disabled, key="admin_trb_std")
+                        actuals["in_trouble"] = st.multiselect("Actual 'In Trouble' Nominees (Sickness consolations)", active_bakers, default=get_multi_bakers(existing_results.get("in_trouble")), key="admin_trb_std", disabled=disabled_flag)
                     else:
-                        def_el1 = saved_elim[0] if is_saved_double and len(saved_elim)>0 else "--Select Baker--"
-                        def_el2 = saved_elim[1] if is_saved_double and len(saved_elim)>1 else "--Select Baker--"
-                        act_elim_1 = st.selectbox("Actual Eliminated Baker #1", admin_baker_options, index=get_def_index(def_el1, admin_baker_options), disabled=is_disabled, key="admin_act_elim_1_std")
-                        act_elim_2 = st.selectbox("Actual Eliminated Baker #2", admin_baker_options, index=get_def_index(def_el2, admin_baker_options), disabled=is_disabled, key="admin_act_elim_2_std")
+                        existing_elim = existing_results.get("eliminated", ["", ""])
+                        e1 = existing_elim[0] if isinstance(existing_elim, list) and len(existing_elim) > 0 else ""
+                        e2 = existing_elim[1] if isinstance(existing_elim, list) and len(existing_elim) > 1 else ""
+                        act_elim_1 = st.selectbox("Actual Eliminated Baker #1", admin_baker_options, index=get_baker_idx(e1), key="admin_act_elim_1_std", disabled=disabled_flag)
+                        act_elim_2 = st.selectbox("Actual Eliminated Baker #2", admin_baker_options, index=get_baker_idx(e2), key="admin_act_elim_2_std", disabled=disabled_flag)
                         actuals["eliminated"] = [act_elim_1, act_elim_2]
-                        actuals["in_trouble"] = st.multiselect("Actual 'In Trouble' Nominees", active_bakers, default=[b for b in def_trouble if b in active_bakers], disabled=is_disabled, key="admin_trb_std")
+                        actuals["in_trouble"] = st.multiselect("Actual 'In Trouble' Nominees", active_bakers, default=get_multi_bakers(existing_results.get("in_trouble")), key="admin_trb_std", disabled=disabled_flag)
                     
                 st.markdown("---")
                 st.markdown("**Actual Technical Challenge Rankings:**")
-                saved_top3 = saved_week_actuals.get("tech_top_3", ["--Select Baker--"]*3)
-                saved_bot3 = saved_week_actuals.get("tech_bottom_3", ["--Select Baker--"]*3)
-                
-                act_tt1 = st.selectbox("Actual Technical 1st Place", admin_baker_options, index=get_def_index(saved_top3[0] if len(saved_top3)>0 else "", admin_baker_options), disabled=is_disabled, key="act_tt1_std")
-                act_tt2 = st.selectbox("Actual Technical 2nd Place", admin_baker_options, index=get_def_index(saved_top3[1] if len(saved_top3)>1 else "", admin_baker_options), disabled=is_disabled, key="act_tt2_std")
-                act_tt3 = st.selectbox("Actual Technical 3rd Place", admin_baker_options, index=get_def_index(saved_top3[2] if len(saved_top3)>2 else "", admin_baker_options), disabled=is_disabled, key="act_tt3_std")
-                act_tb1 = st.selectbox("Actual Technical 3rd-to-Last Place", admin_baker_options, index=get_def_index(saved_bot3[0] if len(saved_bot3)>0 else "", admin_baker_options), disabled=is_disabled, key="act_tb1_std")
-                act_tb2 = st.selectbox("Actual Technical 2nd-to-Last Place", admin_baker_options, index=get_def_index(saved_bot3[1] if len(saved_bot3)>1 else "", admin_baker_options), disabled=is_disabled, key="act_tb2_std")
-                act_tb3 = st.selectbox("Actual Technical Last Place", admin_baker_options, index=get_def_index(saved_bot3[2] if len(saved_bot3)>2 else "", admin_baker_options), disabled=is_disabled, key="act_tb3_std")
+                existing_t3 = existing_results.get("tech_top_3", ["", "", ""])
+                existing_b3 = existing_results.get("tech_bottom_3", ["", "", ""])
+                act_tt1 = st.selectbox("Actual Technical 1st Place", admin_baker_options, index=get_baker_idx(existing_t3[0] if len(existing_t3) > 0 else ""), key="act_tt1_std", disabled=disabled_flag)
+                act_tt2 = st.selectbox("Actual Technical 2nd Place", admin_baker_options, index=get_baker_idx(existing_t3[1] if len(existing_t3) > 1 else ""), key="act_tt2_std", disabled=disabled_flag)
+                act_tt3 = st.selectbox("Actual Technical 3rd Place", admin_baker_options, index=get_baker_idx(existing_t3[2] if len(existing_t3) > 2 else ""), key="act_tt3_std", disabled=disabled_flag)
+                act_tb1 = st.selectbox("Actual Technical 3rd-to-Last Place", admin_baker_options, index=get_baker_idx(existing_b3[0] if len(existing_b3) > 0 else ""), key="act_tb1_std", disabled=disabled_flag)
+                act_tb2 = st.selectbox("Actual Technical 2nd-to-Last Place", admin_baker_options, index=get_baker_idx(existing_b3[1] if len(existing_b3) > 1 else ""), key="act_tb2_std", disabled=disabled_flag)
+                act_tb3 = st.selectbox("Actual Technical Last Place", admin_baker_options, index=get_baker_idx(existing_b3[2] if len(existing_b3) > 2 else ""), key="act_tb3_std", disabled=disabled_flag)
                 
                 actuals["tech_top_3"] = [act_tt1, act_tt2, act_tt3]
                 actuals["tech_bottom_3"] = [act_tb1, act_tb2, act_tb3]
                 
-            # --- TWO SUBJECTIVE CHAOS CATEGORIES (CRYING & INNUENDOS) ---
+            # --- WEEKLY CHAOS CATEGORIES LOGGING (COUNT + DETAILS/TIMESTAMPS) ---
             st.markdown("---")
-            st.markdown("### 😢 Crying Incidents (Subjective Category)")
+            st.markdown("### 🤝 Hollywood Handshakes")
+            col_hs1, col_hs2 = st.columns(2)
+            with col_hs1:
+                act_handshake_cnt = st.number_input("Number of Handshake Occurrences", min_value=0, value=int(existing_results.get("handshake_count", 0)), key=f"admin_hs_cnt_w{admin_selected_week}", disabled=disabled_flag)
+            with col_hs2:
+                act_handshake_stamps = st.text_input("Handshake Circumstances & Video Timestamps", value=str(existing_results.get("handshake_timestamps", "")), placeholder="e.g., Clara @ 14:22 Signature, Tom @ 42:10 Showstopper", key=f"admin_hs_stamps_w{admin_selected_week}", disabled=disabled_flag)
+            act_handshake_bakers = st.multiselect("Bakers Receiving Hollywood Handshakes", active_bakers, default=get_multi_bakers(existing_results.get("handshake_bakers")), key=f"admin_hs_bakers_w{admin_selected_week}", disabled=disabled_flag)
+
+            st.markdown("### 😢 Crying Incidents")
             col_cry1, col_cry2 = st.columns(2)
             with col_cry1:
-                def_cry_cnt = saved_week_actuals.get("crying_count", 0)
-                act_crying_cnt = st.number_input("Number of Crying Occurrences", min_value=0, value=def_cry_cnt, disabled=is_disabled, key=f"admin_cry_cnt_w{admin_selected_week}")
+                act_crying_cnt = st.number_input("Number of Crying Occurrences", min_value=0, value=int(existing_results.get("crying_count", 0)), key=f"admin_cry_cnt_w{admin_selected_week}", disabled=disabled_flag)
             with col_cry2:
-                def_cry_stamps = saved_week_actuals.get("crying_timestamps", "")
-                act_crying_stamps = st.text_input("Crying Circumstances & Video Timestamps", value=def_cry_stamps, placeholder="e.g., Gabe @ 24:15 Technical, Molly @ 54:02 Elimination", disabled=is_disabled, key=f"admin_cry_stamps_w{admin_selected_week}")
+                act_crying_stamps = st.text_input("Crying Circumstances & Video Timestamps", value=str(existing_results.get("crying_timestamps", "")), placeholder="e.g., Gabe @ 24:15 Technical, Molly @ 54:02 Elimination", key=f"admin_cry_stamps_w{admin_selected_week}", disabled=disabled_flag)
 
-            st.markdown("### 💬 Sexual Innuendos (Subjective Category)")
+            st.markdown("### 💬 Sexual Innuendos")
             col_inn1, col_inn2 = st.columns(2)
             with col_inn1:
-                def_inn_cnt = saved_week_actuals.get("innuendo_count", 0)
-                act_innuendo_cnt = st.number_input("Number of Innuendo Occurrences", min_value=0, value=def_inn_cnt, disabled=is_disabled, key=f"admin_inn_cnt_w{admin_selected_week}")
+                act_innuendo_cnt = st.number_input("Number of Innuendo Occurrences", min_value=0, value=int(existing_results.get("innuendo_count", 0)), key=f"admin_inn_cnt_w{admin_selected_week}", disabled=disabled_flag)
             with col_inn2:
-                def_inn_stamps = saved_week_actuals.get("innuendo_timestamps", "")
-                act_innuendo_stamps = st.text_input("Innuendo Circumstances & Video Timestamps", value=def_inn_stamps, placeholder="e.g., Prue soggy bottom @ 12:10, Paul big nuts comment @ 33:45", disabled=is_disabled, key=f"admin_inn_stamps_w{admin_selected_week}")
+                act_innuendo_stamps = st.text_input("Innuendo Circumstances & Video Timestamps", value=str(existing_results.get("innuendo_timestamps", "")), placeholder="e.g., Prue soggy bottom @ 12:10, Paul big nuts comment @ 33:45", key=f"admin_inn_stamps_w{admin_selected_week}", disabled=disabled_flag)
 
-            # Optional Hollywood Handshake Recipients (for Star Baker / scoring)
-            def_hs_bakers = saved_week_actuals.get("handshake_bakers", [])
-            act_handshake_bakers = st.multiselect("Bakers Receiving Hollywood Handshakes", active_bakers, default=[b for b in def_hs_bakers if b in active_bakers], disabled=is_disabled, key=f"admin_hs_bakers_w{admin_selected_week}")
-
+            actuals["handshake_count"] = act_handshake_cnt
             actuals["handshake_bakers"] = act_handshake_bakers
+            actuals["handshake_timestamps"] = act_handshake_stamps
             actuals["crying_count"] = act_crying_cnt
             actuals["crying_timestamps"] = act_crying_stamps
             actuals["innuendo_count"] = act_innuendo_cnt
             actuals["innuendo_timestamps"] = act_innuendo_stamps
             
-            btn_label = "Update Published Results & Recalculate Scores" if is_week_published else "Publish Official Week Results & Recalculate Scores"
-            submit_admin = st.form_submit_button(btn_label, disabled=is_disabled)
-            
+            submit_admin = st.form_submit_button("Publish Official Week Results & Recalculate Scores", disabled=disabled_flag)
             if submit_admin:
                 st.session_state.weekly_results[admin_selected_week] = actuals
-                
-                # Advance active week if this is a newly published week
-                if admin_selected_week >= st.session_state.current_week:
-                    st.session_state.current_week = min(admin_selected_week + 1, 10)
+                next_week = min(admin_selected_week + 1, 10)
+                st.session_state.current_week = next_week
                 
                 # Recalculate all scores
                 for member_name in st.session_state.league_members:
@@ -1128,7 +1082,45 @@ with tab_admin:
                         m_data["total_score"] += calculate_season_score(m_data["season_picks"], st.session_state.season_results)
                         
                 save_league_data()
-                st.success(f"Official results for Week {admin_selected_week} saved & published successfully! All player scores recalculated.")
+                st.success(f"Official results published for Week {admin_selected_week}! All player scores have been recalculated.")
+
+        st.markdown("---")
+        st.subheader("🚩 Dispute Management & Resolution")
+        st.write("Review active player contestations and update their status following GroupMe league votes.")
+        if not st.session_state.disputes:
+            st.info("No disputes currently logged.")
+        else:
+            for idx, d in enumerate(st.session_state.disputes):
+                p_name = d.get("Player", "Unknown")
+                wk = d.get("Week", "N/A")
+                cat = d.get("Category", "N/A")
+                curr_status = d.get("Status", "Active 🗳️")
+                
+                with st.expander(f"Dispute #{idx+1}: {wk} - {cat} ({p_name}) — Status: {curr_status}"):
+                    st.write(f"**Submitted By:** {p_name}")
+                    st.write(f"**Week Contested:** {wk}")
+                    st.write(f"**Category:** {cat}")
+                    st.write(f"**Video Evidence:** {d.get('Evidence', 'N/A')}")
+                    st.write(f"**Requested Correction:** {d.get('Correction', 'N/A')}")
+                    
+                    status_options = ["Active 🗳️", "Resolved ✅", "Rejected ❌"]
+                    current_idx = 0
+                    if "Resolved" in curr_status:
+                        current_idx = 1
+                    elif "Rejected" in curr_status:
+                        current_idx = 2
+                        
+                    new_status = st.selectbox(
+                        f"Update Status for Dispute #{idx+1}:",
+                        status_options,
+                        index=current_idx,
+                        key=f"disp_status_select_{idx}"
+                    )
+                    if st.button(f"Update Dispute #{idx+1} Status", key=f"btn_update_disp_{idx}"):
+                        st.session_state.disputes[idx]["Status"] = new_status
+                        save_league_data()
+                        st.success(f"Status updated to '{new_status}' for Dispute #{idx+1}!")
+                        st.rerun()
 
         st.markdown("---")
         st.subheader("🔑 Player Security PIN Management")
