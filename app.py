@@ -319,7 +319,6 @@ with tab_submit:
     
     auth_success = False
     
-    # PIN Creation or Authentication via Form (prevents premature keystroke validation reruns)
     if p_info.get("pin") is None:
         st.info(f"Welcome {pred_player}! Please create a 4-digit security PIN for your account:")
         with st.form(f"pin_create_form_{pred_player}"):
@@ -361,6 +360,14 @@ with tab_submit:
             curr_elim = eliminated_bakers_by_week.get(active_prediction_week, [])
             active_bakers = [b for b in ALL_BAKERS if b not in curr_elim]
             
+            # Check if previous week was a Grace Week (No Elimination) -> triggers Double Elimination for current week
+            prev_w = active_prediction_week - 1
+            prev_res = st.session_state.weekly_results.get(prev_w, st.session_state.weekly_results.get(str(prev_w), {}))
+            is_grace_week_catchup = (prev_res.get("eliminated") == "None")
+            
+            if is_grace_week_catchup:
+                st.warning(f"⚠️ **Grace Week Catch-Up Active:** Because Week {prev_w} had no elimination, Week {active_prediction_week} is a **Double Elimination** week! You must predict **two** eliminated bakers.")
+
             if active_prediction_week == 2:
                 st.subheader("🌟 Season-Long Projections Ballot")
                 with st.form("season_ballot_form"):
@@ -390,7 +397,10 @@ with tab_submit:
                         weekly_picks["star_baker"] = st.selectbox("Star Baker (5 pts):", ["--Select Baker--"] + active_bakers, index=0)
                         weekly_picks["in_line_sb"] = st.selectbox("'In Line' Nominee (2 pts):", ["--Select Baker--"] + active_bakers, index=0)
                     with col2:
-                        weekly_picks["eliminated"] = st.selectbox("Eliminated Baker (5 pts):", ["--Select Baker--"] + active_bakers, index=0)
+                        if is_grace_week_catchup:
+                            weekly_picks["eliminated"] = st.multiselect("Predicted 2 Eliminated Bakers (5 pts each - Select 2):", active_bakers, max_selections=2)
+                        else:
+                            weekly_picks["eliminated"] = st.selectbox("Eliminated Baker (5 pts):", ["--Select Baker--"] + active_bakers, index=0)
                         weekly_picks["in_trouble"] = st.selectbox("'In Trouble' Nominee (2 pts):", ["--Select Baker--"] + active_bakers, index=0)
                 
                 st.markdown("#### Technical Challenge Placements:")
@@ -405,7 +415,7 @@ with tab_submit:
                     if active_prediction_week not in st.session_state.league_members["AI Brian"]["weekly_picks"]:
                         st.session_state.league_members["AI Brian"]["weekly_picks"][active_prediction_week] = {
                             "star_baker": random.choice(active_bakers),
-                            "eliminated": random.choice(active_bakers),
+                            "eliminated": random.sample(active_bakers, 2) if is_grace_week_catchup else random.choice(active_bakers),
                             "tech_rank": random.sample(active_bakers, len(active_bakers))
                         }
                     save_league_data()
