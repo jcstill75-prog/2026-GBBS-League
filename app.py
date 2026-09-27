@@ -352,17 +352,8 @@ def generate_ai_brian_weekly_picks(week, active_bakers, is_double_elim=False):
 if not st.session_state.league_members["AI Brian"]["season_picks"]:
     st.session_state.league_members["AI Brian"]["season_picks"] = generate_ai_brian_season_picks()
 
-def get_filtered_tech_options(active_bakers, key_prefix, current_key, placeholder="-- Select Baker --"):
-    options = [placeholder] + active_bakers
-    curr_val = st.session_state.get(current_key)
-    if curr_val in options:
-        idx = options.index(curr_val)
-    else:
-        idx = 0
-    return options, idx
-
 # --- 5. HEADER ---
-col_head1, col_head2 = st.columns([1, 4])
+col_head1, col_head2 = st.columns([1, 6])
 with col_head1:
     norman_img = None
     for p in ["normanbeaver.jpg", "assets/normanbeaver.jpg", "normanbeaver.png", "assets/normanbeaver.png"]:
@@ -584,14 +575,10 @@ with tab_submit:
                     user_innuendos = st.number_input("Predict Seasonal Innuendos [Spot-on = 20 pts, +/-5 = 10 pts]", min_value=0, value=None, placeholder="Enter predicted count...", key="user_inn_pick")
                     
                     if st.button("Lock Season-Long Predictions"):
-                        if user_winner.startswith("-- Select"):
-                            st.error("⚠️ Please select a valid Season Winner.")
+                        if user_winner.startswith("-- Select") or len(user_semis) != 3 or user_handshakes is None or user_crying is None or user_innuendos is None:
+                            st.error("⚠️ Please fill in all Season-Long prediction fields with valid values!")
                         elif user_winner in user_semis:
                             st.error("❌ Duplicate Selection Error: Your predicted Season Winner cannot also be selected as an 'Other Semifinalist'!")
-                        elif len(user_semis) != 3:
-                            st.error("⚠️ Please select exactly 3 other semifinalists.")
-                        elif user_handshakes is None or user_crying is None or user_innuendos is None:
-                            st.error("⚠️ Please fill in all Seasonal counts.")
                         else:
                             st.session_state.league_members[submitting_player]["season_picks"] = {
                                 "winner": user_winner,
@@ -670,36 +657,27 @@ with tab_submit:
                     
                 submit_ballot = st.form_submit_button("Lock In Weekly Predictions Ballot")
                 if submit_ballot:
-                    all_selected_values = []
+                    # Check unselected fields
+                    all_vals = []
                     for k, v in weekly_picks.items():
-                        if isinstance(v, list):
-                            all_selected_values.extend(v)
-                        else:
-                            all_selected_values.append(v)
-                            
-                    if "-- Select Baker --" in all_selected_values:
+                        if isinstance(v, list): all_vals.extend(v)
+                        else: all_vals.append(v)
+                    
+                    if any(str(v).startswith("-- Select") for v in all_vals):
                         st.error("⚠️ Please select a valid baker for all prediction fields!")
                     else:
                         episodic_picks = []
                         for k in ["star_baker", "in_line_sb", "in_trouble", "show_champion"]:
                             if k in weekly_picks: episodic_picks.append(weekly_picks[k])
                         if "eliminated" in weekly_picks:
-                            if isinstance(weekly_picks["eliminated"], list):
-                                episodic_picks.extend(weekly_picks["eliminated"])
-                            else:
-                                episodic_picks.append(weekly_picks["eliminated"])
-                                
-                        tech_picks = []
-                        if "tech_rank" in weekly_picks: tech_picks.extend(weekly_picks["tech_rank"])
-                        if "tech_top_3" in weekly_picks: tech_picks.extend(weekly_picks["tech_top_3"])
-                        if "tech_bottom_3" in weekly_picks: tech_picks.extend(weekly_picks["tech_bottom_3"])
+                            if isinstance(weekly_picks["eliminated"], list): episodic_picks.extend(weekly_picks["eliminated"])
+                            else: episodic_picks.append(weekly_picks["eliminated"])
+                            
+                        tech_picks = weekly_picks.get("tech_rank", []) + weekly_picks.get("tech_top_3", []) + weekly_picks.get("tech_bottom_3", [])
                         
-                        has_episodic_dup = len(episodic_picks) != len(set(episodic_picks))
-                        has_tech_dup = len(tech_picks) != len(set(tech_picks))
-                        
-                        if has_episodic_dup:
+                        if len(episodic_picks) != len(set(episodic_picks)):
                             st.error("❌ Duplicate Selection Error: You may not select the same baker more than once across Star Baker, In Line, In Trouble, and Eliminated!")
-                        elif has_tech_dup:
+                        elif len(tech_picks) != len(set(tech_picks)):
                             st.error("❌ Duplicate Selection Error: A baker may not be selected more than once across your Technical Challenge predictions!")
                         else:
                             st.session_state.league_members[submitting_player]["weekly_picks"][st.session_state.current_week] = weekly_picks
@@ -897,8 +875,7 @@ with tab_admin:
                 st.rerun()
 
         st.markdown("---")
-        st.subheader("📢 Select Week to Record or Review Broadcast Results")
-        
+        st.write("Select week to input or review official broadcast results:")
         admin_selected_week = st.selectbox(
             "Select Week to Record or Review Broadcast Results:",
             [f"Week {w}" for w in range(1, 11)],
@@ -1013,16 +990,17 @@ with tab_admin:
                         
                     elim_type = st.radio("Elimination Status", ["Single Elimination", "No Elimination (Sickness/Grace Week)", "Double Elimination"], index=["Single Elimination", "No Elimination (Sickness/Grace Week)", "Double Elimination"].index(default_elim_type), horizontal=True, key=f"admin_elim_type_w{cur_w}", disabled=(is_already_published and not enable_edit))
                     saved_trouble = [b for b in saved_actuals.get("in_trouble", []) if b in active_bakers]
+                    
                     if elim_type == "Single Elimination":
                         opts_el = ["-- Select Eliminated Baker --"] + active_bakers
                         s_el = saved_elim if isinstance(saved_elim, str) else "-- Select Eliminated Baker --"
                         el_idx = opts_el.index(s_el) if s_el in opts_el else 0
-                        act_el_sel = st.selectbox("Actual Eliminated Baker", opts_el, index=el_idx, key=f"admin_act_elim_w{cur_w}", disabled=(is_already_published and not enable_edit))
+                        act_el_sel = st.selectbox("Actual Eliminated Baker", opts_el, index=el_idx, key=f"admin_act_elim_single_w{cur_w}", disabled=(is_already_published and not enable_edit))
                         actuals["eliminated"] = act_el_sel if not act_el_sel.startswith("-- Select") else "None"
-                        actuals["in_trouble"] = st.multiselect("Actual 'In Trouble' Nominees", active_bakers, default=saved_trouble, placeholder="-- Select Baker(s) --", key=f"admin_in_trouble_w{cur_w}", disabled=(is_already_published and not enable_edit))
+                        actuals["in_trouble"] = st.multiselect("Actual 'In Trouble' Nominees", active_bakers, default=saved_trouble, placeholder="-- Select Baker(s) --", key=f"admin_in_trouble_single_w{cur_w}", disabled=(is_already_published and not enable_edit))
                     elif elim_type == "No Elimination (Sickness/Grace Week)":
                         actuals["eliminated"] = "None"
-                        actuals["in_trouble"] = st.multiselect("Actual 'In Trouble' Nominees (Sickness consolations)", active_bakers, default=saved_trouble, placeholder="-- Select Baker(s) --", key=f"admin_in_trouble_w{cur_w}", disabled=(is_already_published and not enable_edit))
+                        actuals["in_trouble"] = st.multiselect("Actual 'In Trouble' Nominees (Sickness consolations)", active_bakers, default=saved_trouble, placeholder="-- Select Baker(s) --", key=f"admin_in_trouble_none_w{cur_w}", disabled=(is_already_published and not enable_edit))
                     else:
                         opts_el1 = ["-- Select Eliminated Baker #1 --"] + active_bakers
                         opts_el2 = ["-- Select Eliminated Baker #2 --"] + active_bakers
@@ -1030,16 +1008,15 @@ with tab_admin:
                         s_el2 = saved_elim if isinstance(saved_elim, list) and len(saved_elim) > 1 else "-- Select Eliminated Baker #2 --"
                         el1_idx = opts_el1.index(s_el1) if s_el1 in opts_el1 else 0
                         el2_idx = opts_el2.index(s_el2) if s_el2 in opts_el2 else 0
-                        act_el1_sel = st.selectbox("Actual Eliminated Baker #1", opts_el1, index=el1_idx, key=f"admin_act_elim_1_w{cur_w}", disabled=(is_already_published and not enable_edit))
-                        act_el2_sel = st.selectbox("Actual Eliminated Baker #2", opts_el2, index=el2_idx, key=f"admin_act_elim_2_w{cur_w}", disabled=(is_already_published and not enable_edit))
+                        act_el1_sel = st.selectbox("Actual Eliminated Baker #1", opts_el1, index=el1_idx, key=f"admin_act_elim_1_dbl_w{cur_w}", disabled=(is_already_published and not enable_edit))
+                        act_el2_sel = st.selectbox("Actual Eliminated Baker #2", opts_el2, index=el2_idx, key=f"admin_act_elim_2_dbl_w{cur_w}", disabled=(is_already_published and not enable_edit))
                         actuals["eliminated"] = [b for b in [act_el1_sel, act_el2_sel] if not b.startswith("-- Select")]
-                        actuals["in_trouble"] = st.multiselect("Actual 'In Trouble' Nominees", active_bakers, default=saved_trouble, placeholder="-- Select Baker(s) --", key=f"admin_in_trouble_w{cur_w}", disabled=(is_already_published and not enable_edit))
+                        actuals["in_trouble"] = st.multiselect("Actual 'In Trouble' Nominees", active_bakers, default=saved_trouble, placeholder="-- Select Baker(s) --", key=f"admin_in_trouble_dbl_w{cur_w}", disabled=(is_already_published and not enable_edit))
 
             st.markdown("---")
             st.markdown(f"### 📊 Actual Technical Challenge Rankings (1st through {len(active_bakers)}th Place)")
             num_bakers = len(active_bakers)
             cols_per_row = 3
-            admin_keys = [f"admin_full_tech_w{cur_w}_r{r}" for r in range(1, num_bakers + 1)]
             full_tech_ranks = []
             saved_tech_ranks = saved_actuals.get("tech_rank", [])
             
