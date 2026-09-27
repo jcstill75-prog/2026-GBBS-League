@@ -504,7 +504,6 @@ with tab_admin:
     st.header("👑 League Administrator Console")
     
     if not st.session_state.admin_authenticated:
-        # Requirement (1): Removed the PIN hint (6284) from the screen
         admin_pin = st.text_input("Enter Administrator PIN:", type="password")
         if st.button("Unlock Admin Panel"):
             if admin_pin == "6284":
@@ -521,7 +520,6 @@ with tab_admin:
             
         st.markdown("---")
         
-        # Requirement (2): Display publication verification notice banner if present
         if st.session_state.admin_verification_msg:
             st.success(st.session_state.admin_verification_msg)
             
@@ -664,14 +662,13 @@ with tab_admin:
 
                     save_league_data()
                     
-                    # Requirement (2): Verification of publication or republication
                     action_type = "republished and updated" if is_published else "published"
                     st.session_state.admin_verification_msg = f"✅ **Verification Confirmed:** Week {admin_selected_week} results successfully {action_type}! All player scores, standings, and scorecards have been successfully recalculated."
                     st.rerun()
 
         st.markdown("---")
         st.subheader("🗳️ Resolve League Disputes")
-        st.write("Review active disputes submitted by players, vote in GroupMe[cite: 4], and record the final ruling below:")
+        st.write("Review active disputes submitted by players, vote in GroupMe, and record the final ruling below:")
         if st.session_state.get("disputes"):
             for idx, disp in enumerate(st.session_state.disputes):
                 st.markdown(f"**Dispute #{idx+1}** | Player: **{disp.get('Player')}** | Week: **{disp.get('Week')}** | Status: `{disp.get('Status')}`")
@@ -710,24 +707,17 @@ with tab_admin:
         confirm_erase = st.checkbox("I understand this will permanently erase all player prediction ballots, PINs, and published broadcast results.", key="confirm_erase_check")
         if st.button("🗑️ Erase All Competition Data", type="primary"):
             if confirm_erase:
-                st.session_state.weekly_results = {}
-                st.session_state.season_results = {}
-                st.session_state.disputes = []
-                st.session_state.admin_verification_msg = ""
-                
-                for m_name in st.session_state.league_members:
-                    st.session_state.league_members[m_name]["weekly_picks"] = {}
-                    st.session_state.league_members[m_name]["season_picks"] = {}
-                    st.session_state.league_members[m_name]["total_score"] = 0
-                    st.session_state.league_members[m_name]["season_score"] = 0
-                    st.session_state.league_members[m_name]["weekly_breakdown"] = {}
-                    st.session_state.league_members[m_name]["pin"] = None
-                
+                # 1. Delete the JSON file from disk first
                 if os.path.exists(DATA_FILE):
-                    try: os.remove(DATA_FILE)
-                    except Exception: pass
-                    
-                save_league_data()
+                    try:
+                        os.remove(DATA_FILE)
+                    except Exception:
+                        pass
+                
+                # 2. Clear entire session state so everything re-initializes clean
+                for key in list(st.session_state.keys()):
+                    del st.session_state[key]
+                
                 st.success("All competition data successfully erased!")
                 st.rerun()
             else:
