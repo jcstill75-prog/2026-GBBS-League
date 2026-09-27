@@ -98,13 +98,36 @@ def calculate_weekly_score(predictions, actuals, week=2):
             elif pred_elim == act_elim:
                 score += 5
 
-        # Technical challenge scoring
-        pred_rank = predictions.get("tech_rank", [])
-        act_rank = actuals.get("tech_rank", [])
-        if pred_rank and act_rank:
-            for idx, b in enumerate(pred_rank):
-                if idx < len(act_rank) and act_rank[idx] == b:
-                    score += 3 if idx in [0, len(act_rank)-1] else 2
+        # Technical challenge scoring for Weeks 2-7 vs 8-10
+        if week >= 8:
+            pred_rank = predictions.get("tech_rank", [])
+            act_rank = actuals.get("tech_rank", [])
+            if pred_rank and act_rank:
+                for idx, b in enumerate(pred_rank):
+                    if idx < len(act_rank) and act_rank[idx] == b and b != "--Select Baker--":
+                        score += 3 if idx in [0, len(act_rank)-1] else 2
+        else:
+            pred_top3 = predictions.get("tech_top_3", [])
+            act_top3 = actuals.get("tech_top_3", [])
+            if len(pred_top3) == 3 and len(act_top3) == 3:
+                if pred_top3 == act_top3:
+                    score += 6
+                else:
+                    if pred_top3[0] == act_top3[0] and pred_top3[0] != "--Select Baker--": score += 3
+                    for idx, baker in enumerate(pred_top3):
+                        if baker in act_top3 and baker != "--Select Baker--" and baker != act_top3[idx]:
+                            score += 1
+                            
+            pred_bot3 = predictions.get("tech_bottom_3", [])
+            act_bot3 = actuals.get("tech_bottom_3", [])
+            if len(pred_bot3) == 3 and len(act_bot3) == 3:
+                if pred_bot3 == act_bot3:
+                    score += 6
+                else:
+                    if pred_bot3[2] == act_bot3[2] and pred_bot3[2] != "--Select Baker--": score += 3
+                    for idx, baker in enumerate(pred_bot3):
+                        if baker in act_bot3 and baker != "--Select Baker--" and baker != act_bot3[idx]:
+                            score += 1
 
     return score
 
@@ -318,17 +341,23 @@ with tab_lead:
                             
                         trb = w_picks.get("in_trouble", "N/A")
                         
-                        tech = w_picks.get("tech_rank", [])
-                        if isinstance(tech, list):
-                            tech_str = " -> ".join([f"#{i+1}: {b}" for i, b in enumerate(tech) if b])
+                        # Handle both top/bottom 3 and full tech rank
+                        tech_top = w_picks.get("tech_top_3", [])
+                        tech_bot = w_picks.get("tech_bottom_3", [])
+                        tech_rank = w_picks.get("tech_rank", [])
+                        
+                        if tech_top or tech_bot:
+                            tech_str = f"Top 3: {', '.join(tech_top)} | Bottom 3: {', '.join(tech_bot)}"
+                        elif tech_rank:
+                            tech_str = " -> ".join([f"#{i+1}: {b}" for i, b in enumerate(tech_rank) if b])
                         else:
-                            tech_str = str(tech)
+                            tech_str = "N/A"
                             
                         st.write(f"🌟 **Star Baker / Champion:** {sb}")
                         st.write(f"⭐ **In Line Nominee:** {inl}")
                         st.write(f"🚪 **Eliminated:** {elim_str}")
                         st.write(f"⚠️ **In Trouble Nominee:** {trb}")
-                        st.write(f"📊 **Technical Sequence:** {tech_str if tech_str else 'N/A'}")
+                        st.write(f"📊 **Technical Challenge:** {tech_str}")
             else:
                 st.info("No weekly prediction ballots submitted yet.")
 
@@ -426,12 +455,44 @@ with tab_submit:
                             weekly_picks["eliminated"] = st.selectbox("Eliminated Baker (5 pts):", ["--Select Baker--"] + active_bakers, index=0)
                         weekly_picks["in_trouble"] = st.selectbox("'In Trouble' Nominee (2 pts):", ["--Select Baker--"] + active_bakers, index=0)
                 
-                st.markdown("#### Technical Challenge Placements:")
-                tech_ranks = []
-                for i, b in enumerate(active_bakers):
-                    sel = st.selectbox(f"Technical Rank #{i+1}:", ["--Select Baker--"] + active_bakers, index=0, key=f"tech_r_{i}")
-                    tech_ranks.append(sel)
-                weekly_picks["tech_rank"] = tech_ranks
+                # Technical Challenge Predictions based on Week Rules
+                st.markdown("#### Technical Challenge Predictions:")
+                if active_prediction_week == 10:
+                    st.write("Rank all 3 Finalists (1st through 3rd):")
+                    t1 = st.selectbox("1st Place", ["--Select Baker--"] + active_bakers, key="tech_f_1")
+                    t2 = st.selectbox("2nd Place", ["--Select Baker--"] + active_bakers, key="tech_f_2")
+                    t3 = st.selectbox("3rd Place", ["--Select Baker--"] + active_bakers, key="tech_f_3")
+                    weekly_picks["tech_rank"] = [t1, t2, t3]
+                elif active_prediction_week == 9:
+                    st.write("Rank all 4 Semifinalists (1st through 4th):")
+                    t1 = st.selectbox("1st Place", ["--Select Baker--"] + active_bakers, key="tech_s_1")
+                    t2 = st.selectbox("2nd Place", ["--Select Baker--"] + active_bakers, key="tech_s_2")
+                    t3 = st.selectbox("3rd Place", ["--Select Baker--"] + active_bakers, key="tech_s_3")
+                    t4 = st.selectbox("4th Place", ["--Select Baker--"] + active_bakers, key="tech_s_4")
+                    weekly_picks["tech_rank"] = [t1, t2, t3, t4]
+                elif active_prediction_week == 8:
+                    st.write("Rank all 5 Quarterfinalists (1st through 5th):")
+                    t1 = st.selectbox("1st Place", ["--Select Baker--"] + active_bakers, key="tech_q_1")
+                    t2 = st.selectbox("2nd Place", ["--Select Baker--"] + active_bakers, key="tech_q_2")
+                    t3 = st.selectbox("3rd Place", ["--Select Baker--"] + active_bakers, key="tech_q_3")
+                    t4 = st.selectbox("4th Place", ["--Select Baker--"] + active_bakers, key="tech_q_4")
+                    t5 = st.selectbox("5th Place", ["--Select Baker--"] + active_bakers, key="tech_q_5")
+                    weekly_picks["tech_rank"] = [t1, t2, t3, t4, t5]
+                else:
+                    # Standard Weeks 2-7: Predict Top 3 (1st, 2nd, 3rd) and Bottom 3 (3rd-to-last, 2nd-to-last, last)
+                    col_t1, col_t2 = st.columns(2)
+                    with col_t1:
+                        st.write("**Top 3 Technical:**")
+                        tp1 = st.selectbox("1st Place", ["--Select Baker--"] + active_bakers, key="tp_1")
+                        tp2 = st.selectbox("2nd Place", ["--Select Baker--"] + active_bakers, key="tp_2")
+                        tp3 = st.selectbox("3rd Place", ["--Select Baker--"] + active_bakers, key="tp_3")
+                        weekly_picks["tech_top_3"] = [tp1, tp2, tp3]
+                    with col_t2:
+                        st.write("**Bottom 3 Technical:**")
+                        bp1 = st.selectbox("3rd-to-Last Place", ["--Select Baker--"] + active_bakers, key="bp_1")
+                        bp2 = st.selectbox("2nd-to-Last Place", ["--Select Baker--"] + active_bakers, key="bp_2")
+                        bp3 = st.selectbox("Last Place", ["--Select Baker--"] + active_bakers, key="bp_3")
+                        weekly_picks["tech_bottom_3"] = [bp1, bp2, bp3]
                 
                 sub_weekly = st.form_submit_button(f"Submit Week {active_prediction_week} Ballot")
                 if sub_weekly:
@@ -458,9 +519,21 @@ with tab_submit:
                         if len(main_picks) != len(set(main_picks)):
                             errors.append("❌ Duplicate Selection Error: You may not select the same baker more than once across Star Baker, In Line, In Trouble, and Eliminated!")
                             
-                    valid_tech = [t for t in weekly_picks.get("tech_rank", []) if t and t != "--Select Baker--"]
-                    if len(valid_tech) != len(set(valid_tech)):
-                        errors.append("❌ Duplicate Selection Error: A baker may not be selected more than once across your Technical Challenge predictions!")
+                    # Validate technical challenges for duplicates
+                    if active_prediction_week >= 8:
+                        valid_tech = [t for t in weekly_picks.get("tech_rank", []) if t and t != "--Select Baker--"]
+                        if len(valid_tech) != len(set(valid_tech)):
+                            errors.append("❌ Duplicate Selection Error: A baker may not be selected more than once across your Technical Challenge predictions!")
+                    else:
+                        valid_top = [t for t in weekly_picks.get("tech_top_3", []) if t and t != "--Select Baker--"]
+                        valid_bot = [t for t in weekly_picks.get("tech_bottom_3", []) if t and t != "--Select Baker--"]
+                        if len(valid_top) != len(set(valid_top)):
+                            errors.append("❌ Duplicate Selection Error: A baker may not be duplicated within your Top 3 Technical picks!")
+                        if len(valid_bot) != len(set(valid_bot)):
+                            errors.append("❌ Duplicate Selection Error: A baker may not be duplicated within your Bottom 3 Technical picks!")
+                        # Also check overlap between top 3 and bottom 3 if tent size allows
+                        if any(b in valid_bot for b in valid_top):
+                            errors.append("❌ Duplicate Selection Error: A baker cannot appear in both Top 3 and Bottom 3 technical predictions!")
                         
                     if errors:
                         for err in errors:
@@ -471,7 +544,8 @@ with tab_submit:
                             st.session_state.league_members["AI Brian"]["weekly_picks"][active_prediction_week] = {
                                 "star_baker": random.choice(active_bakers),
                                 "eliminated": random.sample(active_bakers, 2) if is_grace_week_catchup else random.choice(active_bakers),
-                                "tech_rank": random.sample(active_bakers, len(active_bakers))
+                                "tech_top_3": random.sample(active_bakers, min(3, len(active_bakers))),
+                                "tech_bottom_3": random.sample(active_bakers, min(3, len(active_bakers)))
                             }
                         save_league_data()
                         st.success(f"Week {active_prediction_week} ballot submitted successfully!")
@@ -526,9 +600,14 @@ with tab_results:
                 st.write(f"💬 **Sexual Innuendos ({w_act.get('innuendo_count', 0)}):** {w_act.get('innuendo_timestamps', 'None recorded')}")
             
             tech_r = w_act.get('tech_rank', [])
+            tech_top = w_act.get('tech_top_3', [])
+            tech_bot = w_act.get('tech_bottom_3', [])
             if tech_r:
                 st.markdown("**Technical Challenge Standings:**")
                 st.write(" -> ".join([f"**#{i+1}** {b}" for i, b in enumerate(tech_r)]))
+            elif tech_top or tech_bot:
+                st.markdown("**Technical Challenge Standings:**")
+                st.write(f"Top 3: {', '.join(tech_top)} | Bottom 3: {', '.join(tech_bot)}")
     else:
         st.info("No official broadcast results published yet by the administrator.")
 
@@ -661,14 +740,31 @@ with tab_admin:
                     actuals["in_trouble"] = st.selectbox("Actual 'In Trouble' for Elimination", baker_opts, index=def_introuble_i, key=f"adm_introuble_w{admin_selected_week}")
             
             st.markdown("#### Technical Challenge Rankings:")
-            act_tech = []
-            saved_tech_rank = saved_w.get("tech_rank", [])
-            for idx, b in enumerate(active_bakers):
-                def_t = saved_tech_rank[idx] if idx < len(saved_tech_rank) else baker_opts[0]
-                def_t_i = baker_opts.index(def_t) if def_t in baker_opts else 0
-                sel = st.selectbox(f"Actual Rank #{idx+1}", baker_opts, index=def_t_i, key=f"adm_t_{idx}_{admin_selected_week}")
-                act_tech.append(sel)
-            actuals["tech_rank"] = act_tech
+            if admin_selected_week >= 8:
+                act_tech = []
+                saved_tech_rank = saved_w.get("tech_rank", [])
+                for idx, b in enumerate(active_bakers):
+                    def_t = saved_tech_rank[idx] if idx < len(saved_tech_rank) else baker_opts[0]
+                    def_t_i = baker_opts.index(def_t) if def_t in baker_opts else 0
+                    sel = st.selectbox(f"Actual Rank #{idx+1}", baker_opts, index=def_t_i, key=f"adm_t_{idx}_{admin_selected_week}")
+                    act_tech.append(sel)
+                actuals["tech_rank"] = act_tech
+            else:
+                saved_top = saved_w.get("tech_top_3", [])
+                saved_bot = saved_w.get("tech_bottom_3", [])
+                col_at1, col_at2 = st.columns(2)
+                with col_at1:
+                    st.write("**Actual Top 3 Technical:**")
+                    at1 = st.selectbox("1st Place", baker_opts, index=baker_opts.index(saved_top[0]) if (saved_top and saved_top[0] in baker_opts) else 0, key="at_1")
+                    at2 = st.selectbox("2nd Place", baker_opts, index=baker_opts.index(saved_top[1]) if (len(saved_top) > 1 and saved_top[1] in baker_opts) else 0, key="at_2")
+                    at3 = st.selectbox("3rd Place", baker_opts, index=baker_opts.index(saved_top[2]) if (len(saved_top) > 2 and saved_top[2] in baker_opts) else 0, key="at_3")
+                    actuals["tech_top_3"] = [at1, at2, at3]
+                with col_at2:
+                    st.write("**Actual Bottom 3 Technical:**")
+                    ab1 = st.selectbox("3rd-to-Last Place", baker_opts, index=baker_opts.index(saved_bot[0]) if (saved_bot and saved_bot[0] in baker_opts) else 0, key="ab_1")
+                    ab2 = st.selectbox("2nd-to-Last Place", baker_opts, index=baker_opts.index(saved_bot[1]) if (len(saved_bot) > 1 and saved_bot[1] in baker_opts) else 0, key="ab_2")
+                    ab3 = st.selectbox("Last Place", baker_opts, index=baker_opts.index(saved_bot[2]) if (len(saved_bot) > 2 and saved_bot[2] in baker_opts) else 0, key="ab_3")
+                    actuals["tech_bottom_3"] = [ab1, ab2, ab3]
             
             st.markdown("#### Chaos Categories & Timestamps:")
             def_hs_bakers = saved_w.get("handshake_bakers", [])
