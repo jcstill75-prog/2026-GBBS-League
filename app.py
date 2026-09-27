@@ -496,7 +496,7 @@ with tab_submit:
         st.subheader(f"📅 Unlocked Ballot: Week {st.session_state.current_week}")
         
         submitting_player = st.selectbox("Select Your Player Profile:", ALL_HUMAN_PLAYERS, key="submit_player_profile_select")
-        saved_pwd = st.session_state.player_passwords.get(submitting_player)
+        saved_pwd = st.session_state.league_members[submitting_player].get("pin")
         authenticated = False
         
         if saved_pwd is None:
@@ -514,7 +514,7 @@ with tab_submit:
                     elif new_p1 != new_p2:
                         st.error("PINs do not match! Please check and try again.")
                     else:
-                        st.session_state.player_passwords[submitting_player] = new_p1
+                        st.session_state.league_members[submitting_player]["pin"] = new_p1
                         st.success(f"PIN created successfully for {submitting_player}! Your ballot is unlocked.")
                         st.rerun()
         else:
@@ -657,22 +657,25 @@ with tab_submit:
                     
                 submit_ballot = st.form_submit_button("Lock In Weekly Predictions Ballot")
                 if submit_ballot:
-                    # Check unselected fields
-                    all_vals = []
+                    all_selected = []
                     for k, v in weekly_picks.items():
-                        if isinstance(v, list): all_vals.extend(v)
-                        else: all_vals.append(v)
-                    
-                    if any(str(v).startswith("-- Select") for v in all_vals):
+                        if isinstance(v, list):
+                            all_selected.extend(v)
+                        else:
+                            all_selected.append(v)
+                            
+                    if any(str(v).startswith("-- Select") for v in all_selected):
                         st.error("⚠️ Please select a valid baker for all prediction fields!")
                     else:
                         episodic_picks = []
-                        for k in ["star_baker", "in_line_sb", "in_trouble", "show_champion"]:
+                        for k in ["star_baker", "show_champion", "in_line_sb", "in_trouble"]:
                             if k in weekly_picks: episodic_picks.append(weekly_picks[k])
                         if "eliminated" in weekly_picks:
-                            if isinstance(weekly_picks["eliminated"], list): episodic_picks.extend(weekly_picks["eliminated"])
-                            else: episodic_picks.append(weekly_picks["eliminated"])
-                            
+                            if isinstance(weekly_picks["eliminated"], list):
+                                episodic_picks.extend(weekly_picks["eliminated"])
+                            else:
+                                episodic_picks.append(weekly_picks["eliminated"])
+                                
                         tech_picks = weekly_picks.get("tech_rank", []) + weekly_picks.get("tech_top_3", []) + weekly_picks.get("tech_bottom_3", [])
                         
                         if len(episodic_picks) != len(set(episodic_picks)):
@@ -689,7 +692,7 @@ with tab_submit:
 with tab_show_results:
     st.header("📺 Show Results & Broadcast Archive")
     
-    # 1. CHAOS CATEGORIES RUNNING TOTALS (AT TOP OF SHOW RESULTS TAB)
+    # 1. CHAOS CATEGORIES RUNNING TOTALS
     st.subheader("🔥 Chaos Categories Running Totals")
     tot_hs = 0
     tot_cry = 0
@@ -709,7 +712,7 @@ with tab_show_results:
 
     st.markdown("---")
     
-    # 2. WEEKLY SHOW RESULTS (DETAILED WEEK-BY-WEEK BREAKDOWN)
+    # 2. WEEKLY SHOW RESULTS
     st.subheader("📅 Weekly Broadcast Results Breakdown")
     if not st.session_state.weekly_results:
         st.info("No weekly broadcast results published yet. Results will appear here after Episode 1!")
@@ -724,24 +727,15 @@ with tab_show_results:
                     st.write(f"🌟 **Star Baker / Champion:** {sb_val}")
                     
                     in_line_val = w_act.get("in_line_sb", [])
-                    if isinstance(in_line_val, list):
-                        in_line_str = ", ".join(in_line_val) if in_line_val else "None"
-                    else:
-                        in_line_str = str(in_line_val)
+                    in_line_str = ", ".join(in_line_val) if isinstance(in_line_val, list) and in_line_val else str(in_line_val)
                     st.write(f"🎖️ **In Line for Star Baker:** {in_line_str}")
                     
                     elim_val = w_act.get("eliminated", "None")
-                    if isinstance(elim_val, list):
-                        elim_str = ", ".join(elim_val) if elim_val else "None (Sickness Grace Week)"
-                    else:
-                        elim_str = str(elim_val)
+                    elim_str = ", ".join(elim_val) if isinstance(elim_val, list) and elim_val else str(elim_val)
                     st.write(f"🚪 **Eliminated Baker:** {elim_str}")
                     
                     in_tr_val = w_act.get("in_trouble", [])
-                    if isinstance(in_tr_val, list):
-                        in_tr_str = ", ".join(in_tr_val) if in_tr_val else "None"
-                    else:
-                        in_tr_str = str(in_tr_val)
+                    in_tr_str = ", ".join(in_tr_val) if isinstance(in_tr_val, list) and in_tr_val else str(in_tr_val)
                     st.write(f"⚠️ **In Trouble of Elimination:** {in_tr_str}")
                     
                 with col_w2:
@@ -758,14 +752,13 @@ with tab_show_results:
                     inn_stamps = w_act.get("innuendo_timestamps", "None")
                     st.write(f"💬 **Sexual Innuendos ({inn_cnt}):** {inn_stamps}")
                 
-                # Technical Challenge Placement
                 tech_ranks = w_act.get("tech_rank", [])
                 if tech_ranks:
                     st.markdown("#### **📊 Technical Challenge Placements**")
                     tech_items = [f"**{idx+1}st**" if idx==0 else (f"**{idx+1}nd**" if idx==1 else (f"**{idx+1}rd**" if idx==2 else f"**{idx+1}th**")) + f": {baker}" for idx, baker in enumerate(tech_ranks)]
                     st.write(" | ".join(tech_items))
 
-    # 3. BROADCAST AUDIT TABLE & VIDEO TIMESTAMPS
+    # 3. BROADCAST AUDIT TABLE
     st.markdown("---")
     st.subheader("📋 Broadcast Audit Summary Table")
     if st.session_state.weekly_results:
@@ -788,7 +781,7 @@ with tab_show_results:
             })
         st.dataframe(pd.DataFrame(audit_rows), use_container_width=True, hide_index=True)
 
-    # 4. BROADCAST RESULT DISPUTES & TIMESTAMP CORRECTIONS
+    # 4. DISPUTES
     st.markdown("---")
     st.subheader("⚖️ Broadcast Result Disputes & Timestamp Corrections")
     st.write("If you spot an error, missed handshake, or unrecorded crying scene in an episode, submit a dispute below with video timestamp evidence. Disputes are reviewed democratically by league members on GroupMe via majority vote.")
@@ -843,11 +836,11 @@ with tab_admin:
         with st.expander("🔑 Player Security PIN Management & Reset", expanded=False):
             p_to_reset = st.selectbox("Select Player Profile to Reset Password PIN:", ["-- Select Player --"] + ALL_HUMAN_PLAYERS)
             if p_to_reset != "-- Select Player --":
-                cur_p_pwd = st.session_state.player_passwords.get(p_to_reset)
+                cur_p_pwd = st.session_state.league_members[p_to_reset].get("pin")
                 cur_status = "Locked 🔒" if cur_p_pwd else "Unset 🔓"
                 st.write(f"Current PIN Status for **{p_to_reset}**: `{cur_status}`")
                 if st.button(f"Reset Password PIN for {p_to_reset}"):
-                    st.session_state.player_passwords[p_to_reset] = None
+                    st.session_state.league_members[p_to_reset]["pin"] = None
                     if p_to_reset in st.session_state.authenticated_players:
                         st.session_state.authenticated_players[p_to_reset] = False
                     st.success(f"Security PIN reset for {p_to_reset}!")
@@ -891,10 +884,29 @@ with tab_admin:
         is_already_published = cur_w in st.session_state.weekly_results
 
         if is_already_published:
-            st.info(f"🟢 **Week {cur_w} Results Recorded & Saved in System**\n\nReviewing saved entries below. To prevent accidental edits that alter player scores, fields are locked by default.")
+            st.info(f"🟢 **Week {cur_w} Results Recorded & Saved in System**\n\nReviewing saved entries below. Fields are locked by default to prevent accidental edits.")
             enable_edit = st.checkbox(f"🔓 Enable Editing for Week {cur_w} (Requires Verification before Overwriting Saved Results)", key=f"unlock_edit_w{cur_w}")
         else:
             enable_edit = True
+
+        # ELIMINATION STATUS RADIO OUTSIDE FORM SO IT RERUNS INTERACTIVELY!
+        st.markdown("### 🚪 Elimination Status")
+        saved_elim = saved_actuals.get("eliminated", "None")
+        if saved_elim == "None":
+            default_elim_idx = 1 # No Elimination
+        elif isinstance(saved_elim, list):
+            default_elim_idx = 2 # Double Elimination
+        else:
+            default_elim_idx = 0 # Single Elimination (Default!)
+
+        elim_type = st.radio(
+            "Select Episode Elimination Type:",
+            ["Single Elimination", "No Elimination (Sickness/Grace Week)", "Double Elimination"],
+            index=default_elim_idx,
+            horizontal=True,
+            key=f"adm_elim_radio_interactive_w{cur_w}",
+            disabled=(is_already_published and not enable_edit)
+        )
 
         with st.form(f"admin_actuals_form_w{cur_w}"):
             st.subheader(f"Input / Review Broadcast Results for Week {cur_w}")
@@ -943,27 +955,21 @@ with tab_admin:
                 act_sb9_sel = st.selectbox("Actual Star Baker", opts_sb9, index=sb9_idx, key=f"admin_act_sb_w9_{cur_w}", disabled=(is_already_published and not enable_edit))
                 actuals["star_baker"] = act_sb9_sel if not act_sb9_sel.startswith("-- Select") else "None"
                 
-                saved_elim = saved_actuals.get("eliminated", "None")
-                default_elim_type = "Single Elimination"
-                if saved_elim == "None":
-                    default_elim_type = "No Elimination (Sickness/Grace Week)"
-                elif isinstance(saved_elim, list):
-                    default_elim_type = "Double Elimination"
-                
-                elim_type = st.radio("Elimination Status", ["Single Elimination", "No Elimination (Sickness/Grace Week)", "Double Elimination"], index=["Single Elimination", "No Elimination (Sickness/Grace Week)", "Double Elimination"].index(default_elim_type), horizontal=True, key=f"admin_elim_type_w9_{cur_w}", disabled=(is_already_published and not enable_edit))
+                st.write(f"**Selected Elimination Mode:** `{elim_type}`")
                 if elim_type == "Single Elimination":
                     opts_el9 = ["-- Select Eliminated Baker --"] + active_bakers
                     s_el9 = saved_elim if isinstance(saved_elim, str) else "-- Select Eliminated Baker --"
                     el9_idx = opts_el9.index(s_el9) if s_el9 in opts_el9 else 0
-                    act_el9_sel = st.selectbox("Actual Eliminated Baker", opts_el9, index=el9_idx, key=f"admin_act_elim_w9_{cur_w}", disabled=(is_already_published and not enable_edit))
+                    act_el9_sel = st.selectbox("Actual Eliminated Baker", opts_el9, index=el9_idx, key=f"admin_act_elim_single_w9_{cur_w}", disabled=(is_already_published and not enable_edit))
                     actuals["eliminated"] = act_el9_sel if not act_el9_sel.startswith("-- Select") else "None"
                 elif elim_type == "No Elimination (Sickness/Grace Week)":
                     actuals["eliminated"] = "None"
+                    st.info("ℹ️ No baker was eliminated this week (Sickness/Grace Week).")
                 else:
                     opts_el9_1 = ["-- Select Eliminated Baker #1 --"] + active_bakers
                     opts_el9_2 = ["-- Select Eliminated Baker #2 --"] + active_bakers
-                    s_el1 = saved_elim if isinstance(saved_elim, list) and len(saved_elim) > 0 else "-- Select Eliminated Baker #1 --"
-                    s_el2 = saved_elim if isinstance(saved_elim, list) and len(saved_elim) > 1 else "-- Select Eliminated Baker #2 --"
+                    s_el1 = saved_elim[0] if isinstance(saved_elim, list) and len(saved_elim) > 0 else "-- Select Eliminated Baker #1 --"
+                    s_el2 = saved_elim[1] if isinstance(saved_elim, list) and len(saved_elim) > 1 else "-- Select Eliminated Baker #2 --"
                     el1_idx = opts_el9_1.index(s_el1) if s_el1 in opts_el9_1 else 0
                     el2_idx = opts_el9_2.index(s_el2) if s_el2 in opts_el9_2 else 0
                     act_el9_1 = st.selectbox("Actual Eliminated Baker #1", opts_el9_1, index=el1_idx, key=f"admin_act_elim_1_w9_{cur_w}", disabled=(is_already_published and not enable_edit))
@@ -981,37 +987,30 @@ with tab_admin:
                     saved_inline = [b for b in saved_actuals.get("in_line_sb", []) if b in active_bakers]
                     actuals["in_line_sb"] = st.multiselect("Actual 'In Line' Nominees", active_bakers, default=saved_inline, placeholder="-- Select Baker(s) --", key=f"admin_in_line_w{cur_w}", disabled=(is_already_published and not enable_edit))
                 with col2:
-                    saved_elim = saved_actuals.get("eliminated", "None")
-                    default_elim_type = "Single Elimination"
-                    if saved_elim == "None":
-                        default_elim_type = "No Elimination (Sickness/Grace Week)"
-                    elif isinstance(saved_elim, list):
-                        default_elim_type = "Double Elimination"
-                        
-                    elim_type = st.radio("Elimination Status", ["Single Elimination", "No Elimination (Sickness/Grace Week)", "Double Elimination"], index=["Single Elimination", "No Elimination (Sickness/Grace Week)", "Double Elimination"].index(default_elim_type), horizontal=True, key=f"admin_elim_type_w{cur_w}", disabled=(is_already_published and not enable_edit))
+                    st.write(f"**Selected Elimination Mode:** `{elim_type}`")
                     saved_trouble = [b for b in saved_actuals.get("in_trouble", []) if b in active_bakers]
-                    
                     if elim_type == "Single Elimination":
                         opts_el = ["-- Select Eliminated Baker --"] + active_bakers
                         s_el = saved_elim if isinstance(saved_elim, str) else "-- Select Eliminated Baker --"
                         el_idx = opts_el.index(s_el) if s_el in opts_el else 0
                         act_el_sel = st.selectbox("Actual Eliminated Baker", opts_el, index=el_idx, key=f"admin_act_elim_single_w{cur_w}", disabled=(is_already_published and not enable_edit))
                         actuals["eliminated"] = act_el_sel if not act_el_sel.startswith("-- Select") else "None"
-                        actuals["in_trouble"] = st.multiselect("Actual 'In Trouble' Nominees", active_bakers, default=saved_trouble, placeholder="-- Select Baker(s) --", key=f"admin_in_trouble_single_w{cur_w}", disabled=(is_already_published and not enable_edit))
+                        actuals["in_trouble"] = st.multiselect("Actual 'In Trouble' Nominees", active_bakers, default=saved_trouble, placeholder="-- Select Baker(s) --", key=f"admin_in_trouble_w{cur_w}", disabled=(is_already_published and not enable_edit))
                     elif elim_type == "No Elimination (Sickness/Grace Week)":
                         actuals["eliminated"] = "None"
-                        actuals["in_trouble"] = st.multiselect("Actual 'In Trouble' Nominees (Sickness consolations)", active_bakers, default=saved_trouble, placeholder="-- Select Baker(s) --", key=f"admin_in_trouble_none_w{cur_w}", disabled=(is_already_published and not enable_edit))
+                        st.info("ℹ️ No baker was eliminated this week (Sickness/Grace Week).")
+                        actuals["in_trouble"] = st.multiselect("Actual 'In Trouble' Nominees (Sickness consolations)", active_bakers, default=saved_trouble, placeholder="-- Select Baker(s) --", key=f"admin_in_trouble_w{cur_w}", disabled=(is_already_published and not enable_edit))
                     else:
                         opts_el1 = ["-- Select Eliminated Baker #1 --"] + active_bakers
                         opts_el2 = ["-- Select Eliminated Baker #2 --"] + active_bakers
-                        s_el1 = saved_elim if isinstance(saved_elim, list) and len(saved_elim) > 0 else "-- Select Eliminated Baker #1 --"
-                        s_el2 = saved_elim if isinstance(saved_elim, list) and len(saved_elim) > 1 else "-- Select Eliminated Baker #2 --"
+                        s_el1 = saved_elim[0] if isinstance(saved_elim, list) and len(saved_elim) > 0 else "-- Select Eliminated Baker #1 --"
+                        s_el2 = saved_elim[1] if isinstance(saved_elim, list) and len(saved_elim) > 1 else "-- Select Eliminated Baker #2 --"
                         el1_idx = opts_el1.index(s_el1) if s_el1 in opts_el1 else 0
                         el2_idx = opts_el2.index(s_el2) if s_el2 in opts_el2 else 0
-                        act_el1_sel = st.selectbox("Actual Eliminated Baker #1", opts_el1, index=el1_idx, key=f"admin_act_elim_1_dbl_w{cur_w}", disabled=(is_already_published and not enable_edit))
-                        act_el2_sel = st.selectbox("Actual Eliminated Baker #2", opts_el2, index=el2_idx, key=f"admin_act_elim_2_dbl_w{cur_w}", disabled=(is_already_published and not enable_edit))
+                        act_el1_sel = st.selectbox("Actual Eliminated Baker #1", opts_el1, index=el1_idx, key=f"admin_act_elim_1_w{cur_w}", disabled=(is_already_published and not enable_edit))
+                        act_el2_sel = st.selectbox("Actual Eliminated Baker #2", opts_el2, index=el2_idx, key=f"admin_act_elim_2_w{cur_w}", disabled=(is_already_published and not enable_edit))
                         actuals["eliminated"] = [b for b in [act_el1_sel, act_el2_sel] if not b.startswith("-- Select")]
-                        actuals["in_trouble"] = st.multiselect("Actual 'In Trouble' Nominees", active_bakers, default=saved_trouble, placeholder="-- Select Baker(s) --", key=f"admin_in_trouble_dbl_w{cur_w}", disabled=(is_already_published and not enable_edit))
+                        actuals["in_trouble"] = st.multiselect("Actual 'In Trouble' Nominees", active_bakers, default=saved_trouble, placeholder="-- Select Baker(s) --", key=f"admin_in_trouble_w{cur_w}", disabled=(is_already_published and not enable_edit))
 
             st.markdown("---")
             st.markdown(f"### 📊 Actual Technical Challenge Rankings (1st through {len(active_bakers)}th Place)")
