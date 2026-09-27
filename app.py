@@ -345,36 +345,39 @@ with tab_submit:
             if active_prediction_week == 2:
                 st.subheader("🌟 Season-Long Projections Ballot")
                 with st.form("season_ballot_form"):
-                    s_win = st.selectbox("Season Winner (40 pts):", ALL_BAKERS)
-                    s_semis = st.multiselect("3 Other Semifinalists (10 pts each - Select 3):", [b for b in ALL_BAKERS if b != s_win], max_selections=3)
+                    s_win = st.selectbox("Season Winner (40 pts):", ["--Select Baker--"] + ALL_BAKERS, index=0)
+                    s_semis = st.multiselect("3 Other Semifinalists (10 pts each - Select 3):", ALL_BAKERS, max_selections=3)
                     col_s1, col_s2, col_s3 = st.columns(3)
-                    with col_s1: s_hs = st.number_input("Total Handshakes:", min_value=0, value=5)
-                    with col_s2: s_cry = st.number_input("Total Crying Incidents:", min_value=0, value=12)
-                    with col_s3: s_inn = st.number_input("Total Sexual Innuendos:", min_value=0, value=45)
+                    with col_s1: s_hs = st.number_input("Total Handshakes:", min_value=0, value=0, placeholder="e.g. 5")
+                    with col_s2: s_cry = st.number_input("Total Crying Incidents:", min_value=0, value=0, placeholder="e.g. 12")
+                    with col_s3: s_inn = st.number_input("Total Sexual Innuendos:", min_value=0, value=0, placeholder="e.g. 45")
                     
                     if st.form_submit_button("Lock In Season Projections"):
-                        p_info["season_picks"] = {"winner": s_win, "semifinalists": s_semis, "handshakes": s_hs, "crying": s_cry, "innuendos": s_inn}
-                        save_league_data()
-                        st.success("Season projections successfully saved!")
+                        if s_win == "--Select Baker--":
+                            st.error("Please select a valid Season Winner.")
+                        else:
+                            p_info["season_picks"] = {"winner": s_win, "semifinalists": s_semis, "handshakes": s_hs, "crying": s_cry, "innuendos": s_inn}
+                            save_league_data()
+                            st.success("Season projections successfully saved!")
 
             st.markdown(f"### 📅 Week {active_prediction_week} Prediction Ballot")
             with st.form("weekly_ballot_form"):
                 weekly_picks = {}
                 if active_prediction_week == 10:
-                    weekly_picks["show_champion"] = st.selectbox("Show Champion (15 pts):", active_bakers)
+                    weekly_picks["show_champion"] = st.selectbox("Show Champion (15 pts):", ["--Select Baker--"] + active_bakers, index=0)
                 else:
                     col1, col2 = st.columns(2)
                     with col1:
-                        weekly_picks["star_baker"] = st.selectbox("Star Baker (5 pts):", active_bakers)
-                        weekly_picks["in_line_sb"] = st.selectbox("'In Line' Nominee (2 pts):", active_bakers)
+                        weekly_picks["star_baker"] = st.selectbox("Star Baker (5 pts):", ["--Select Baker--"] + active_bakers, index=0)
+                        weekly_picks["in_line_sb"] = st.selectbox("'In Line' Nominee (2 pts):", ["--Select Baker--"] + active_bakers, index=0)
                     with col2:
-                        weekly_picks["eliminated"] = st.selectbox("Eliminated Baker (5 pts):", active_bakers)
-                        weekly_picks["in_trouble"] = st.selectbox("'In Trouble' Nominee (2 pts):", active_bakers)
+                        weekly_picks["eliminated"] = st.selectbox("Eliminated Baker (5 pts):", ["--Select Baker--"] + active_bakers, index=0)
+                        weekly_picks["in_trouble"] = st.selectbox("'In Trouble' Nominee (2 pts):", ["--Select Baker--"] + active_bakers, index=0)
                 
                 st.markdown("#### Technical Challenge Placements:")
                 tech_ranks = []
                 for i, b in enumerate(active_bakers):
-                    sel = st.selectbox(f"Technical Rank #{i+1}:", active_bakers, key=f"tech_r_{i}")
+                    sel = st.selectbox(f"Technical Rank #{i+1}:", ["--Select Baker--"] + active_bakers, index=0, key=f"tech_r_{i}")
                     tech_ranks.append(sel)
                 weekly_picks["tech_rank"] = tech_ranks
                 
@@ -393,54 +396,18 @@ with tab_submit:
 # TAB 3: SHOW RESULTS
 # ==============================================================================
 with tab_results:
-    st.header("📺 Official Broadcast Results & Chaos Audit")
+    st.header("📺 Official Broadcast Results")
     
-    tot_hs, tot_cry, tot_inn = 0, 0, 0
     weekly_res_map = st.session_state.get("weekly_results", {})
     
     if weekly_res_map:
-        audit_rows = []
-        for w_num in sorted(weekly_res_map.keys()):
-            w_act = weekly_res_map[w_num]
-            hs_bakers = ", ".join(w_act.get("handshake_bakers", [])) if w_act.get("handshake_bakers") else "None"
-            hs_cnt = len(w_act.get("handshake_bakers", []))
-            
-            # Smart reconciliation for chaos counters (taking higher value between numeric input and text timestamp count)
-            txt_cry = w_act.get("crying_timestamps", "")
-            num_cry = w_act.get("crying_count", 0)
-            parsed_cry = len([s for s in txt_cry.split(",") if s.strip()]) if txt_cry else 0
-            actual_cry = max(num_cry, parsed_cry)
-            
-            txt_inn = w_act.get("innuendo_timestamps", "")
-            num_inn = w_act.get("innuendo_count", 0)
-            parsed_inn = len([s for s in txt_inn.split(",") if s.strip()]) if txt_inn else 0
-            actual_inn = max(num_inn, parsed_inn)
-            
-            tot_hs += hs_cnt
-            tot_cry += actual_cry
-            tot_inn += actual_inn
-            
-            audit_rows.append({
-                "Week": f"Week {w_num}",
-                "Star Baker": str(w_act.get("star_baker", "N/A")),
-                "Eliminated": str(w_act.get("eliminated", "N/A")),
-                "Handshake Bakers": hs_bakers,
-                "Crying Timestamps": w_act.get("crying_timestamps", "N/A"),
-                "Innuendos Count": actual_inn
-            })
-            
-            with st.expander(f"📦 Week {w_num} Episode Result Card"):
-                st.json(w_act)
-                
-        st.dataframe(pd.DataFrame(audit_rows), use_container_width=True, hide_index=True)
+        st.subheader("📋 Published Weekly Results")
+        sel_res_week = st.selectbox("Select Week to View Results:", sorted(weekly_res_map.keys()), key="show_res_week_sel")
+        if sel_res_week:
+            w_act = weekly_res_map[sel_res_week]
+            st.json(w_act)
     else:
         st.info("No official broadcast results published yet by the administrator.")
-
-    st.markdown("### 🔥 Running Season Chaos Totals")
-    col_c1, col_c2, col_c3 = st.columns(3)
-    col_c1.metric("🤝 Hollywood Handshakes", tot_hs)
-    col_c2.metric("😢 Crying Incidents", tot_cry)
-    col_c3.metric("💬 Sexual Innuendos", tot_inn)
 
     st.markdown("---")
     st.subheader("⚖️ Result Dispute & Timestamp Correction Form")
@@ -494,16 +461,23 @@ with tab_admin:
             if admin_selected_week == 10:
                 actuals["show_champion"] = st.selectbox("Actual Show Champion", baker_opts)
             else:
-                actuals["star_baker"] = st.selectbox("Actual Star Baker", baker_opts)
-                if elim_type == "Single Elimination":
-                    actuals["eliminated"] = st.selectbox("Actual Eliminated Baker", baker_opts)
-                elif elim_type == "No Elimination (Grace Week)":
-                    actuals["eliminated"] = "None"
-                    st.info("Grace week active: No elimination.")
-                else:
-                    e1 = st.selectbox("Eliminated #1", baker_opts)
-                    e2 = st.selectbox("Eliminated #2", baker_opts)
-                    actuals["eliminated"] = [e1, e2]
+                # Requirement (1): Group together Star Baker, In Line for Star Baker, Eliminated, and In Trouble for Elimination
+                st.markdown("#### 🌟 Star Baker & Elimination Group")
+                col_g1, col_g2 = st.columns(2)
+                with col_g1:
+                    actuals["star_baker"] = st.selectbox("Actual Star Baker", baker_opts, key=f"adm_sb_w{admin_selected_week}")
+                    actuals["in_line_sb"] = st.selectbox("Actual 'In Line' for Star Baker", baker_opts, key=f"adm_inline_w{admin_selected_week}")
+                with col_g2:
+                    if elim_type == "Single Elimination":
+                        actuals["eliminated"] = st.selectbox("Actual Eliminated Baker", baker_opts, key=f"adm_elim_w{admin_selected_week}")
+                    elif elim_type == "No Elimination (Grace Week)":
+                        actuals["eliminated"] = "None"
+                        st.info("Grace week active: No elimination.")
+                    else:
+                        e1 = st.selectbox("Eliminated #1", baker_opts, key=f"adm_elim1_w{admin_selected_week}")
+                        e2 = st.selectbox("Eliminated #2", baker_opts, key=f"adm_elim2_w{admin_selected_week}")
+                        actuals["eliminated"] = [e1, e2]
+                    actuals["in_trouble"] = st.selectbox("Actual 'In Trouble' for Elimination", baker_opts, key=f"adm_introuble_w{admin_selected_week}")
             
             st.markdown("#### Technical Challenge Rankings:")
             act_tech = []
@@ -515,28 +489,113 @@ with tab_admin:
             st.markdown("#### Chaos Categories & Timestamps:")
             actuals["handshake_bakers"] = st.multiselect("Bakers Receiving Handshakes", active_bakers)
             actuals["handshake_timestamps"] = st.text_input("Handshake Timestamps", placeholder="e.g. Tom @ 14:22")
-            actuals["crying_timestamps"] = st.text_input("Crying Timestamps", placeholder="e.g. Mo @ 34:12")
-            actuals["innuendos_timestamps"] = st.text_input("Innuendos Timestamps", placeholder="e.g. Soggy bottom @ 18:45")
-            actuals["crying_count"] = st.number_input("Numeric Crying Count", min_value=0, value=0)
-            actuals["innuendo_count"] = st.number_input("Numeric Innuendos Count", min_value=0, value=0)
             
+            # Requirement (2): Two fields in crying section: number of occurrences, and second field underneath for description
+            st.markdown("##### 😢 Crying Incidents")
+            actuals["crying_count"] = st.number_input("Number of Crying Occurrences", min_value=0, value=0, key=f"adm_cry_count_{admin_selected_week}")
+            actuals["crying_timestamps"] = st.text_input("Description of Crying Occurrence", placeholder="e.g. Molly @ 14:00", key=f"adm_cry_desc_{admin_selected_week}")
+            
+            # Requirement (3): Two fields in innuendo section: number of occurrences and second field directly underneath for description
+            st.markdown("##### 💬 Sexual Innuendos")
+            actuals["innuendo_count"] = st.number_input("Number of Innuendo Occurrences", min_value=0, value=0, key=f"adm_inn_count_{admin_selected_week}")
+            actuals["innuendo_timestamps"] = st.text_input("Description of Innuendos", placeholder="e.g. Soggy bottom @ 18:45", key=f"adm_inn_desc_{admin_selected_week}")
+            
+            if admin_selected_week == 10:
+                st.markdown("---")
+                st.subheader("Final Seasonal Broadcast Totals")
+                act_winner = st.selectbox("Actual Season Winner", baker_opts, key=f"adm_season_winner_w{admin_selected_week}")
+                act_semis = st.multiselect("Actual Semifinalists (Select 4)", ALL_BAKERS, max_selections=4, key=f"adm_season_semis_w{admin_selected_week}")
+                act_finalists = st.multiselect("Actual Finalists (Select 3)", ALL_BAKERS, max_selections=3, key=f"adm_season_fin_w{admin_selected_week}")
+                act_handshakes = st.number_input("Actual Season Total Handshakes", min_value=0, value=5, key=f"adm_season_hs_w{admin_selected_week}")
+                act_crying = st.number_input("Actual Season Total Crying Incidents", min_value=0, value=12, key=f"adm_season_cry_w{admin_selected_week}")
+                act_innuendos = st.number_input("Actual Season Total Sexual Innuendos", min_value=0, value=48, key=f"adm_season_inn_w{admin_selected_week}")
+
+                actuals_season = {
+                    "winner": act_winner,
+                    "semifinalists": act_semis,
+                    "finalists": act_finalists,
+                    "handshakes": act_handshakes,
+                    "crying": act_crying,
+                    "innuendos": act_innuendos
+                }
+
             if st.form_submit_button("Publish Results & Recalculate Standings"):
                 st.session_state.weekly_results[admin_selected_week] = actuals
-                
-                # Recalculate scores
+                if admin_selected_week == 10:
+                    st.session_state.season_results = actuals_season
+
+                for member_name in st.session_state.league_members:
+                    st.session_state.league_members[member_name]["total_score"] = 0
+                    st.session_state.league_members[member_name]["weekly_breakdown"] = {}
+
+                all_weeks_scored = sorted(list(st.session_state.weekly_results.keys()))
+
+                for w in all_weeks_scored:
+                    act_w = st.session_state.weekly_results[w]
+                    weekly_raw = {}
+                    for m_name, m_data in st.session_state.league_members.items():
+                        pred_w = m_data["weekly_picks"].get(w, {})
+                        raw_score = calculate_weekly_score(pred_w, act_w, w)
+                        weekly_raw[m_name] = raw_score
+                        m_data["weekly_breakdown"][w] = raw_score
+
+                    if weekly_raw:
+                        max_raw = max(weekly_raw.values())
+                        for m_name, raw_s in weekly_raw.items():
+                            if raw_s == max_raw and raw_s > 0:
+                                st.session_state.league_members[m_name]["weekly_breakdown"][w] += 5
+
+                if st.session_state.season_results:
+                    for m_name, m_data in st.session_state.league_members.items():
+                        season_pred = m_data["season_picks"]
+                        season_score = calculate_season_score(season_pred, st.session_state.season_results)
+                        m_data["season_score"] = season_score
+
                 for m_name, m_data in st.session_state.league_members.items():
-                    m_data["total_score"] = 0
-                    m_data["weekly_breakdown"] = {}
-                    for w_num, w_act in st.session_state.weekly_results.items():
-                        pred_w = m_data["weekly_picks"].get(w_num, {})
-                        s = calculate_weekly_score(pred_w, w_act, w_num)
-                        m_data["weekly_breakdown"][w_num] = s
-                    
-                    weekly_tot = sum(m_data["weekly_breakdown"].values())
-                    season_score = calculate_season_score(m_data["season_picks"], st.session_state.season_results)
-                    m_data["season_score"] = season_score
-                    m_data["total_score"] = weekly_tot + season_score
+                    weekly_total = sum(m_data["weekly_breakdown"].values())
+                    season_total = m_data.get("season_score", 0)
+                    m_data["total_score"] = weekly_total + season_total
+
+                save_league_data()
+                st.success(f"Official results successfully published for Week {admin_selected_week}! All standings updated.")
+                st.rerun()
+
+        # Requirement (4): Section for resetting a player's forgotten pin number at the bottom of the Admin Tab section
+        st.markdown("---")
+        st.subheader("🔑 Reset Forgotten Player Security PIN")
+        human_players = [m for m in sorted(st.session_state.league_members.keys()) if m != "AI Brian"]
+        reset_sel_player = st.selectbox("Select Player Profile to Reset PIN:", ["-- Select Player --"] + human_players, key="admin_pin_reset_dropdown")
+        if reset_sel_player != "-- Select Player --":
+            if st.button(f"Reset PIN for {reset_sel_player}"):
+                st.session_state.league_members[reset_sel_player]["pin"] = None
+                save_league_data()
+                st.success(f"Security PIN for {reset_sel_player} has been cleared! They can set a new 4-digit PIN upon next login.")
+                st.rerun()
+
+        # Requirement (5): Option to completely delete the data in the app at the very bottom of the admin tab
+        st.markdown("---")
+        st.subheader("🚨 Emergency Reset & Delete All App Data")
+        confirm_erase = st.checkbox("I understand this will permanently erase all player prediction ballots, PINs, and published broadcast results.", key="confirm_erase_check")
+        if st.button("🗑️ Erase All Competition Data", type="primary"):
+            if confirm_erase:
+                st.session_state.weekly_results = {}
+                st.session_state.season_results = {}
+                st.session_state.disputes = []
+                
+                for m_name in st.session_state.league_members:
+                    st.session_state.league_members[m_name]["weekly_picks"] = {}
+                    st.session_state.league_members[m_name]["season_picks"] = {}
+                    st.session_state.league_members[m_name]["total_score"] = 0
+                    st.session_state.league_members[m_name]["season_score"] = 0
+                    st.session_state.league_members[m_name]["weekly_breakdown"] = {}
+                    st.session_state.league_members[m_name]["pin"] = None
+                
+                if os.path.exists(DATA_FILE):
+                    try: os.remove(DATA_FILE)
+                    except Exception: pass
                     
                 save_league_data()
-                st.success(f"Week {admin_selected_week} results published and standings recalculated!")
+                st.success("All competition data successfully erased!")
                 st.rerun()
+            else:
+                st.error("Please check the confirmation box above first.")
