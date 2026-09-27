@@ -296,7 +296,9 @@ with tab_lead:
             
             st.write(f"🏆 **Predicted Winner:** {win_pick}")
             st.write(f"🏅 **Predicted Semifinalists:** {semis_pick}")
-            st.write(f"🤝 **Predicted Handshakes:** {hs_pick} | 😢 **Crying:** {cry_pick} | 💬 **Innuendos:** {inn_pick}")
+            st.write(f"🤝 **Predicted Handshakes:** {hs_pick}")
+            st.write(f"😢 **Predicted Crying Incidents:** {cry_pick}")
+            st.write(f"💬 **Predicted Sexual Innuendos:** {inn_pick}")
             
         with col_sc2:
             st.markdown(f"### **{selected_card_player}'s Weekly Predictions Log**")
@@ -393,10 +395,11 @@ with tab_submit:
                 with st.form("season_ballot_form"):
                     s_win = st.selectbox("Season Winner (40 pts):", ["--Select Baker--"] + ALL_BAKERS, index=0)
                     s_semis = st.multiselect("3 Other Semifinalists (10 pts each - Select 3):", ALL_BAKERS, max_selections=3)
-                    col_s1, col_s2, col_s3 = st.columns(3)
-                    with col_s1: s_hs = st.number_input("Total Handshakes:", min_value=0, value=0, placeholder="e.g. 5")
-                    with col_s2: s_cry = st.number_input("Total Crying Incidents:", min_value=0, value=0, placeholder="e.g. 12")
-                    with col_s3: s_inn = st.number_input("Total Sexual Innuendos:", min_value=0, value=0, placeholder="e.g. 45")
+                    
+                    # Stacked top-to-bottom layout
+                    s_hs = st.number_input("Total Handshakes:", min_value=0, value=0, placeholder="e.g. 5")
+                    s_cry = st.number_input("Total Crying Incidents:", min_value=0, value=0, placeholder="e.g. 12")
+                    s_inn = st.number_input("Total Sexual Innuendos:", min_value=0, value=0, placeholder="e.g. 45")
                     
                     if st.form_submit_button("Lock In Season Projections"):
                         if s_win == "--Select Baker--":
