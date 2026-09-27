@@ -73,16 +73,14 @@ def save_league_data():
 
 # --- 3. DEADLINE & SCORING ENGINE ---
 def is_weekly_voting_closed():
-    """Returns True if current time is past Tuesday at 2:00 PM Houston time."""
+    """Returns True ONLY on Tuesday at or after 2:00 PM Houston time."""
     try:
         now = datetime.datetime.now(ZoneInfo("America/Chicago"))
     except Exception:
         now = datetime.datetime.now()
         
     weekday = now.weekday()  # 0:Mon, 1:Tue, 2:Wed, 3:Thu, 4:Fri, 5:Sat, 6:Sun
-    # Closed Wed through Sun, and Tuesday at/after 14:00 (2:00 PM) Houston time
-    if weekday >= 2:
-        return True
+    # Voting is open Wed through Mon, and Tue before 2:00 PM. Closed only Tue >= 14:00.
     if weekday == 1 and now.hour >= 14:
         return True
     return False
