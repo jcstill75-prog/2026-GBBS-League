@@ -5,6 +5,7 @@ import os
 import json
 import base64
 import datetime
+from zoneinfo import ZoneInfo
 from PIL import Image
 
 # --- 1. SETUP & PAGE CONFIG ---
@@ -72,10 +73,14 @@ def save_league_data():
 
 # --- 3. DEADLINE & SCORING ENGINE ---
 def is_weekly_voting_closed():
-    """Returns True if current time is past Tuesday at 2:00 PM."""
-    now = datetime.datetime.now()
+    """Returns True if current time is past Tuesday at 2:00 PM Houston time."""
+    try:
+        now = datetime.datetime.now(ZoneInfo("America/Chicago"))
+    except Exception:
+        now = datetime.datetime.now()
+        
     weekday = now.weekday()  # 0:Mon, 1:Tue, 2:Wed, 3:Thu, 4:Fri, 5:Sat, 6:Sun
-    # Closed Wed through Sun, and Tuesday at/after 14:00 (2:00 PM)
+    # Closed Wed through Sun, and Tuesday at/after 14:00 (2:00 PM) Houston time
     if weekday >= 2:
         return True
     if weekday == 1 and now.hour >= 14:
@@ -256,7 +261,7 @@ with st.sidebar:
         st.success(f"🟢 **Active Competition Week: Week {latest_w + 1}**\n\n(Week {latest_w} Results Published)")
     st.markdown("---")
     st.header("🎯 Points Reference Guide")
-    st.warning("⏰ **Weekly voting window ends on Tuesdays right before the show airs in the UK (2:00 PM).**")
+    st.warning("⏰ **Weekly voting window ends on Tuesdays at 2:00 PM Houston time.**")
     with st.expander("🌟 Season-Long Projections", expanded=False):
         st.markdown("""
         * **Season Winner:** 40 pts
@@ -419,7 +424,7 @@ with tab_submit:
         if not st.session_state.weekly_results:
             st.warning("🔒 **Week 1 Scouting Phase:** Season-wide projections and Week 2 ballots unlock together once Week 1 results are published by the Admin!")
         elif is_weekly_voting_closed():
-            st.error("⏰ **Weekly Voting Closed:** The weekly voting deadline (Tuesday at 2:00 PM UK time) has passed. Ballot submissions and edits are locked for this week.")
+            st.error("⏰ **Weekly Voting Closed:** The weekly voting deadline (Tuesdays at 2:00 PM Houston time) has passed. Ballot submissions and edits are locked.")
         else:
             curr_elim = eliminated_bakers_by_week.get(active_prediction_week, [])
             active_bakers = [b for b in ALL_BAKERS if b not in curr_elim]
