@@ -405,26 +405,76 @@ with tab_results:
         sel_res_week = st.selectbox("Select Week to View Results:", sorted(weekly_res_map.keys()), key="show_res_week_sel")
         if sel_res_week:
             w_act = weekly_res_map[sel_res_week]
-            st.json(w_act)
+            
+            # Formatted Clean Display instead of raw code/json
+            st.markdown(f"### 🧁 Episode Week {sel_res_week} Results")
+            col_res1, col_res2 = st.columns(2)
+            with col_res1:
+                if sel_res_week == 10:
+                    st.write(f"🏆 **Show Champion:** {w_act.get('show_champion', 'N/A')}")
+                else:
+                    st.write(f"🌟 **Star Baker:** {w_act.get('star_baker', 'N/A')}")
+                    st.write(f"⭐ **'In Line' for Star Baker:** {w_act.get('in_line_sb', 'N/A')}")
+                    elim_val = w_act.get('eliminated', 'N/A')
+                    if isinstance(elim_val, list):
+                        elim_str = ", ".join(elim_val)
+                    else:
+                        elim_str = str(elim_val)
+                    st.write(f"🚪 **Eliminated:** {elim_str}")
+                    st.write(f"⚠️ **'In Trouble':** {w_act.get('in_trouble', 'N/A')}")
+            with col_res2:
+                hs_bakers = w_act.get('handshake_bakers', [])
+                hs_str = ", ".join(hs_bakers) if hs_bakers else "None"
+                st.write(f"🤝 **Hollywood Handshakes:** {hs_str}")
+                st.write(f"😢 **Crying Incidents ({w_act.get('crying_count', 0)}):** {w_act.get('crying_timestamps', 'None recorded')}")
+                st.write(f"💬 **Sexual Innuendos ({w_act.get('innuendo_count', 0)}):** {w_act.get('innuendo_timestamps', 'None recorded')}")
+            
+            tech_r = w_act.get('tech_rank', [])
+            if tech_r:
+                st.markdown("**Technical Challenge Standings:**")
+                st.write(" -> ".join([f"**#{i+1}** {b}" for i, b in enumerate(tech_r)]))
     else:
         st.info("No official broadcast results published yet by the administrator.")
 
     st.markdown("---")
-    st.subheader("⚖️ Result Dispute & Timestamp Correction Form")
-    with st.form("dispute_form"):
-        disp_player = st.selectbox("Your Player Profile", ROSTER_HUMANS)
-        disp_week = st.selectbox("Week to Contest", [f"Week {w}" for w in sorted(weekly_res_map.keys())] if weekly_res_map else ["Week 1"])
-        disp_evidence = st.text_area("Video Timestamp & Evidence Description:")
-        disp_correction = st.text_input("Requested Correction:")
-        
-        if st.form_submit_button("Submit Dispute"):
-            st.session_state.disputes.append({
-                "Player": disp_player, "Week": disp_week,
-                "Evidence": disp_evidence, "Correction": disp_correction,
-                "Status": "Pending Review 🗳️"
-            })
-            save_league_data()
-            st.success("Dispute submitted for league review!")
+    st.subheader("🔥 Cumulative Season Chaos Counters")
+    
+    tot_hs = 0
+    tot_cry = 0
+    tot_inn = 0
+    if weekly_res_map:
+        for w_data in weekly_res_map.values():
+            tot_hs += len(w_data.get("handshake_bakers", []))
+            tot_cry += int(w_data.get("crying_count", 0))
+            tot_inn += int(w_data.get("innuendo_count", 0))
+            
+    c_col1, c_col2, c_col3 = st.columns(3)
+    c_col1.metric("🤝 Total Hollywood Handshakes", tot_hs)
+    c_col2.metric("😢 Total Crying Incidents", tot_cry)
+    c_col3.metric("💬 Total Sexual Innuendos", tot_inn)
+
+    st.markdown("---")
+    st.subheader("⚖️ Result Dispute & Timestamp Correction")
+    
+    dispute_player_choice = st.selectbox("Select Your Name to Log a Dispute:", ["-- Select Name --"] + ROSTER_HUMANS, key="dispute_player_dropdown")
+    
+    if dispute_player_choice != "-- Select Name --":
+        st.success(f"Logging dispute as **{dispute_player_choice}**")
+        with st.form("dispute_form"):
+            disp_week = st.selectbox("Week to Contest", [f"Week {w}" for w in sorted(weekly_res_map.keys())] if weekly_res_map else ["Week 1"])
+            disp_evidence = st.text_area("Video Timestamp & Evidence Description:")
+            disp_correction = st.text_input("Requested Correction:")
+            
+            if st.form_submit_button("Submit Dispute"):
+                st.session_state.disputes.append({
+                    "Player": dispute_player_choice, "Week": disp_week,
+                    "Evidence": disp_evidence, "Correction": disp_correction,
+                    "Status": "Pending Review 🗳️"
+                })
+                save_league_data()
+                st.success("Dispute submitted successfully for league review!")
+    else:
+        st.info("👆 Please select your player name from the dropdown above to open the dispute submission form.")
 
 # ==============================================================================
 # TAB 4: ADMIN PANEL
@@ -450,7 +500,6 @@ with tab_admin:
         st.markdown("---")
         admin_selected_week = st.selectbox("Select Episode Week:", list(range(1, 11)), key="adm_w_sel")
         
-        # Check if week is already published
         saved_w = st.session_state.weekly_results.get(admin_selected_week, st.session_state.weekly_results.get(str(admin_selected_week), {}))
         is_published = bool(saved_w)
         
@@ -519,11 +568,11 @@ with tab_admin:
             actuals["handshake_bakers"] = st.multiselect("Bakers Receiving Handshakes", active_bakers, default=[b for b in def_hs_bakers if b in active_bakers])
             
             st.markdown("##### 😢 Crying Incidents")
-            actuals["crying_count"] = st.number_input("Number of Crying Occurrences", min_value=0, value=saved_w.get("crying_count", 0), key=f"adm_cry_count_{admin_selected_week}")
+            actuals["crying_count"] = st.number_input("Number of Crying Occurrences", min_value=0, value=int(saved_w.get("crying_count", 0)), key=f"adm_cry_count_{admin_selected_week}")
             actuals["crying_timestamps"] = st.text_input("Description of Crying Occurrence", value=saved_w.get("crying_timestamps", ""), placeholder="e.g. Molly @ 14:00", key=f"adm_cry_desc_{admin_selected_week}")
             
             st.markdown("##### 💬 Sexual Innuendos")
-            actuals["innuendo_count"] = st.number_input("Number of Innuendo Occurrences", min_value=0, value=saved_w.get("innuendo_count", 0), key=f"adm_inn_count_{admin_selected_week}")
+            actuals["innuendo_count"] = st.number_input("Number of Innuendo Occurrences", min_value=0, value=int(saved_w.get("innuendo_count", 0)), key=f"adm_inn_count_{admin_selected_week}")
             actuals["innuendo_timestamps"] = st.text_input("Description of Innuendos", value=saved_w.get("innuendo_timestamps", ""), placeholder="e.g. Soggy bottom @ 18:45", key=f"adm_inn_desc_{admin_selected_week}")
             
             if admin_selected_week == 10:
