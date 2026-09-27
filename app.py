@@ -173,6 +173,8 @@ if "disputes" not in st.session_state:
     st.session_state.disputes = saved_state.get("disputes", [])
 if "admin_authenticated" not in st.session_state:
     st.session_state.admin_authenticated = False
+if "admin_verification_msg" not in st.session_state:
+    st.session_state.admin_verification_msg = ""
 
 def generate_ai_brian_season_picks():
     winner = random.choice(ALL_BAKERS)
@@ -414,7 +416,6 @@ with tab_results:
                 else:
                     st.write(f"🌟 **Star Baker:** {w_act.get('star_baker', 'N/A')}")
                     
-                    # Format in_line without brackets/quotes
                     inline_val = w_act.get('in_line_sb', 'N/A')
                     if isinstance(inline_val, list):
                         inline_str = ", ".join([str(b) for b in inline_val if b])
@@ -429,7 +430,6 @@ with tab_results:
                         elim_str = str(elim_val)
                     st.write(f"🚪 **Eliminated:** {elim_str}")
                     
-                    # Format in_trouble without brackets/quotes
                     trouble_val = w_act.get('in_trouble', 'N/A')
                     if isinstance(trouble_val, list):
                         trouble_str = ", ".join([str(b) for b in trouble_val if b])
@@ -490,7 +490,6 @@ with tab_results:
     else:
         st.info("👆 Please select your player name from the dropdown above to open the dispute submission form.")
 
-    # Document all submitted disputes at the bottom of the Show Results tab
     st.markdown("---")
     st.subheader("📋 Logged Disputes & Status")
     if st.session_state.get("disputes"):
@@ -505,7 +504,8 @@ with tab_admin:
     st.header("👑 League Administrator Console")
     
     if not st.session_state.admin_authenticated:
-        admin_pin = st.text_input("Enter Administrator PIN (6284):", type="password")
+        # Requirement (1): Removed the PIN hint (6284) from the screen
+        admin_pin = st.text_input("Enter Administrator PIN:", type="password")
         if st.button("Unlock Admin Panel"):
             if admin_pin == "6284":
                 st.session_state.admin_authenticated = True
@@ -520,6 +520,11 @@ with tab_admin:
             st.rerun()
             
         st.markdown("---")
+        
+        # Requirement (2): Display publication verification notice banner if present
+        if st.session_state.admin_verification_msg:
+            st.success(st.session_state.admin_verification_msg)
+            
         admin_selected_week = st.selectbox("Select Episode Week:", list(range(1, 11)), key="adm_w_sel")
         
         saved_w = st.session_state.weekly_results.get(admin_selected_week, st.session_state.weekly_results.get(str(admin_selected_week), {}))
@@ -658,10 +663,12 @@ with tab_admin:
                         m_data["total_score"] = weekly_total + season_total
 
                     save_league_data()
-                    st.success(f"Official results successfully published for Week {admin_selected_week}! All standings updated.")
+                    
+                    # Requirement (2): Verification of publication or republication
+                    action_type = "republished and updated" if is_published else "published"
+                    st.session_state.admin_verification_msg = f"✅ **Verification Confirmed:** Week {admin_selected_week} results successfully {action_type}! All player scores, standings, and scorecards have been successfully recalculated."
                     st.rerun()
 
-        # --- DISPUTE RESOLUTION SECTION ---
         st.markdown("---")
         st.subheader("🗳️ Resolve League Disputes")
         st.write("Review active disputes submitted by players, vote in GroupMe[cite: 4], and record the final ruling below:")
@@ -706,6 +713,7 @@ with tab_admin:
                 st.session_state.weekly_results = {}
                 st.session_state.season_results = {}
                 st.session_state.disputes = []
+                st.session_state.admin_verification_msg = ""
                 
                 for m_name in st.session_state.league_members:
                     st.session_state.league_members[m_name]["weekly_picks"] = {}
