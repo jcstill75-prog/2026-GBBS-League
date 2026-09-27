@@ -406,7 +406,6 @@ with tab_results:
         if sel_res_week:
             w_act = weekly_res_map[sel_res_week]
             
-            # Formatted Clean Display instead of raw code/json
             st.markdown(f"### 🧁 Episode Week {sel_res_week} Results")
             col_res1, col_res2 = st.columns(2)
             with col_res1:
@@ -414,17 +413,32 @@ with tab_results:
                     st.write(f"🏆 **Show Champion:** {w_act.get('show_champion', 'N/A')}")
                 else:
                     st.write(f"🌟 **Star Baker:** {w_act.get('star_baker', 'N/A')}")
-                    st.write(f"⭐ **'In Line' for Star Baker:** {w_act.get('in_line_sb', 'N/A')}")
+                    
+                    # Format in_line without brackets/quotes
+                    inline_val = w_act.get('in_line_sb', 'N/A')
+                    if isinstance(inline_val, list):
+                        inline_str = ", ".join([str(b) for b in inline_val if b])
+                    else:
+                        inline_str = str(inline_val)
+                    st.write(f"⭐ **'In Line' for Star Baker:** {inline_str}")
+                    
                     elim_val = w_act.get('eliminated', 'N/A')
                     if isinstance(elim_val, list):
-                        elim_str = ", ".join(elim_val)
+                        elim_str = ", ".join([str(b) for b in elim_val if b])
                     else:
                         elim_str = str(elim_val)
                     st.write(f"🚪 **Eliminated:** {elim_str}")
-                    st.write(f"⚠️ **'In Trouble':** {w_act.get('in_trouble', 'N/A')}")
+                    
+                    # Format in_trouble without brackets/quotes
+                    trouble_val = w_act.get('in_trouble', 'N/A')
+                    if isinstance(trouble_val, list):
+                        trouble_str = ", ".join([str(b) for b in trouble_val if b])
+                    else:
+                        trouble_str = str(trouble_val)
+                    st.write(f"⚠️ **'In Trouble':** {trouble_str}")
             with col_res2:
                 hs_bakers = w_act.get('handshake_bakers', [])
-                hs_str = ", ".join(hs_bakers) if hs_bakers else "None"
+                hs_str = ", ".join([str(b) for b in hs_bakers if b]) if hs_bakers else "None"
                 st.write(f"🤝 **Hollywood Handshakes:** {hs_str}")
                 st.write(f"😢 **Crying Incidents ({w_act.get('crying_count', 0)}):** {w_act.get('crying_timestamps', 'None recorded')}")
                 st.write(f"💬 **Sexual Innuendos ({w_act.get('innuendo_count', 0)}):** {w_act.get('innuendo_timestamps', 'None recorded')}")
@@ -475,6 +489,14 @@ with tab_results:
                 st.success("Dispute submitted successfully for league review!")
     else:
         st.info("👆 Please select your player name from the dropdown above to open the dispute submission form.")
+
+    # Document all submitted disputes at the bottom of the Show Results tab
+    st.markdown("---")
+    st.subheader("📋 Logged Disputes & Status")
+    if st.session_state.get("disputes"):
+        st.dataframe(pd.DataFrame(st.session_state.disputes), use_container_width=True, hide_index=True)
+    else:
+        st.info("No disputes submitted yet.")
 
 # ==============================================================================
 # TAB 4: ADMIN PANEL
@@ -639,7 +661,33 @@ with tab_admin:
                     st.success(f"Official results successfully published for Week {admin_selected_week}! All standings updated.")
                     st.rerun()
 
+        # --- DISPUTE RESOLUTION SECTION ---
         st.markdown("---")
+        st.subheader("🗳️ Resolve League Disputes")
+        st.write("Review active disputes submitted by players, vote in GroupMe[cite: 4], and record the final ruling below:")
+        if st.session_state.get("disputes"):
+            for idx, disp in enumerate(st.session_state.disputes):
+                st.markdown(f"**Dispute #{idx+1}** | Player: **{disp.get('Player')}** | Week: **{disp.get('Week')}** | Status: `{disp.get('Status')}`")
+                st.markdown(f"*Evidence:* {disp.get('Evidence')}")
+                st.markdown(f"*Correction Requested:* {disp.get('Correction')}")
+                
+                c_res1, c_res2 = st.columns(2)
+                with c_res1:
+                    if st.button(f"Accept Dispute #{idx+1}", key=f"accept_disp_{idx}"):
+                        st.session_state.disputes[idx]["Status"] = "Accepted ✅"
+                        save_league_data()
+                        st.success(f"Dispute #{idx+1} marked as Accepted!")
+                        st.rerun()
+                with c_res2:
+                    if st.button(f"Reject Dispute #{idx+1}", key=f"reject_disp_{idx}"):
+                        st.session_state.disputes[idx]["Status"] = "Rejected ❌"
+                        save_league_data()
+                        st.success(f"Dispute #{idx+1} marked as Rejected!")
+                        st.rerun()
+                st.markdown("---")
+        else:
+            st.info("No active disputes to resolve.")
+
         st.subheader("🔑 Reset Forgotten Player Security PIN")
         human_players = [m for m in sorted(st.session_state.league_members.keys()) if m != "AI Brian"]
         reset_sel_player = st.selectbox("Select Player Profile to Reset PIN:", ["-- Select Player --"] + human_players, key="admin_pin_reset_dropdown")
