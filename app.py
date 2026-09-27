@@ -4,6 +4,7 @@ import random
 import os
 import json
 import base64
+import datetime
 from PIL import Image
 
 # --- 1. SETUP & PAGE CONFIG ---
@@ -69,7 +70,18 @@ def save_league_data():
     except Exception:
         pass
 
-# --- 3. SCORING ENGINE ---
+# --- 3. DEADLINE & SCORING ENGINE ---
+def is_weekly_voting_closed():
+    """Returns True if current time is past Tuesday at 2:00 PM."""
+    now = datetime.datetime.now()
+    weekday = now.weekday()  # 0:Mon, 1:Tue, 2:Wed, 3:Thu, 4:Fri, 5:Sat, 6:Sun
+    # Closed Wed through Sun, and Tuesday at/after 14:00 (2:00 PM)
+    if weekday >= 2:
+        return True
+    if weekday == 1 and now.hour >= 14:
+        return True
+    return False
+
 def calculate_weekly_score(predictions, actuals, week=2):
     score = 0
     if not predictions or not actuals:
@@ -244,7 +256,7 @@ with st.sidebar:
         st.success(f"🟢 **Active Competition Week: Week {latest_w + 1}**\n\n(Week {latest_w} Results Published)")
     st.markdown("---")
     st.header("🎯 Points Reference Guide")
-    st.warning("⏰ **Weekly voting window ends on Tuesdays right before the show airs in the UK.**")
+    st.warning("⏰ **Weekly voting window ends on Tuesdays right before the show airs in the UK (2:00 PM).**")
     with st.expander("🌟 Season-Long Projections", expanded=False):
         st.markdown("""
         * **Season Winner:** 40 pts
@@ -307,58 +319,57 @@ with tab_lead:
         p_season = p_data.get("season_picks", {})
         p_weekly = p_data.get("weekly_picks", {})
         
-        col_sc1, col_sc2 = st.columns(2)
-        with col_sc1:
-            st.markdown(f"### **{selected_card_player}'s Season Projections**")
-            win_pick = p_season.get("winner", "Not submitted yet")
-            semis_list = p_season.get("semifinalists", [])
-            semis_pick = ", ".join(semis_list) if semis_list else "Not submitted yet"
-            hs_pick = p_season.get("handshakes", "N/A")
-            cry_pick = p_season.get("crying", "N/A")
-            inn_pick = p_season.get("innuendos", "N/A")
-            
-            st.write(f"🏆 **Predicted Winner:** {win_pick}")
-            st.write(f"🏅 **Predicted Semifinalists:** {semis_pick}")
-            st.write(f"🤝 **Predicted Handshakes:** {hs_pick}")
-            st.write(f"😢 **Predicted Crying Incidents:** {cry_pick}")
-            st.write(f"💬 **Predicted Sexual Innuendos:** {inn_pick}")
-            
-        with col_sc2:
-            st.markdown(f"### **{selected_card_player}'s Weekly Predictions Log**")
-            if p_weekly:
-                for w_num in sorted(p_weekly.keys()):
-                    w_picks = p_weekly[w_num]
-                    w_pts = p_data.get("weekly_breakdown", {}).get(w_num, 0)
-                    with st.expander(f"Week {w_num} Ballot (Earned: {w_pts} pts)"):
-                        sb = w_picks.get("star_baker", w_picks.get("show_champion", "N/A"))
-                        inl = w_picks.get("in_line_sb", "N/A")
+        # Weekly Predictions Log FIRST, then Season Projections UNDERNEATH
+        st.markdown(f"### **{selected_card_player}'s Weekly Predictions Log**")
+        if p_weekly:
+            for w_num in sorted(p_weekly.keys()):
+                w_picks = p_weekly[w_num]
+                w_pts = p_data.get("weekly_breakdown", {}).get(w_num, 0)
+                with st.expander(f"Week {w_num} Ballot (Earned: {w_pts} pts)"):
+                    sb = w_picks.get("star_baker", w_picks.get("show_champion", "N/A"))
+                    inl = w_picks.get("in_line_sb", "N/A")
+                    
+                    elim = w_picks.get("eliminated", "N/A")
+                    if isinstance(elim, list):
+                        elim_str = ", ".join([str(b) for b in elim if b])
+                    else:
+                        elim_str = str(elim)
                         
-                        elim = w_picks.get("eliminated", "N/A")
-                        if isinstance(elim, list):
-                            elim_str = ", ".join([str(b) for b in elim if b])
-                        else:
-                            elim_str = str(elim)
-                            
-                        trb = w_picks.get("in_trouble", "N/A")
+                    trb = w_picks.get("in_trouble", "N/A")
+                    
+                    tech_top = w_picks.get("tech_top_3", [])
+                    tech_bot = w_picks.get("tech_bottom_3", [])
+                    tech_rank = w_picks.get("tech_rank", [])
+                    
+                    if tech_top or tech_bot:
+                        tech_str = f"Top 3: {', '.join(tech_top)} | Bottom 3: {', '.join(tech_bot)}"
+                    elif tech_rank:
+                        tech_str = " -> ".join([f"#{i+1}: {b}" for i, b in enumerate(tech_rank) if b])
+                    else:
+                        tech_str = "N/A"
                         
-                        tech_top = w_picks.get("tech_top_3", [])
-                        tech_bot = w_picks.get("tech_bottom_3", [])
-                        tech_rank = w_picks.get("tech_rank", [])
-                        
-                        if tech_top or tech_bot:
-                            tech_str = f"Top 3: {', '.join(tech_top)} | Bottom 3: {', '.join(tech_bot)}"
-                        elif tech_rank:
-                            tech_str = " -> ".join([f"#{i+1}: {b}" for i, b in enumerate(tech_rank) if b])
-                        else:
-                            tech_str = "N/A"
-                            
-                        st.write(f"🌟 **Star Baker / Champion:** {sb}")
-                        st.write(f"⭐ **In Line Nominee:** {inl}")
-                        st.write(f"🚪 **Eliminated:** {elim_str}")
-                        st.write(f"⚠️ **In Trouble Nominee:** {trb}")
-                        st.write(f"📊 **Technical Challenge:** {tech_str}")
-            else:
-                st.info("No weekly prediction ballots submitted yet.")
+                    st.write(f"🌟 **Star Baker / Champion:** {sb}")
+                    st.write(f"⭐ **In Line Nominee:** {inl}")
+                    st.write(f"🚪 **Eliminated:** {elim_str}")
+                    st.write(f"⚠️ **In Trouble Nominee:** {trb}")
+                    st.write(f"📊 **Technical Challenge:** {tech_str}")
+        else:
+            st.info("No weekly prediction ballots submitted yet.")
+
+        st.markdown("---")
+        st.markdown(f"### **{selected_card_player}'s Season Projections**")
+        win_pick = p_season.get("winner", "Not submitted yet")
+        semis_list = p_season.get("semifinalists", [])
+        semis_pick = ", ".join(semis_list) if semis_list else "Not submitted yet"
+        hs_pick = p_season.get("handshakes", "N/A")
+        cry_pick = p_season.get("crying", "N/A")
+        inn_pick = p_season.get("innuendos", "N/A")
+        
+        st.write(f"🏆 **Predicted Winner:** {win_pick}")
+        st.write(f"🏅 **Predicted Semifinalists:** {semis_pick}")
+        st.write(f"🤝 **Predicted Handshakes:** {hs_pick}")
+        st.write(f"😢 **Predicted Crying Incidents:** {cry_pick}")
+        st.write(f"💬 **Predicted Sexual Innuendos:** {inn_pick}")
 
 # ==============================================================================
 # TAB 2: SUBMIT PREDICTIONS
@@ -407,6 +418,8 @@ with tab_submit:
         st.markdown("---")
         if not st.session_state.weekly_results:
             st.warning("🔒 **Week 1 Scouting Phase:** Season-wide projections and Week 2 ballots unlock together once Week 1 results are published by the Admin!")
+        elif is_weekly_voting_closed():
+            st.error("⏰ **Weekly Voting Closed:** The weekly voting deadline (Tuesday at 2:00 PM UK time) has passed. Ballot submissions and edits are locked for this week.")
         else:
             curr_elim = eliminated_bakers_by_week.get(active_prediction_week, [])
             active_bakers = [b for b in ALL_BAKERS if b not in curr_elim]
@@ -477,16 +490,16 @@ with tab_submit:
                     t5 = st.selectbox("5th Place", ["--Select Baker--"] + active_bakers, key="tech_q_5")
                     weekly_picks["tech_rank"] = [t1, t2, t3, t4, t5]
                 else:
-                    # Standard Weeks 2-7: Predict Top 3 (1st, 2nd, 3rd) and Bottom 3 (3rd-to-last, 2nd-to-last, last)[cite: 2]
+                    # Standard Weeks 2-7: Predict Top 3 and Bottom 3
                     col_t1, col_t2 = st.columns(2)
                     with col_t1:
-                        st.write("**Top 3 Technical[cite: 2]:**")
+                        st.write("**Top 3 Technical:**")
                         tp1 = st.selectbox("1st Place", ["--Select Baker--"] + active_bakers, key="tp_1")
                         tp2 = st.selectbox("2nd Place", ["--Select Baker--"] + active_bakers, key="tp_2")
                         tp3 = st.selectbox("3rd Place", ["--Select Baker--"] + active_bakers, key="tp_3")
                         weekly_picks["tech_top_3"] = [tp1, tp2, tp3]
                     with col_t2:
-                        st.write("**Bottom 3 Technical[cite: 2]:**")
+                        st.write("**Bottom 3 Technical:**")
                         bp1 = st.selectbox("3rd-to-Last Place", ["--Select Baker--"] + active_bakers, key="bp_1")
                         bp2 = st.selectbox("2nd-to-Last Place", ["--Select Baker--"] + active_bakers, key="bp_2")
                         bp3 = st.selectbox("Last Place", ["--Select Baker--"] + active_bakers, key="bp_3")
