@@ -112,17 +112,19 @@ def calculate_weekly_score(predictions, actuals, week=2):
             elif pred_elim == act_elim:
                 score += 5
 
-        # Technical challenge scoring for Weeks 2-7 vs 8-10
+        # Technical challenge scoring
+        act_tech_rank = actuals.get("tech_rank", [])
         if week >= 8:
             pred_rank = predictions.get("tech_rank", [])
-            act_rank = actuals.get("tech_rank", [])
-            if pred_rank and act_rank:
+            if pred_rank and act_tech_rank:
                 for idx, b in enumerate(pred_rank):
-                    if idx < len(act_rank) and act_rank[idx] == b and b != "--Select Baker--":
-                        score += 3 if idx in [0, len(act_rank)-1] else 2
+                    if idx < len(act_tech_rank) and act_tech_rank[idx] == b and b != "--Select Baker--":
+                        score += 3 if idx in [0, len(act_tech_rank)-1] else 2
         else:
+            act_top3 = act_tech_rank[:3] if len(act_tech_rank) >= 3 else act_tech_rank
+            act_bot3 = act_tech_rank[-3:] if len(act_tech_rank) >= 3 else act_tech_rank
+            
             pred_top3 = predictions.get("tech_top_3", [])
-            act_top3 = actuals.get("tech_top_3", [])
             if len(pred_top3) == 3 and len(act_top3) == 3:
                 if pred_top3 == act_top3:
                     score += 6
@@ -133,7 +135,6 @@ def calculate_weekly_score(predictions, actuals, week=2):
                             score += 1
                             
             pred_bot3 = predictions.get("tech_bottom_3", [])
-            act_bot3 = actuals.get("tech_bottom_3", [])
             if len(pred_bot3) == 3 and len(act_bot3) == 3:
                 if pred_bot3 == act_bot3:
                     score += 6
@@ -321,7 +322,6 @@ with tab_lead:
         p_season = p_data.get("season_picks", {})
         p_weekly = p_data.get("weekly_picks", {})
         
-        # Weekly Predictions Log FIRST, then Season Projections UNDERNEATH
         st.markdown(f"### **{selected_card_player}'s Weekly Predictions Log**")
         if p_weekly:
             for w_num in sorted(p_weekly.keys()):
@@ -435,11 +435,8 @@ with tab_submit:
 
             saved_season = p_info.get("season_picks", {})
             saved_weekly = p_info.get("weekly_picks", {}).get(active_prediction_week, {})
-            
-            # Check if player has already submitted for this active week
             has_submitted = bool(saved_weekly) or (active_prediction_week == 2 and bool(saved_season and saved_season.get("winner")))
 
-            # WEEK 2: Unified Form for Season Projections + Week 2 Ballot
             if active_prediction_week == 2:
                 st.subheader("🌟 Week 2 Ballot & Season-Long Projections")
                 with st.form("week_2_combined_form"):
@@ -537,7 +534,6 @@ with tab_submit:
                             save_league_data()
                             st.success("Week 2 Ballot and Season Projections successfully saved!")
 
-            # WEEKS 3-10: Weekly Ballot Form
             else:
                 st.markdown(f"### 📅 Week {active_prediction_week} Prediction Ballot")
                 with st.form("weekly_ballot_form"):
@@ -850,32 +846,17 @@ with tab_admin:
                     def_introuble_i = baker_opts.index(def_introuble) if def_introuble in baker_opts else 0
                     actuals["in_trouble"] = st.selectbox("Actual 'In Trouble' for Elimination", baker_opts, index=def_introuble_i, key=f"adm_introuble_w{admin_selected_week}")
             
-            st.markdown("#### Technical Challenge Rankings:")
-            if admin_selected_week >= 8:
-                act_tech = []
-                saved_tech_rank = saved_w.get("tech_rank", [])
-                for idx, b in enumerate(active_bakers):
-                    def_t = saved_tech_rank[idx] if idx < len(saved_tech_rank) else baker_opts[0]
-                    def_t_i = baker_opts.index(def_t) if def_t in baker_opts else 0
-                    sel = st.selectbox(f"Actual Rank #{idx+1}", baker_opts, index=def_t_i, key=f"adm_t_{idx}_{admin_selected_week}")
-                    act_tech.append(sel)
-                actuals["tech_rank"] = act_tech
-            else:
-                saved_top = saved_w.get("tech_top_3", [])
-                saved_bot = saved_w.get("tech_bottom_3", [])
-                col_at1, col_at2 = st.columns(2)
-                with col_at1:
-                    st.write("**Actual Top 3 Technical:**")
-                    at1 = st.selectbox("1st Place", baker_opts, index=baker_opts.index(saved_top[0]) if (saved_top and saved_top[0] in baker_opts) else 0, key="at_1")
-                    at2 = st.selectbox("2nd Place", baker_opts, index=baker_opts.index(saved_top[1]) if (len(saved_top) > 1 and saved_top[1] in baker_opts) else 0, key="at_2")
-                    at3 = st.selectbox("3rd Place", baker_opts, index=baker_opts.index(saved_top[2]) if (len(saved_top) > 2 and saved_top[2] in baker_opts) else 0, key="at_3")
-                    actuals["tech_top_3"] = [at1, at2, at3]
-                with col_at2:
-                    st.write("**Actual Bottom 3 Technical:**")
-                    ab1 = st.selectbox("3rd-to-Last Place", baker_opts, index=baker_opts.index(saved_bot[0]) if (saved_bot and saved_bot[0] in baker_opts) else 0, key="ab_1")
-                    ab2 = st.selectbox("2nd-to-Last Place", baker_opts, index=baker_opts.index(saved_bot[1]) if (len(saved_bot) > 1 and saved_bot[1] in baker_opts) else 0, key="ab_2")
-                    ab3 = st.selectbox("Last Place", baker_opts, index=baker_opts.index(saved_bot[2]) if (len(saved_bot) > 2 and saved_bot[2] in baker_opts) else 0, key="ab_3")
-                    actuals["tech_bottom_3"] = [ab1, ab2, ab3]
+            # ADMIN TECHNICAL CHALLENGE: Always enter every single technical placement available for all active bakers
+            st.markdown(f"#### Technical Challenge Rankings (Enter all {len(active_bakers)} active bakers 1st through {len(active_bakers)}th):")
+            act_tech = []
+            saved_tech_rank = saved_w.get("tech_rank", [])
+            for idx, b in enumerate(active_bakers):
+                def_t = saved_tech_rank[idx] if (isinstance(saved_tech_rank, list) and idx < len(saved_tech_rank)) else baker_opts[0]
+                def_t_i = baker_opts.index(def_t) if def_t in baker_opts else 0
+                rank_str = "1st" if idx==0 else ("2nd" if idx==1 else ("3rd" if idx==2 else f"{idx+1}th"))
+                sel = st.selectbox(f"Actual Technical {rank_str} Place", baker_opts, index=def_t_i, key=f"adm_t_{idx}_{admin_selected_week}")
+                act_tech.append(sel)
+            actuals["tech_rank"] = act_tech
             
             st.markdown("#### Chaos Categories & Timestamps:")
             def_hs_bakers = saved_w.get("handshake_bakers", [])
