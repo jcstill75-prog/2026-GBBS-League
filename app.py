@@ -341,7 +341,6 @@ with tab_lead:
                             
                         trb = w_picks.get("in_trouble", "N/A")
                         
-                        # Handle both top/bottom 3 and full tech rank
                         tech_top = w_picks.get("tech_top_3", [])
                         tech_bot = w_picks.get("tech_bottom_3", [])
                         tech_rank = w_picks.get("tech_rank", [])
@@ -425,7 +424,6 @@ with tab_submit:
                     s_win = st.selectbox("Season Winner (40 pts):", ["--Select Baker--"] + ALL_BAKERS, index=0)
                     s_semis = st.multiselect("3 Other Semifinalists (10 pts each - Select 3):", ALL_BAKERS, max_selections=3)
                     
-                    # Stacked top-to-bottom layout
                     s_hs = st.number_input("Total Handshakes:", min_value=0, value=0, placeholder="e.g. 5")
                     s_cry = st.number_input("Total Crying Incidents:", min_value=0, value=0, placeholder="e.g. 12")
                     s_inn = st.number_input("Total Sexual Innuendos:", min_value=0, value=0, placeholder="e.g. 45")
@@ -455,7 +453,7 @@ with tab_submit:
                             weekly_picks["eliminated"] = st.selectbox("Eliminated Baker (5 pts):", ["--Select Baker--"] + active_bakers, index=0)
                         weekly_picks["in_trouble"] = st.selectbox("'In Trouble' Nominee (2 pts):", ["--Select Baker--"] + active_bakers, index=0)
                 
-                # Technical Challenge Predictions based on Week Rules
+                # Technical Challenge Predictions based on exact competition rules
                 st.markdown("#### Technical Challenge Predictions:")
                 if active_prediction_week == 10:
                     st.write("Rank all 3 Finalists (1st through 3rd):")
@@ -479,16 +477,16 @@ with tab_submit:
                     t5 = st.selectbox("5th Place", ["--Select Baker--"] + active_bakers, key="tech_q_5")
                     weekly_picks["tech_rank"] = [t1, t2, t3, t4, t5]
                 else:
-                    # Standard Weeks 2-7: Predict Top 3 (1st, 2nd, 3rd) and Bottom 3 (3rd-to-last, 2nd-to-last, last)
+                    # Standard Weeks 2-7: Predict Top 3 (1st, 2nd, 3rd) and Bottom 3 (3rd-to-last, 2nd-to-last, last)[cite: 2]
                     col_t1, col_t2 = st.columns(2)
                     with col_t1:
-                        st.write("**Top 3 Technical:**")
+                        st.write("**Top 3 Technical[cite: 2]:**")
                         tp1 = st.selectbox("1st Place", ["--Select Baker--"] + active_bakers, key="tp_1")
                         tp2 = st.selectbox("2nd Place", ["--Select Baker--"] + active_bakers, key="tp_2")
                         tp3 = st.selectbox("3rd Place", ["--Select Baker--"] + active_bakers, key="tp_3")
                         weekly_picks["tech_top_3"] = [tp1, tp2, tp3]
                     with col_t2:
-                        st.write("**Bottom 3 Technical:**")
+                        st.write("**Bottom 3 Technical[cite: 2]:**")
                         bp1 = st.selectbox("3rd-to-Last Place", ["--Select Baker--"] + active_bakers, key="bp_1")
                         bp2 = st.selectbox("2nd-to-Last Place", ["--Select Baker--"] + active_bakers, key="bp_2")
                         bp3 = st.selectbox("Last Place", ["--Select Baker--"] + active_bakers, key="bp_3")
@@ -519,7 +517,6 @@ with tab_submit:
                         if len(main_picks) != len(set(main_picks)):
                             errors.append("❌ Duplicate Selection Error: You may not select the same baker more than once across Star Baker, In Line, In Trouble, and Eliminated!")
                             
-                    # Validate technical challenges for duplicates
                     if active_prediction_week >= 8:
                         valid_tech = [t for t in weekly_picks.get("tech_rank", []) if t and t != "--Select Baker--"]
                         if len(valid_tech) != len(set(valid_tech)):
@@ -531,7 +528,6 @@ with tab_submit:
                             errors.append("❌ Duplicate Selection Error: A baker may not be duplicated within your Top 3 Technical picks!")
                         if len(valid_bot) != len(set(valid_bot)):
                             errors.append("❌ Duplicate Selection Error: A baker may not be duplicated within your Bottom 3 Technical picks!")
-                        # Also check overlap between top 3 and bottom 3 if tent size allows
                         if any(b in valid_bot for b in valid_top):
                             errors.append("❌ Duplicate Selection Error: A baker cannot appear in both Top 3 and Bottom 3 technical predictions!")
                         
