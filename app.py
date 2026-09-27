@@ -362,7 +362,7 @@ def get_filtered_tech_options(active_bakers, key_prefix, current_key, placeholde
     return options, idx
 
 # --- 5. HEADER ---
-col_head1, col_head2 = st.columns()
+col_head1, col_head2 = st.columns([1, 4])
 with col_head1:
     norman_img = None
     for p in ["normanbeaver.jpg", "assets/normanbeaver.jpg", "normanbeaver.png", "assets/normanbeaver.png"]:
@@ -584,10 +584,14 @@ with tab_submit:
                     user_innuendos = st.number_input("Predict Seasonal Innuendos [Spot-on = 20 pts, +/-5 = 10 pts]", min_value=0, value=None, placeholder="Enter predicted count...", key="user_inn_pick")
                     
                     if st.button("Lock Season-Long Predictions"):
-                        if user_winner.startswith("-- Select") or len(user_semis) != 3 or user_handshakes is None or user_crying is None or user_innuendos is None:
-                            st.error("⚠️ Please fill in all Season-Long prediction fields with valid values!")
+                        if user_winner.startswith("-- Select"):
+                            st.error("⚠️ Please select a valid Season Winner.")
                         elif user_winner in user_semis:
                             st.error("❌ Duplicate Selection Error: Your predicted Season Winner cannot also be selected as an 'Other Semifinalist'!")
+                        elif len(user_semis) != 3:
+                            st.error("⚠️ Please select exactly 3 other semifinalists.")
+                        elif user_handshakes is None or user_crying is None or user_innuendos is None:
+                            st.error("⚠️ Please fill in all Seasonal counts.")
                         else:
                             st.session_state.league_members[submitting_player]["season_picks"] = {
                                 "winner": user_winner,
@@ -893,8 +897,7 @@ with tab_admin:
                 st.rerun()
 
         st.markdown("---")
-        st.subheader("📅 Select Broadcast Episode Week")
-        st.write("Select week to input new results or review/edit previously saved results:")
+        st.subheader("📢 Select Week to Record or Review Broadcast Results")
         
         admin_selected_week = st.selectbox(
             "Select Week to Record or Review Broadcast Results:",
