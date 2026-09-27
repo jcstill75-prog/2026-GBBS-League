@@ -318,24 +318,41 @@ with tab_submit:
     p_info = st.session_state.league_members[pred_player]
     
     auth_success = False
+    
+    # PIN Creation or Authentication via Form (prevents premature keystroke validation reruns)
     if p_info.get("pin") is None:
-        st.info(f"Welcome {pred_player}! Please create a 4-digit security PIN:")
-        p1 = st.text_input("New PIN:", type="password", key=f"pin_new_{pred_player}")
-        p2 = st.text_input("Confirm PIN:", type="password", key=f"pin_conf_{pred_player}")
-        if st.button("Save PIN"):
-            if p1 and p1 == p2 and len(p1) == 4:
-                p_info["pin"] = p1
-                save_league_data()
-                st.success("PIN saved! Unlocked.")
-                st.rerun()
-            else:
-                st.error("PINs must match and be 4 digits.")
+        st.info(f"Welcome {pred_player}! Please create a 4-digit security PIN for your account:")
+        with st.form(f"pin_create_form_{pred_player}"):
+            p1 = st.text_input("Create 4-Digit Security PIN:", type="password")
+            p2 = st.text_input("Confirm 4-Digit Security PIN:", type="password")
+            submitted_pin = st.form_submit_button("Save Security PIN & Unlock")
+            if submitted_pin:
+                if p1 and p1 == p2 and len(p1) == 4 and p1.isdigit():
+                    p_info["pin"] = p1
+                    save_league_data()
+                    st.success("Security PIN saved successfully! Ballot unlocked.")
+                    st.rerun()
+                else:
+                    st.error("PIN must be exactly 4 numeric digits and match in both fields.")
     else:
-        entered_pin = st.text_input(f"Enter 4-Digit Security PIN for {pred_player}:", type="password", key=f"pin_enter_{pred_player}")
-        if entered_pin == p_info.get("pin"):
+        auth_key = f"auth_verified_{pred_player}"
+        if st.session_state.get(auth_key, False):
             auth_success = True
             st.success(f"🔓 Authenticated as {pred_player}!")
-            
+        else:
+            with st.form(f"pin_login_form_{pred_player}"):
+                entered_pin = st.text_input(f"Enter 4-Digit Security PIN for {pred_player}:", type="password")
+                submitted_login = st.form_submit_button("Unlock Ballot")
+                if submitted_login:
+                    if entered_pin == p_info.get("pin"):
+                        st.session_state[auth_key] = True
+                        st.success(f"🔓 Authenticated as {pred_player}!")
+                        st.rerun()
+                    else:
+                        st.error("Incorrect PIN. Please try again.")
+            if st.session_state.get(auth_key, False):
+                auth_success = True
+
     if auth_success:
         st.markdown("---")
         if not st.session_state.weekly_results:
@@ -707,17 +724,13 @@ with tab_admin:
         confirm_erase = st.checkbox("I understand this will permanently erase all player prediction ballots, PINs, and published broadcast results.", key="confirm_erase_check")
         if st.button("🗑️ Erase All Competition Data", type="primary"):
             if confirm_erase:
-                # 1. Delete the JSON file from disk first
                 if os.path.exists(DATA_FILE):
                     try:
                         os.remove(DATA_FILE)
                     except Exception:
                         pass
-                
-                # 2. Clear entire session state so everything re-initializes clean
                 for key in list(st.session_state.keys()):
                     del st.session_state[key]
-                
                 st.success("All competition data successfully erased!")
                 st.rerun()
             else:
