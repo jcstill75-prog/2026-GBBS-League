@@ -914,4 +914,110 @@ with tab_admin:
             for i in range(num_bakers):
                 rank_num = i + 1
                 ord_str = "1st" if rank_num == 1 else ("2nd" if rank_num == 2 else ("3rd" if rank_num == 3 else f"{rank_num}th"))
-                if i % col
+                if i % cols_per_row == 0:
+                    t_cols = st.columns(min(cols_per_row, num_bakers - i))
+                col = t_cols[i % cols_per_row]
+                with col:
+                    sel_baker = st.selectbox(
+                        f"Actual Technical {ord_str} Place",
+                        baker_opts,
+                        index=0,
+                        key=f"admin_tech_rank_w{admin_selected_week}_r{rank_num}"
+                    )
+                    actual_tech_ranks.append(sel_baker)
+
+            actuals["tech_rank"] = actual_tech_ranks
+            clean_ranks = [b for b in actual_tech_ranks if b and not str(b).startswith("-- Select")]
+            actuals["tech_top_3"] = clean_ranks[:3]
+            actuals["tech_bottom_3"] = clean_ranks[-3:] if len(clean_ranks) >= 3 else clean_ranks
+
+            # --- REQUIREMENT 7 & 8: HANDSHAKE, CRYING & INNUENDO ADMIN FIELDS ---
+            st.markdown("---")
+            st.markdown("### 🤝 Hollywood Handshakes")
+            act_handshake_bakers = st.multiselect("Bakers Receiving Hollywood Handshake(s) This Week", active_bakers, key=f"admin_hs_bakers_w{admin_selected_week}")
+            act_handshake_cnt = len(act_handshake_bakers)
+            st.info(f"🤝 **Calculated Handshake Counter for Week {admin_selected_week}:** `{act_handshake_cnt} Handshake(s)`")
+            act_handshake_stamps = st.text_input("Handshake Circumstances & Video Timestamps", placeholder="e.g., Tom @ 14:22 Signature, Clara @ 42:10 Showstopper", key=f"admin_hs_stamps_w{admin_selected_week}")
+
+            st.markdown("### 😢 Crying Incidents")
+            col_c1, col_c2 = st.columns(2)
+            with col_c1:
+                act_crying_cnt = st.number_input("Number of Crying Occurrences", min_value=0, value=0, key=f"admin_cry_cnt_w{admin_selected_week}")
+            with col_c2:
+                act_crying_stamps = st.text_input("Crying Circumstances & Video Timestamps", placeholder="e.g., Mo after the technical @ 34:12", key=f"admin_cry_stamps_w{admin_selected_week}")
+
+            st.markdown("### 💬 Sexual Innuendos")
+            col_i1, col_i2 = st.columns(2)
+            with col_i1:
+                act_innuendo_cnt = st.number_input("Number of Innuendo Occurrences", min_value=0, value=0, key=f"admin_inn_cnt_w{admin_selected_week}")
+            with col_i2:
+                act_innuendo_stamps = st.text_input("Innuendo Circumstances & Video Timestamps", placeholder="e.g., Paul soggy bottom comment @ 18:45", key=f"admin_inn_stamps_w{admin_selected_week}")
+
+            actuals["handshake_bakers"] = act_handshake_bakers
+            actuals["handshake_count"] = act_handshake_cnt
+            actuals["handshake_timestamps"] = act_handshake_stamps
+            
+            actuals["crying_count"] = act_crying_cnt
+            actuals["crying_timestamps"] = act_crying_stamps
+            
+            actuals["innuendo_count"] = act_innuendo_cnt
+            actuals["innuendo_timestamps"] = act_innuendo_stamps
+
+            if admin_selected_week == 10:
+                st.markdown("---")
+                st.subheader("Final Seasonal Broadcast Totals")
+                act_winner = st.selectbox("Actual Season Winner", baker_opts, index=0)
+                act_semis = st.multiselect("Actual Semifinalists (Select 4)", ALL_BAKERS, max_selections=4)
+                act_finalists = st.multiselect("Actual Finalists (Select 3)", ALL_BAKERS, max_selections=3)
+                act_handshakes = st.number_input("Actual Season Total Handshakes", min_value=0, value=5)
+                act_crying = st.number_input("Actual Season Total Crying Incidents", min_value=0, value=12)
+                act_innuendos = st.number_input("Actual Season Total Sexual Innuendos", min_value=0, value=48)
+
+                actuals_season = {
+                    "winner": act_winner,
+                    "semifinalists": act_semis,
+                    "finalists": act_finalists,
+                    "handshakes": act_handshakes,
+                    "crying": act_crying,
+                    "innuendos": act_innuendos
+                }
+
+            submit_admin = st.form_submit_button("Publish Official Week Results & Recalculate Standings")
+            if submit_admin:
+                st.session_state.weekly_results[admin_selected_week] = actuals
+                if admin_selected_week == 10:
+                    st.session_state.season_results = actuals_season
+
+                for member_name in st.session_state.league_members:
+                    st.session_state.league_members[member_name]["total_score"] = 0
+                    st.session_state.league_members[member_name]["weekly_breakdown"] = {}
+
+                all_weeks_scored = sorted(list(st.session_state.weekly_results.keys()))
+
+                for w in all_weeks_scored:
+                    act_w = st.session_state.weekly_results[w]
+                    weekly_raw = {}
+                    for m_name, m_data in st.session_state.league_members.items():
+                        pred_w = m_data["weekly_picks"].get(w, {})
+                        raw_score = calculate_weekly_score(pred_w, act_w, w)
+                        weekly_raw[m_name] = raw_score
+                        m_data["weekly_breakdown"][w] = raw_score
+
+                    if weekly_raw:
+                        max_raw = max(weekly_raw.values())
+                        for m_name, raw_s in weekly_raw.items():
+                            if raw_s == max_raw and raw_s > 0:
+                                st.session_state.league_members[m_name]["weekly_breakdown"][w] += 5
+
+                if st.session_state.season_results:
+                    for m_name, m_data in st.session_state.league_members.items():
+                        season_pred = m_data["season_picks"]
+                        season_score = calculate_season_score(season_pred, st.session_state.season_results)
+                        m_data["season_score"] = season_score
+
+                for m_name, m_data in st.session_state.league_members.items():
+                    weekly_total = sum(m_data["weekly_breakdown"].values())
+                    season_total = m_data.get("season_score", 0)
+                    m_data["total_score"] = weekly_total + season_total
+
+                st.success(f"Official results published for Week {admin_selected_week}! Leaderboard updated.")
