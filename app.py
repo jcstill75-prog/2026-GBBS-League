@@ -287,25 +287,46 @@ with tab_lead:
         col_sc1, col_sc2 = st.columns(2)
         with col_sc1:
             st.markdown(f"### **{selected_card_player}'s Season Projections**")
-            if selected_card_player == "AI Brian" or not p_data.get("pin"):
-                st.write(f"🏆 **Winner:** {p_season.get('winner', 'Not submitted')}")
-                st.write(f"🏅 **Semifinalists:** {', '.join(p_season.get('semifinalists', []))}")
-                st.write(f"🤝 **Handshakes:** {p_season.get('handshakes', 'N/A')} | 😢 **Crying:** {p_season.get('crying', 'N/A')} | 💬 **Innuendos:** {p_season.get('innuendos', 'N/A')}")
-            else:
-                card_pin = st.text_input(f"Enter PIN for {selected_card_player}:", type="password", key=f"card_pin_{selected_card_player}")
-                if card_pin == p_data.get("pin"):
-                    st.success("Unlocked:")
-                    st.write(f"🏆 **Winner:** {p_season.get('winner', 'Not submitted')}")
-                    st.write(f"🏅 **Semifinalists:** {', '.join(p_season.get('semifinalists', []))}")
-                    st.write(f"🤝 **Handshakes:** {p_season.get('handshakes', 'N/A')} | 😢 **Crying:** {p_season.get('crying', 'N/A')} | 💬 **Innuendos:** {p_season.get('innuendos', 'N/A')}")
-                else:
-                    st.warning("Locked. Enter correct 4-digit PIN.")
+            win_pick = p_season.get("winner", "Not submitted yet")
+            semis_list = p_season.get("semifinalists", [])
+            semis_pick = ", ".join(semis_list) if semis_list else "Not submitted yet"
+            hs_pick = p_season.get("handshakes", "N/A")
+            cry_pick = p_season.get("crying", "N/A")
+            inn_pick = p_season.get("innuendos", "N/A")
+            
+            st.write(f"🏆 **Predicted Winner:** {win_pick}")
+            st.write(f"🏅 **Predicted Semifinalists:** {semis_pick}")
+            st.write(f"🤝 **Predicted Handshakes:** {hs_pick} | 😢 **Crying:** {cry_pick} | 💬 **Innuendos:** {inn_pick}")
+            
         with col_sc2:
-            st.markdown(f"### **{selected_card_player}'s Weekly Log**")
+            st.markdown(f"### **{selected_card_player}'s Weekly Predictions Log**")
             if p_weekly:
                 for w_num in sorted(p_weekly.keys()):
-                    with st.expander(f"Week {w_num} Ballot (Earned: {p_data.get('weekly_breakdown', {}).get(w_num, 0)} pts)"):
-                        st.json(p_weekly[w_num])
+                    w_picks = p_weekly[w_num]
+                    w_pts = p_data.get("weekly_breakdown", {}).get(w_num, 0)
+                    with st.expander(f"Week {w_num} Ballot (Earned: {w_pts} pts)"):
+                        sb = w_picks.get("star_baker", w_picks.get("show_champion", "N/A"))
+                        inl = w_picks.get("in_line_sb", "N/A")
+                        
+                        elim = w_picks.get("eliminated", "N/A")
+                        if isinstance(elim, list):
+                            elim_str = ", ".join([str(b) for b in elim if b])
+                        else:
+                            elim_str = str(elim)
+                            
+                        trb = w_picks.get("in_trouble", "N/A")
+                        
+                        tech = w_picks.get("tech_rank", [])
+                        if isinstance(tech, list):
+                            tech_str = " -> ".join([f"#{i+1}: {b}" for i, b in enumerate(tech) if b])
+                        else:
+                            tech_str = str(tech)
+                            
+                        st.write(f"🌟 **Star Baker / Champion:** {sb}")
+                        st.write(f"⭐ **In Line Nominee:** {inl}")
+                        st.write(f"🚪 **Eliminated:** {elim_str}")
+                        st.write(f"⚠️ **In Trouble Nominee:** {trb}")
+                        st.write(f"📊 **Technical Sequence:** {tech_str if tech_str else 'N/A'}")
             else:
                 st.info("No weekly prediction ballots submitted yet.")
 
@@ -360,7 +381,6 @@ with tab_submit:
             curr_elim = eliminated_bakers_by_week.get(active_prediction_week, [])
             active_bakers = [b for b in ALL_BAKERS if b not in curr_elim]
             
-            # Check if previous week was a Grace Week (No Elimination) -> triggers Double Elimination for current week
             prev_w = active_prediction_week - 1
             prev_res = st.session_state.weekly_results.get(prev_w, st.session_state.weekly_results.get(str(prev_w), {}))
             is_grace_week_catchup = (prev_res.get("eliminated") == "None")
@@ -410,16 +430,48 @@ with tab_submit:
                     tech_ranks.append(sel)
                 weekly_picks["tech_rank"] = tech_ranks
                 
-                if st.form_submit_button(f"Submit Week {active_prediction_week} Ballot"):
-                    p_info["weekly_picks"][active_prediction_week] = weekly_picks
-                    if active_prediction_week not in st.session_state.league_members["AI Brian"]["weekly_picks"]:
-                        st.session_state.league_members["AI Brian"]["weekly_picks"][active_prediction_week] = {
-                            "star_baker": random.choice(active_bakers),
-                            "eliminated": random.sample(active_bakers, 2) if is_grace_week_catchup else random.choice(active_bakers),
-                            "tech_rank": random.sample(active_bakers, len(active_bakers))
-                        }
-                    save_league_data()
-                    st.success(f"Week {active_prediction_week} ballot submitted successfully!")
+                sub_weekly = st.form_submit_button(f"Submit Week {active_prediction_week} Ballot")
+                if sub_weekly:
+                    errors = []
+                    
+                    if active_prediction_week < 10:
+                        main_picks = []
+                        sb = weekly_picks.get("star_baker")
+                        if sb and sb != "--Select Baker--": main_picks.append(sb)
+                        
+                        inl = weekly_picks.get("in_line_sb")
+                        if inl and inl != "--Select Baker--": main_picks.append(inl)
+                        
+                        elim = weekly_picks.get("eliminated")
+                        if isinstance(elim, list):
+                            for e in elim:
+                                if e and e != "--Select Baker--": main_picks.append(e)
+                        elif elim and elim != "--Select Baker--":
+                            main_picks.append(elim)
+                            
+                        trb = weekly_picks.get("in_trouble")
+                        if trb and trb != "--Select Baker--": main_picks.append(trb)
+                        
+                        if len(main_picks) != len(set(main_picks)):
+                            errors.append("❌ Duplicate Selection Error: You may not select the same baker more than once across Star Baker, In Line, In Trouble, and Eliminated!")
+                            
+                    valid_tech = [t for t in weekly_picks.get("tech_rank", []) if t and t != "--Select Baker--"]
+                    if len(valid_tech) != len(set(valid_tech)):
+                        errors.append("❌ Duplicate Selection Error: A baker may not be selected more than once across your Technical Challenge predictions!")
+                        
+                    if errors:
+                        for err in errors:
+                            st.error(err)
+                    else:
+                        p_info["weekly_picks"][active_prediction_week] = weekly_picks
+                        if active_prediction_week not in st.session_state.league_members["AI Brian"]["weekly_picks"]:
+                            st.session_state.league_members["AI Brian"]["weekly_picks"][active_prediction_week] = {
+                                "star_baker": random.choice(active_bakers),
+                                "eliminated": random.sample(active_bakers, 2) if is_grace_week_catchup else random.choice(active_bakers),
+                                "tech_rank": random.sample(active_bakers, len(active_bakers))
+                            }
+                        save_league_data()
+                        st.success(f"Week {active_prediction_week} ballot submitted successfully!")
 
 # ==============================================================================
 # TAB 3: SHOW RESULTS
