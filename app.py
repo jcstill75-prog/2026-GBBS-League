@@ -542,8 +542,13 @@ with tab_lead:
                         st.warning(f"🔒 Week {w_num} prediction logs for other players are locked until the voting deadline passes (Tuesdays at 2:00 PM Houston time).")
                 else:
                     w_picks = p_weekly[w_num]
-                    w_pts = calculate_weekly_score(w_picks, get_week_results(w_num, weekly_results_map), w_num)
                     has_published = is_week_published(w_num, weekly_results_map)
+                    
+                    # Dynamically compute total points including high scorer bonus in real time
+                    base_w_pts = calculate_weekly_score(w_picks, get_week_results(w_num, weekly_results_map), w_num)
+                    all_w_scores = [calculate_weekly_score(m_dat["weekly_picks"].get(w_num, m_dat["weekly_picks"].get(str(w_num), {})), get_week_results(w_num, weekly_results_map), w_num) for m_dat in st.session_state.league_members.values()]
+                    is_high_scorer = (all_w_scores and base_w_pts == max(all_w_scores) and base_w_pts > 0)
+                    w_pts = base_w_pts + (5 if is_high_scorer else 0)
                     
                     expander_title = f"Week {w_num} Ballot (Earned: {w_pts} pts)" if has_published else f"Week {w_num} Ballot (Pending Results)"
                     with st.expander(expander_title):
@@ -664,10 +669,7 @@ with tab_lead:
                             else:
                                 st.write("Technical breakdown unavailable.")
                                 
-                            # Check high scorer bonus
-                            all_w_scores = [calculate_weekly_score(m_dat["weekly_picks"].get(w_num, m_dat["weekly_picks"].get(str(w_num), {})), act_w, w_num) for m_dat in st.session_state.league_members.values()]
-                            base_w_score = calculate_weekly_score(w_picks, act_w, w_num)
-                            if all_w_scores and base_w_score == max(all_w_scores) and base_w_score > 0:
+                            if is_high_scorer:
                                 st.markdown("<span style='color: green; font-weight: bold;'>• Star Member High Scorer Bonus: +5 pts</span>", unsafe_allow_html=True)
                         else:
                             sb = w_picks.get("star_baker", w_picks.get("show_champion", "N/A"))
