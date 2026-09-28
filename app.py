@@ -207,6 +207,24 @@ def get_detailed_weekly_score_breakdown(predictions, actuals, week):
 
     return breakdown
 
+def is_week_published(w_num, results_map):
+    if w_num in results_map: return True
+    if str(w_num) in results_map: return True
+    try:
+        if int(w_num) in results_map: return True
+    except Exception:
+        pass
+    return False
+
+def get_week_results(w_num, results_map):
+    if w_num in results_map: return results_map[w_num]
+    if str(w_num) in results_map: return results_map[str(w_num)]
+    try:
+        if int(w_num) in results_map: return results_map[int(w_num)]
+    except Exception:
+        pass
+    return {}
+
 def calculate_season_score(predictions, actuals):
     score = 0
     if not predictions or not actuals:
@@ -368,11 +386,11 @@ def get_eliminated_bakers_by_week():
                 if b and b != "None" and b not in elim_list: elim_list.append(b)
         elif isinstance(act_el, str) and act_el and act_el != "None":
             if act_el not in elim_list: elim_list.append(act_el)
-        elim_map[w + 1] = list(elim_list)
+        elim_map[int(w) + 1] = list(elim_list)
     return elim_map
 
 eliminated_bakers_by_week = get_eliminated_bakers_by_week()
-all_scored_weeks = sorted(list(st.session_state.weekly_results.keys()))
+all_scored_weeks = sorted([int(k) for k in st.session_state.weekly_results.keys()])
 active_prediction_week = max(all_scored_weeks) + 1 if all_scored_weeks else 1
 if active_prediction_week > 10: active_prediction_week = 10
 
@@ -384,7 +402,7 @@ with st.sidebar:
     if not st.session_state.weekly_results:
         st.info("🟢 **Active Status: Week 1 Scouting Phase**\n\nSeason-wide predictions & Week 2 ballots unlock together once Week 1 results are posted!")
     else:
-        latest_w = max(st.session_state.weekly_results.keys())
+        latest_w = max([int(k) for k in st.session_state.weekly_results.keys()])
         st.success(f"🟢 **Active Competition Week: Week {latest_w + 1}**\n\n(Week {latest_w} Results Published)")
     st.markdown("---")
     st.header("🎯 Points Reference Guide")
@@ -497,12 +515,12 @@ with tab_lead:
                 else:
                     w_picks = p_weekly[w_num]
                     w_pts = p_data.get("weekly_breakdown", {}).get(w_num, 0)
-                    has_published = w_num in weekly_results_map
+                    has_published = is_week_published(w_num, weekly_results_map)
                     
                     expander_title = f"Week {w_num} Ballot (Earned: {w_pts} pts)" if has_published else f"Week {w_num} Ballot (Pending Results)"
                     with st.expander(expander_title):
                         if has_published:
-                            act_w = weekly_results_map[w_num]
+                            act_w = get_week_results(w_num, weekly_results_map)
                             breakdown_items = get_detailed_weekly_score_breakdown(w_picks, act_w, w_num)
                             
                             st.markdown("🔍 **Prediction vs. Actual Outcome & Points:**")
@@ -928,7 +946,7 @@ with tab_submit:
                                 if isinstance(val, list):
                                     for item in val:
                                         if item and item != "--Select Baker--":
-                                            main_picks_flat.append(item)
+                                            main_pins_flat = main_picks_flat.append(item)
                                 elif isinstance(val, str) and val and val != "--Select Baker--":
                                     main_picks_flat.append(val)
                             
@@ -976,9 +994,9 @@ with tab_results:
     
     if weekly_res_map:
         st.subheader("📋 Published Weekly Results")
-        sel_res_week = st.selectbox("Select Week to View Results:", sorted(weekly_res_map.keys()), key="show_res_week_sel")
+        sel_res_week = st.selectbox("Select Week to View Results:", sorted([int(k) for k in weekly_res_map.keys()]), key="show_res_week_sel")
         if sel_res_week:
-            w_act = weekly_res_map[sel_res_week]
+            w_act = get_week_results(sel_res_week, weekly_res_map)
             
             st.markdown(f"### 🧁 Episode Week {sel_res_week} Results")
             col_res1, col_res2 = st.columns(2)
@@ -1052,7 +1070,7 @@ with tab_results:
     if dispute_player_choice != "-- Select Name --":
         st.success(f"Logging dispute as **{dispute_player_choice}**")
         with st.form("dispute_form"):
-            disp_week = st.selectbox("Week to Contest", [f"Week {w}" for w in sorted(weekly_res_map.keys())] if weekly_res_map else ["Week 1"])
+            disp_week = st.selectbox("Week to Contest", [f"Week {w}" for w in sorted([int(k) for k in weekly_res_map.keys()])] if weekly_res_map else ["Week 1"])
             disp_evidence = st.text_area("Video Timestamp & Evidence Description:")
             disp_correction = st.text_input("Requested Correction:")
             
@@ -1102,7 +1120,7 @@ with tab_admin:
             
         admin_selected_week = st.selectbox("Select Episode Week:", list(range(1, 11)), key="adm_w_sel")
         
-        saved_w = st.session_state.weekly_results.get(admin_selected_week, st.session_state.weekly_results.get(str(admin_selected_week), {}))
+        saved_w = get_week_results(admin_selected_week, st.session_state.weekly_results)
         is_published = bool(saved_w)
         
         edit_allowed = True
@@ -1212,13 +1230,13 @@ with tab_admin:
                         st.session_state.league_members[member_name]["total_score"] = 0
                         st.session_state.league_members[member_name]["weekly_breakdown"] = {}
 
-                    all_weeks_scored = sorted(list(st.session_state.weekly_results.keys()))
+                    all_weeks_scored = sorted([int(k) for k in st.session_state.weekly_results.keys()])
 
                     for w in all_weeks_scored:
-                        act_w = st.session_state.weekly_results[w]
+                        act_w = get_week_results(w, st.session_state.weekly_results)
                         weekly_raw = {}
                         for m_name, m_data in st.session_state.league_members.items():
-                            pred_w = m_data["weekly_picks"].get(w, {})
+                            pred_w = m_data["weekly_picks"].get(w, m_data["weekly_picks"].get(str(w), {}))
                             raw_score = calculate_weekly_score(pred_w, act_w, w)
                             weekly_raw[m_name] = raw_score
                             m_data["weekly_breakdown"][w] = raw_score
