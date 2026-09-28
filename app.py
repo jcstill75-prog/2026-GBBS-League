@@ -137,7 +137,6 @@ def calculate_weekly_score(predictions, actuals, week=2):
                     if idx < len(act_tech_rank) and act_tech_rank[idx] == b and b != "--Select Baker--":
                         score += 3 if idx == 0 else 2
     else:
-        # Main categories (Star Baker, Eliminated, In Line, In Trouble)
         if predictions.get("star_baker") and predictions.get("star_baker") == actuals.get("star_baker"):
             score += 5
         
@@ -621,7 +620,7 @@ with tab_lead:
                 can_view = (selected_card_player == logged_in_human) or (selected_card_player == "AI Brian") or (not is_current_active_week) or voting_closed
                 
                 if not can_view:
-                    with st.expander(f"Week {w_num} Ballot (Locked 🔒)"):
+                    with st.expander(f"Week {w_num} Ballot (Locked 🔒)", expanded=False):
                         st.warning(f"🔒 Week {w_num} prediction logs for other players are locked until the voting deadline passes (Tuesdays at 2:00 PM Houston time).")
                 else:
                     w_picks = p_weekly[w_num]
@@ -633,7 +632,7 @@ with tab_lead:
                     w_pts = base_w_pts + (5 if is_high_scorer else 0)
                     
                     expander_title = f"Week {w_num} Ballot (Earned: {w_pts} pts)" if has_published else f"Week {w_num} Ballot (Pending Results)"
-                    with st.expander(expander_title):
+                    with st.expander(expander_title, expanded=False):
                         if has_published:
                             act_w = get_week_results(w_num, weekly_results_map)
                             breakdown_items = get_detailed_weekly_score_breakdown(w_picks, act_w, w_num)
