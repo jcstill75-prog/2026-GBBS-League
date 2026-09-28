@@ -479,6 +479,53 @@ if "admin_authenticated" not in st.session_state:
 if "admin_verification_msg" not in st.session_state:
     st.session_state.admin_verification_msg = ""
 
+# Force dynamic recalculation of scores on load to prevent stale legacy test scores
+def recalculate_all_scores():
+    all_w_res = st.session_state.get("weekly_results", {})
+    total_hs_all = sum(len(w_dat.get("handshake_bakers", [])) for w_dat in all_w_res.values())
+    total_cry_all = sum(int(w_dat.get("crying_count", 0)) for w_dat in all_w_res.values())
+    total_inn_all = sum(int(w_dat.get("innuendo_count", 0)) for w_dat in all_w_res.values())
+    w10_res = get_week_results(10, all_w_res)
+    act_winner = w10_res.get("show_champion") if w10_res else None
+    
+    w8_elim = eliminated_bakers_by_week.get(9, [])
+    act_semis = [b for b in ALL_BAKERS if b not in w8_elim]
+
+    computed_season_actuals = {
+        "winner": act_winner,
+        "semifinalists": act_semis,
+        "handshakes": total_hs_all,
+        "crying": total_cry_all,
+        "innuendos": total_inn_all
+    }
+
+    all_weeks_scored = sorted([int(k) for k in all_w_res.keys()])
+
+    for m_name, m_data in st.session_state.league_members.items():
+        m_data["total_score"] = 0
+        m_data["weekly_breakdown"] = {}
+        
+        for w in all_weeks_scored:
+            act_w = get_week_results(w, all_w_res)
+            pred_w = m_data["weekly_picks"].get(w, m_data["weekly_picks"].get(str(w), {}))
+            raw_score = calculate_weekly_score(pred_w, act_w, w)
+            m_data["weekly_breakdown"][w] = raw_score
+
+        # High scorer bonus calculation per week
+        for w in all_weeks_scored:
+            w_scores = [calculate_weekly_score(m_dat["weekly_picks"].get(w, m_dat["weekly_picks"].get(str(w), {})), get_week_results(w, all_w_res), w) for m_dat in st.session_state.league_members.values()]
+            max_w_score = max(w_scores) if w_scores else 0
+            base_score = m_data["weekly_breakdown"].get(w, 0)
+            if w_scores and base_score == max_w_score and base_score > 0:
+                m_data["weekly_breakdown"][w] = base_score + 5
+
+        season_score = calculate_season_score(m_data.get("season_picks", {}), computed_season_actuals)
+        m_data["season_score"] = season_score
+        weekly_total = sum(m_data["weekly_breakdown"].values())
+        m_data["total_score"] = weekly_total + season_score
+
+recalculate_all_scores()
+
 def generate_ai_brian_season_picks():
     winner = random.choice(ALL_BAKERS)
     remaining_pool = [b for b in ALL_BAKERS if b != winner]
