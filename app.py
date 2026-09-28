@@ -127,6 +127,28 @@ def calculate_weekly_score(predictions, actuals, week=2):
     if week == 10:
         if predictions.get("show_champion") and predictions.get("show_champion") == actuals.get("show_champion"):
             score += 15
+        pred_rank = predictions.get("tech_rank", [])
+        act_tech_rank = actuals.get("tech_rank", [])
+        if isinstance(pred_rank, list) and isinstance(act_tech_rank, list) and pred_rank and act_tech_rank:
+            if pred_rank == act_tech_rank:
+                score += 15  # Flawless 3-for-3 sweep bonus
+            else:
+                for idx, b in enumerate(pred_rank):
+                    if idx < len(act_tech_rank) and act_tech_rank[idx] == b and b != "--Select Baker--":
+                        score += 3 if idx == 0 else 2
+    elif week >= 8:
+        pred_rank = predictions.get("tech_rank", [])
+        act_tech_rank = actuals.get("tech_rank", [])
+        if isinstance(pred_rank, list) and isinstance(act_tech_rank, list) and pred_rank and act_tech_rank:
+            if pred_rank == act_tech_rank:
+                score += 25 if week == 8 else 20  # Flawless sweep bonus (25 pts for W8, 20 pts for W9)
+            else:
+                for idx, b in enumerate(pred_rank):
+                    if idx < len(act_tech_rank) and act_tech_rank[idx] == b and b != "--Select Baker--":
+                        if week == 8:
+                            score += 3 if idx in [0, 4] else 2
+                        elif week == 9:
+                            score += 3 if idx in [0, 3] else 2
     else:
         if predictions.get("star_baker") and predictions.get("star_baker") == actuals.get("star_baker"):
             score += 5
@@ -161,46 +183,37 @@ def calculate_weekly_score(predictions, actuals, week=2):
         if trb_pred and trb_pred in trb_act:
             score += 2
 
-        # Technical challenge scoring
         act_tech_rank = actuals.get("tech_rank", [])
         if not isinstance(act_tech_rank, list): act_tech_rank = []
 
-        if week >= 8:
-            pred_rank = predictions.get("tech_rank", [])
-            if not isinstance(pred_rank, list): pred_rank = []
-            if pred_rank and act_tech_rank:
-                for idx, b in enumerate(pred_rank):
-                    if idx < len(act_tech_rank) and act_tech_rank[idx] == b and b != "--Select Baker--":
-                        score += 3 if idx in [0, len(act_tech_rank)-1] else 2
-        else:
-            act_top3 = act_tech_rank[:3] if len(act_tech_rank) >= 3 else act_tech_rank
-            act_bot3 = act_tech_rank[-3:] if len(act_tech_rank) >= 3 else act_tech_rank
-            
-            pred_top3 = predictions.get("tech_top_3", [])
-            if not isinstance(pred_top3, list): pred_top3 = []
-            if len(pred_top3) == 3 and len(act_top3) == 3:
-                if pred_top3 == act_top3:
-                    score += 10  # Perfect Top 3 Sweep flat bonus
-                else:
-                    for t_idx, actual_baker in enumerate(act_top3):
-                        pred_at_pos = pred_top3[t_idx] if t_idx < len(pred_top3) else "--Select Baker--"
-                        if pred_at_pos == actual_baker and pred_at_pos != "--Select Baker--":
-                            score += 3 if t_idx == 0 else 2
-                        elif pred_at_pos in act_top3 and pred_at_pos != "--Select Baker--":
-                            score += 1
-                            
-            pred_bot3 = predictions.get("tech_bottom_3", [])
-            if not isinstance(pred_bot3, list): pred_bot3 = []
-            if len(pred_bot3) == 3 and len(act_bot3) == 3:
-                if pred_bot3 == act_bot3:
-                    score += 10  # Perfect Bottom 3 Sweep flat bonus
-                else:
-                    for b_idx, actual_baker in enumerate(act_bot3):
-                        pred_at_pos = pred_bot3[b_idx] if b_idx < len(pred_bot3) else "--Select Baker--"
-                        if pred_at_pos == actual_baker and pred_at_pos != "--Select Baker--":
-                            score += 3 if b_idx == 2 else 2
-                        elif pred_at_pos in act_bot3 and pred_at_pos != "--Select Baker--":
-                            score += 1
+        act_top3 = act_tech_rank[:3] if len(act_tech_rank) >= 3 else act_tech_rank
+        act_bot3 = act_tech_rank[-3:] if len(act_tech_rank) >= 3 else act_tech_rank
+        
+        pred_top3 = predictions.get("tech_top_3", [])
+        if not isinstance(pred_top3, list): pred_top3 = []
+        if len(pred_top3) == 3 and len(act_top3) == 3:
+            if pred_top3 == act_top3:
+                score += 10  # Perfect Top 3 Sweep flat bonus
+            else:
+                for t_idx, actual_baker in enumerate(act_top3):
+                    pred_at_pos = pred_top3[t_idx] if t_idx < len(pred_top3) else "--Select Baker--"
+                    if pred_at_pos == actual_baker and pred_at_pos != "--Select Baker--":
+                        score += 3 if t_idx == 0 else 2
+                    elif pred_at_pos in act_top3 and pred_at_pos != "--Select Baker--":
+                        score += 1
+                        
+        pred_bot3 = predictions.get("tech_bottom_3", [])
+        if not isinstance(pred_bot3, list): pred_bot3 = []
+        if len(pred_bot3) == 3 and len(act_bot3) == 3:
+            if pred_bot3 == act_bot3:
+                score += 10  # Perfect Bottom 3 Sweep flat bonus
+            else:
+                for b_idx, actual_baker in enumerate(act_bot3):
+                    pred_at_pos = pred_bot3[b_idx] if b_idx < len(pred_bot3) else "--Select Baker--"
+                    if pred_at_pos == actual_baker and pred_at_pos != "--Select Baker--":
+                        score += 3 if b_idx == 2 else 2
+                    elif pred_at_pos in act_bot3 and pred_at_pos != "--Select Baker--":
+                        score += 1
 
     return score
 
@@ -220,13 +233,11 @@ def get_detailed_weekly_score_breakdown(predictions, actuals, week):
         pts = 15 if (champ_pred and champ_pred == champ_act) else 0
         breakdown.append(("Show Champion", champ_pred, champ_act, pts, 15))
     else:
-        # Star Baker
         sb_pred = predictions.get("star_baker")
         sb_act = actuals.get("star_baker")
         sb_pts = 5 if (sb_pred and sb_act and sb_pred == sb_act) else 0
         breakdown.append(("Star Baker", sb_pred, sb_act, sb_pts, 5))
             
-        # Eliminated
         act_elim = actuals.get("eliminated")
         pred_elim = predictions.get("eliminated")
         elim_pts = 0
@@ -244,7 +255,6 @@ def get_detailed_weekly_score_breakdown(predictions, actuals, week):
         max_elim_pts = 10 if isinstance(pred_elim, list) else 5
         breakdown.append(("Eliminated", pred_elim, act_elim, elim_pts, max_elim_pts))
 
-        # In Line SB
         inl_pred = predictions.get("in_line_sb")
         inl_act = actuals.get("in_line_sb", [])
         if not isinstance(inl_act, list): inl_act = [inl_act]
@@ -253,7 +263,6 @@ def get_detailed_weekly_score_breakdown(predictions, actuals, week):
             inl_pts += 2
         breakdown.append(("In Line SB", inl_pred, inl_act, inl_pts, 2))
 
-        # In Trouble
         trb_pred = predictions.get("in_trouble")
         trb_act = actuals.get("in_trouble", [])
         if not isinstance(trb_act, list): trb_act = [trb_act]
@@ -651,88 +660,37 @@ with tab_lead:
                             tech_rank = w_picks.get("tech_rank", [])
                             if not isinstance(tech_rank, list): tech_rank = []
                             
-                            tech_top_3 = w_picks.get("tech_top_3", [])
-                            if not isinstance(tech_top_3, list): tech_top_3 = []
-                            
-                            tech_bottom_3 = w_picks.get("tech_bottom_3", [])
-                            if not isinstance(tech_bottom_3, list): tech_bottom_3 = []
-                            
-                            if act_tech_rank:
-                                if tech_rank:
-                                    for t_idx, actual_baker in enumerate(act_tech_rank):
-                                        r_label = "1st" if t_idx==0 else ("2nd" if t_idx==1 else ("3rd" if t_idx==2 else f"{t_idx+1}th"))
-                                        pred_at_pos = tech_rank[t_idx] if t_idx < len(tech_rank) else "--Select Baker--"
+                            w_int_num = int(w_num)
+                            if w_int_num >= 8 and act_tech_rank and tech_rank:
+                                is_sweep = (tech_rank == act_tech_rank)
+                                sweep_pts = 25 if w_int_num == 8 else (20 if w_int_num == 9 else 15)
+                                if is_sweep:
+                                    st.markdown(f"✨ **Technical Challenge (Flawless Sweep Bonus: <span style='color: green;'>+{sweep_pts} pts</span>):**", unsafe_allow_html=True)
+                                else:
+                                    st.markdown("**Technical Challenge Rankings:**")
+                                    
+                                for t_idx, actual_baker in enumerate(act_tech_rank):
+                                    r_label = "1st" if t_idx==0 else ("2nd" if t_idx==1 else ("3rd" if t_idx==2 else f"{t_idx+1}th"))
+                                    pred_at_pos = tech_rank[t_idx] if t_idx < len(tech_rank) else "--Select Baker--"
+                                    
+                                    if is_sweep:
+                                        t_color = "green"
+                                        t_pts = f"+{sweep_pts} (Sweep)" if t_idx == 0 else ""
+                                    else:
                                         is_match = (pred_at_pos == actual_baker and pred_at_pos != "--Select Baker--")
                                         t_color = "green" if is_match else "gray"
-                                        t_pts = "+3" if (is_match and t_idx in [0, len(act_tech_rank)-1]) else ("+2" if is_match else "+0")
-                                        st.markdown(f"* {r_label} Place: <span style='color: #1E88E5; font-weight: bold;'>{pred_at_pos}</span> | Actual: <span style='color: #B54E43; font-weight: bold;'>{actual_baker}</span> &nbsp;&nbsp;|&nbsp;&nbsp; <span style='color: {t_color}; font-weight: bold;'>{t_pts} pts</span>", unsafe_allow_html=True)
-                                else:
-                                    act_top3 = act_tech_rank[:3] if len(act_tech_rank) >= 3 else act_tech_rank
-                                    act_bot3 = act_tech_rank[-3:] if len(act_tech_rank) >= 3 else act_tech_rank
-                                    
-                                    is_top3_sweep = (tech_top_3 == act_top3)
-                                    
-                                    if tech_top_3:
-                                        if is_top3_sweep:
-                                            st.markdown("✨ **Top 3 Technical Positions (Perfect Sweep Bonus: <span style='color: green;'>+10 pts</span>):**", unsafe_allow_html=True)
+                                        if w_int_num == 8:
+                                            t_pts = "+3" if (is_match and t_idx in [0, len(act_tech_rank)-1]) else ("+2" if is_match else "+0")
+                                        elif w_int_num == 9:
+                                            t_pts = "+3" if (is_match and t_idx in [0, len(act_tech_rank)-1]) else ("+2" if is_match else "+0")
                                         else:
-                                            st.markdown("**Top 3 Technical Positions:**")
+                                            t_pts = "+3" if (is_match and t_idx == 0) else ("+2" if is_match else "+0")
                                             
-                                        for t_idx, actual_baker in enumerate(act_top3):
-                                            r_label = "1st" if t_idx==0 else ("2nd" if t_idx==1 else "3rd")
-                                            pred_at_pos = tech_top_3[t_idx] if t_idx < len(tech_top_3) else "--Select Baker--"
-                                            
-                                            if is_top3_sweep:
-                                                t_color = "green"
-                                                t_pts = "+10 (Sweep)" if t_idx == 0 else ""
-                                            else:
-                                                is_exact = (pred_at_pos == actual_baker and pred_at_pos != "--Select Baker--")
-                                                is_wrong_spot = (not is_exact and pred_at_pos in act_top3 and pred_at_pos != "--Select Baker--")
-                                                t_color = "green" if (is_exact or is_wrong_spot) else "gray"
-                                                if is_exact:
-                                                    t_pts = "+3" if t_idx == 0 else "+2"
-                                                elif is_wrong_spot:
-                                                    t_pts = "+1"
-                                                else:
-                                                    t_pts = "+0"
-                                                    
-                                            if is_top3_sweep and t_idx > 0:
-                                                st.markdown(f"* {r_label} Place: <span style='color: #1E88E5; font-weight: bold;'>{pred_at_pos}</span> | Actual: <span style='color: #B54E43; font-weight: bold;'>{actual_baker}</span>", unsafe_allow_html=True)
-                                            else:
-                                                pts_disp = f"&nbsp;&nbsp;|&nbsp;&nbsp; <span style='color: {t_color}; font-weight: bold;'>{t_pts} pts</span>" if not is_top3_sweep or t_idx == 0 else ""
-                                                st.markdown(f"* {r_label} Place: <span style='color: #1E88E5; font-weight: bold;'>{pred_at_pos}</span> | Actual: <span style='color: #B54E43; font-weight: bold;'>{actual_baker}</span> {pts_disp}", unsafe_allow_html=True)
-                                            
-                                    is_bot3_sweep = (tech_bottom_3 == act_bot3)
-                                    
-                                    if tech_bottom_3:
-                                        if is_bot3_sweep:
-                                            st.markdown("✨ **Bottom 3 Technical Positions (Perfect Sweep Bonus: <span style='color: green;'>+10 pts</span>):**", unsafe_allow_html=True)
-                                        else:
-                                            st.markdown("**Bottom 3 Technical Positions:**")
-                                            
-                                        for b_idx, actual_baker in enumerate(act_bot3):
-                                            b_label = "3rd-to-Last" if b_idx==0 else ("2nd-to-Last" if b_idx==1 else "Last")
-                                            pred_at_pos = tech_bottom_3[b_idx] if b_idx < len(tech_bottom_3) else "--Select Baker--"
-                                            
-                                            if is_bot3_sweep:
-                                                b_color = "green"
-                                                b_pts = "+10 (Sweep)" if b_idx == 2 else ""
-                                            else:
-                                                is_exact = (pred_at_pos == actual_baker and pred_at_pos != "--Select Baker--")
-                                                is_wrong_spot = (not is_exact and pred_at_pos in act_bot3 and pred_at_pos != "--Select Baker--")
-                                                b_color = "green" if (is_exact or is_wrong_spot) else "gray"
-                                                if is_exact:
-                                                    b_pts = "+3" if b_idx == 2 else "+2"
-                                                elif is_wrong_spot:
-                                                    b_pts = "+1"
-                                                else:
-                                                    b_pts = "+0"
-                                                    
-                                            if is_bot3_sweep and b_idx < 2:
-                                                st.markdown(f"* {b_label} Place: <span style='color: #1E88E5; font-weight: bold;'>{pred_at_pos}</span> | Actual: <span style='color: #B54E43; font-weight: bold;'>{actual_baker}</span>", unsafe_allow_html=True)
-                                            else:
-                                                pts_disp = f"&nbsp;&nbsp;|&nbsp;&nbsp; <span style='color: {b_color}; font-weight: bold;'>{b_pts} pts</span>" if not is_bot3_sweep or b_idx == 2 else ""
-                                                st.markdown(f"* {b_label} Place: <span style='color: #1E88E5; font-weight: bold;'>{pred_at_pos}</span> | Actual: <span style='color: #B54E43; font-weight: bold;'>{actual_baker}</span> {pts_disp}", unsafe_allow_html=True)
+                                    if is_sweep and t_idx > 0:
+                                        st.markdown(f"* {r_label} Place: <span style='color: #1E88E5; font-weight: bold;'>{pred_at_pos}</span> | Actual: <span style='color: #B54E43; font-weight: bold;'>{actual_baker}</span>", unsafe_allow_html=True)
+                                    else:
+                                        pts_disp = f"&nbsp;&nbsp;|&nbsp;&nbsp; <span style='color: {t_color}; font-weight: bold;'>{t_pts} pts</span>" if not is_sweep or t_idx == 0 else ""
+                                        st.markdown(f"* {r_label} Place: <span style='color: #1E88E5; font-weight: bold;'>{pred_at_pos}</span> | Actual: <span style='color: #B54E43; font-weight: bold;'>{actual_baker}</span> {pts_disp}", unsafe_allow_html=True)
                             else:
                                 st.write("Technical breakdown unavailable.")
                                 
