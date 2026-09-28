@@ -16,7 +16,7 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# Custom Styling for cozy baking theme & high-contrast legibility
+# Custom Styling for cozy baking theme & card containers
 st.markdown("""
 <style>
     .stButton>button {
@@ -33,6 +33,15 @@ st.markdown("""
     }
     h1, h2, h3 {
         color: #5D4037;
+    }
+    .baker-card {
+        border: 2px solid #D7CCC8;
+        border-radius: 12px;
+        padding: 14px;
+        background-color: #FFF9F5;
+        box-shadow: 0 2px 4px rgba(93, 64, 55, 0.05);
+        margin-bottom: 12px;
+        text-align: center;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -480,7 +489,7 @@ with tab_submit:
     if auth_success:
         st.markdown("---")
         
-        # Visual Baker Gallery & Live Stats Tracker (Filtered for remaining active bakers only, no GBBO links)
+        # Visual Baker Gallery & Live Stats Tracker (Wrapped in bordered card containers)
         curr_elim_all = eliminated_bakers_by_week.get(active_prediction_week, [])
         remaining_gallery_bakers = [b for b in ALL_BAKERS if b not in curr_elim_all]
         
@@ -490,7 +499,12 @@ with tab_submit:
                 sb_c, inl_c, trb_c, tech_stat = get_baker_stats(baker, active_prediction_week)
                 
                 with cols[idx % 4]:
-                    st.markdown(f"**{baker}**")
+                    # Render inside a custom bordered card container
+                    st.markdown(f"""
+                    <div class="baker-card">
+                        <b>{baker}</b><br>
+                    """, unsafe_allow_html=True)
+                    
                     b_img = load_baker_image(baker)
                     if b_img is not None:
                         st.image(b_img, use_container_width=True)
@@ -498,19 +512,22 @@ with tab_submit:
                         st.markdown("🧁 *[Portrait]*")
                         
                     st.markdown(f"""
-                    * Star Baker Wins: **{sb_c}**
-                    * In Line Mentions: **{inl_c}**
-                    * In Trouble Mentions: **{trb_c}**
-                    """)
+                    <div style="text-align: left; font-size: 0.9rem; margin-top: 8px;">
+                    • Star Baker Wins: <b>{sb_c}</b><br>
+                    • In Line Mentions: <b>{inl_c}</b><br>
+                    • In Trouble Mentions: <b>{trb_c}</b><br>
+                    """, unsafe_allow_html=True)
                     
                     if active_prediction_week <= 5:
                         if isinstance(tech_stat, dict) and tech_stat:
                             tech_str = ", ".join([f"W{w}: #{p}" for w, p in sorted(tech_stat.items())])
-                            st.markdown(f"* Technical Placements: **{tech_str}**")
+                            st.markdown(f"• Technicals: <b>{tech_str}</b>", unsafe_allow_html=True)
                         else:
-                            st.markdown("* Technical Placements: **None yet**")
+                            st.markdown("• Technicals: <b>None yet</b>", unsafe_allow_html=True)
                     else:
-                        st.markdown(f"* Avg Technical Placement: **{tech_stat}**")
+                        st.markdown(f"• Avg Technical: <b>{tech_stat}</b>", unsafe_allow_html=True)
+                        
+                    st.markdown("</div></div>", unsafe_allow_html=True)
 
         st.markdown("---")
         if not st.session_state.weekly_results:
