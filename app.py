@@ -86,6 +86,11 @@ def is_weekly_voting_closed():
     return False
 
 def calculate_weekly_score(predictions, actuals, week=2):
+    try:
+        week = int(week)
+    except Exception:
+        week = 2
+
     score = 0
     if not predictions or not actuals:
         return score
@@ -171,6 +176,11 @@ def calculate_weekly_score(predictions, actuals, week=2):
     return score
 
 def get_detailed_weekly_score_breakdown(predictions, actuals, week):
+    try:
+        week = int(week)
+    except Exception:
+        week = 2
+
     breakdown = []
     if not predictions or not actuals:
         return breakdown
@@ -533,14 +543,6 @@ with tab_lead:
                 else:
                     w_picks = p_weekly[w_num]
                     w_pts = calculate_weekly_score(w_picks, get_week_results(w_num, weekly_results_map), w_num)
-                    # Include high scorer bonus if applicable in breakdown
-                    if w_num in weekly_results_map:
-                        # Check if high scorer
-                        all_w_scores = [calculate_weekly_score(m_dat["weekly_picks"].get(w_num, {}), get_week_results(w_num, weekly_results_map), w_num) for m_dat in st.session_state.league_members.values()]
-                        if all_w_scores and w_pts == max(all_w_scores) and w_pts > 0:
-                            # if tied or max, breakdown shows it
-                            pass
-
                     has_published = is_week_published(w_num, weekly_results_map)
                     
                     expander_title = f"Week {w_num} Ballot (Earned: {w_pts} pts)" if has_published else f"Week {w_num} Ballot (Pending Results)"
