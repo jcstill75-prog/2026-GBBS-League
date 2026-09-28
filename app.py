@@ -303,13 +303,13 @@ def calculate_season_score(predictions, actuals):
     act_finalists = actuals.get("finalists", act_semis)
     
     pred_winner = predictions.get("winner")
-    if pred_winner == act_winner:
+    if pred_winner and act_winner and pred_winner == act_winner:
         score += 40
-    elif pred_winner in act_finalists:
+    elif pred_winner and act_finalists and pred_winner in act_finalists:
         score += 15
         
     for baker in predictions.get("semifinalists", []):
-        if baker in act_semis and baker != pred_winner:
+        if act_semis and baker in act_semis and baker != pred_winner:
             score += 10
             
     for key, exact_pts, buffer_pts, buf in [("handshakes", 20, 10, 1), ("crying", 20, 10, 5), ("innuendos", 20, 10, 5)]:
@@ -320,6 +320,61 @@ def calculate_season_score(predictions, actuals):
             elif abs(p_val - a_val) <= buf: score += buffer_pts
             
     return score
+
+def get_detailed_season_score_breakdown(predictions, actuals):
+    breakdown = []
+    if not predictions:
+        return breakdown
+        
+    # Winner
+    w_pred = predictions.get("winner")
+    w_act = actuals.get("winner")
+    w_pts = 0
+    max_w = 40
+    if w_pred and w_act and w_pred == w_act:
+        w_pts = 40
+    elif w_pred and actuals.get("finalists") and w_pred in actuals.get("finalists"):
+        w_pts = 15
+        max_w = 15
+    breakdown.append(("Season Winner", w_pred, w_act if w_act else "Pending W10", w_pts, max_w))
+    
+    # Semifinalists
+    semis_pred = predictions.get("semifinalists", [])
+    semis_act = actuals.get("semifinalists", [])
+    semis_pts = 0
+    for b in semis_pred:
+        if semis_act and b in semis_act and b != w_pred:
+            semis_pts += 10
+    breakdown.append(("Semifinalists", ", ".join(semis_pred) if semis_pred else "None", ", ".join(semis_act) if semis_act else "Pending", semis_pts, 30))
+    
+    # Handshakes
+    hs_pred = predictions.get("handshakes")
+    hs_act = actuals.get("handshakes")
+    hs_pts = 0
+    if hs_pred is not None and hs_act is not None:
+        if hs_pred == hs_act: hs_pts = 20
+        elif abs(hs_pred - hs_act) <= 1: hs_pts = 10
+    breakdown.append(("Hollywood Handshakes", hs_pred, hs_act, hs_pts, 20))
+    
+    # Crying
+    cry_pred = predictions.get("crying")
+    cry_act = actuals.get("crying")
+    cry_pts = 0
+    if cry_pred is not None and cry_act is not None:
+        if cry_pred == cry_act: cry_pts = 20
+        elif abs(cry_pred - cry_act) <= 5: cry_pts = 10
+    breakdown.append(("Crying Incidents", cry_pred, cry_act, cry_pts, 20))
+    
+    # Innuendos
+    inn_pred = predictions.get("innuendos")
+    inn_act = actuals.get("innuendos")
+    inn_pts = 0
+    if inn_pred is not None and inn_act is not None:
+        if inn_pred == inn_act: inn_pts = 20
+        elif abs(inn_pred - inn_act) <= 5: inn_pts = 10
+    breakdown.append(("Sexual Innuendos", inn_pred, inn_act, inn_pts, 20))
+    
+    return breakdown
 
 def image_to_base64(img):
     if img is None:
@@ -584,30 +639,28 @@ tab_admin = (selected_tab == tabs_list[3])
 if tab_lead:
     st.header("🏆 Live Leaderboard & Standings")
     
+    # Compute active season actuals for Leaderboard & Scorecards
+    all_w_res_global = st.session_state.get("weekly_results", {})
+    total_hs_g = sum(len(w_dat.get("handshake_bakers", [])) for w_dat in all_w_res_global.values())
+    total_cry_g = sum(int(w_dat.get("crying_count", 0)) for w_dat in all_w_res_global.values())
+    total_inn_g = sum(int(w_dat.get("innuendo_count", 0)) for w_dat in all_w_res_global.values())
+    w10_g = get_week_results(10, all_w_res_global)
+    act_winner_g = w10_g.get("show_champion") if w10_g else None
+    
+    current_season_actuals = {
+        "winner": act_winner_g,
+        "semifinalists": [],
+        "handshakes": total_hs_g,
+        "crying": total_cry_g,
+        "innuendos": total_inn_g
+    }
+
     lb_data = []
     for name, data in st.session_state.league_members.items():
-        # Automatically compute cumulative season results from weekly results for season projection scoring
-        all_w_results = st.session_state.get("weekly_results", {})
-        total_hs_season = sum(len(w_dat.get("handshake_bakers", [])) for w_dat in all_w_results.values())
-        total_cry_season = sum(int(w_dat.get("crying_count", 0)) for w_dat in all_w_results.values())
-        total_inn_season = sum(int(w_dat.get("innuendo_count", 0)) for w_dat in all_w_results.values())
-        
-        # Determine actual season winner from Week 10 if published, else None
-        w10_res = get_week_results(10, all_w_results)
-        act_winner_season = w10_res.get("show_champion") if w10_res else None
-        
-        season_actuals_computed = {
-            "winner": act_winner_season,
-            "semifinalists": [],
-            "handshakes": total_hs_season,
-            "crying": total_cry_season,
-            "innuendos": total_inn_season
-        }
-        season_score = calculate_season_score(data.get("season_picks", {}), season_actuals_computed)
-        data["season_score"] = season_score
-        
+        s_score = calculate_season_score(data.get("season_picks", {}), current_season_actuals)
+        data["season_score"] = s_score
         weekly_total = sum(data.get("weekly_breakdown", {}).values())
-        data["total_score"] = weekly_total + season_score
+        data["total_score"] = weekly_total + s_score
         
         lb_data.append({"member": name, "points": data.get("total_score", 0), "data": data})
         
@@ -752,19 +805,19 @@ if tab_lead:
             st.info("No weekly prediction ballots submitted yet.")
 
         st.markdown("---")
-        st.markdown(f"### **{selected_card_player}'s Season Projections**")
-        win_pick = p_season.get("winner", "Not submitted yet")
-        semis_list = p_season.get("semifinalists", [])
-        semis_pick = ", ".join(semis_list) if semis_list else "Not submitted yet"
-        hs_pick = p_season.get("handshakes", "N/A")
-        cry_pick = p_season.get("crying", "N/A")
-        inn_pick = p_season.get("innuendos", "N/A")
+        st.markdown(f"### **{selected_card_player}'s Season Projections & Results**")
+        season_breakdown = get_detailed_season_score_breakdown(p_season, current_season_actuals)
+        total_season_earned = sum(item[3] for item in season_breakdown)
         
-        st.write(f"🏆 **Predicted Winner:** {win_pick}")
-        st.write(f"🏅 **Predicted Semifinalists:** {semis_pick}")
-        st.write(f"🤝 **Predicted Handshakes:** {hs_pick}")
-        st.write(f"😢 **Predicted Crying Incidents:** {cry_pick}")
-        st.write(f"💬 **Predicted Sexual Innuendos:** {inn_pick}")
+        st.markdown("🔍 **Projection vs. Actual Season Outcome & Points:**")
+        for cat_label, pred_val, act_val, pts_earned, max_pts in season_breakdown:
+            pts_color = "green" if pts_earned > 0 else "gray"
+            st.markdown(f"""
+            * **{cat_label}:** <span style="color: #1E88E5; font-weight: bold;">{pred_val}</span> | Actual: <span style="color: #B54E43; font-weight: bold;">{act_val}</span> &nbsp;&nbsp;|&nbsp;&nbsp; <span style="color: {pts_color}; font-weight: bold;">+{pts_earned} / {max_pts} pts</span>
+            """, unsafe_allow_html=True)
+            
+        st.markdown("---")
+        st.markdown(f"🏆 **Total Season Projection Points Earned:** <span style='color: green; font-weight: bold; font-size: 1.1rem;'>{total_season_earned} pts</span>", unsafe_allow_html=True)
 
 # ==============================================================================
 # TAB 2: SUBMIT PREDICTIONS
@@ -1294,24 +1347,27 @@ if tab_admin:
                                 if raw_s == max_raw and raw_s > 0:
                                     st.session_state.league_members[m_name]["weekly_breakdown"][w] += 5
 
+                    all_w_res_pub2 = st.session_state.get("weekly_results", {})
+                    total_hs_all2 = sum(len(w_dat.get("handshake_bakers", [])) for w_dat in all_w_res_pub2.values())
+                    total_cry_all2 = sum(int(w_dat.get("crying_count", 0)) for w_dat in all_w_res_pub2.values())
+                    total_inn_all2 = sum(int(w_dat.get("innuendo_count", 0)) for w_dat in all_w_res_pub2.values())
+                    w10_pub2 = get_week_results(10, all_w_res_pub2)
+                    act_winner_pub2 = w10_pub2.get("show_champion") if w10_pub2 else None
+
+                    comp_season_act2 = {
+                        "winner": act_winner_pub2,
+                        "semifinalists": [],
+                        "handshakes": total_hs_all2,
+                        "crying": total_cry_all2,
+                        "innuendos": total_inn_all2
+                    }
+
                     for m_name, m_data in st.session_state.league_members.items():
+                        season_pred = m_data["season_picks"]
+                        season_score = calculate_season_score(season_pred, comp_season_act2)
+                        m_data["season_score"] = season_score
                         weekly_total = sum(m_data["weekly_breakdown"].values())
-                        all_w_res_curr = st.session_state.get("weekly_results", {})
-                        total_hs_c = sum(len(w_dat.get("handshake_bakers", [])) for w_dat in all_w_res_curr.values())
-                        total_cry_c = sum(int(w_dat.get("crying_count", 0)) for w_dat in all_w_res_curr.values())
-                        total_inn_c = sum(int(w_dat.get("innuendo_count", 0)) for w_dat in all_w_res_curr.values())
-                        w10_r = get_week_results(10, all_w_res_curr)
-                        act_win_c = w10_r.get("show_champion") if w10_r else None
-                        comp_season_act = {
-                            "winner": act_win_c,
-                            "semifinalists": [],
-                            "handshakes": total_hs_c,
-                            "crying": total_cry_c,
-                            "innuendos": total_inn_c
-                        }
-                        season_total = calculate_season_score(m_data.get("season_picks", {}), comp_season_act)
-                        m_data["season_score"] = season_total
-                        m_data["total_score"] = weekly_total + season_total
+                        m_data["total_score"] = weekly_total + season_score
 
                     save_league_data()
                     st.session_state.admin_verification_msg = f"✅ Week {admin_selected_week} successfully unpublished! All standings and active weeks recalculated."
