@@ -16,7 +16,7 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# Custom Styling for cozy baking theme & baseball card containers
+# Custom Styling for cozy baking theme & rectangular profile card containers
 st.markdown("""
 <style>
     .stButton>button {
@@ -34,24 +34,23 @@ st.markdown("""
     h1, h2, h3 {
         color: #5D4037;
     }
-    .baseball-card {
-        border: 3px solid #8D6E63;
-        border-radius: 12px;
-        padding: 12px;
-        background: linear-gradient(135deg, #FFF9F5 0%, #F5EBE6 100%);
-        box-shadow: 0 4px 8px rgba(93, 64, 55, 0.15);
-        margin-bottom: 15px;
+    .baker-profile-card {
+        border: 2px solid #8D6E63;
+        border-radius: 10px;
+        padding: 10px;
+        background-color: #FFF9F5;
+        box-shadow: 0 3px 6px rgba(93, 64, 55, 0.1);
+        margin-bottom: 12px;
     }
-    .card-header {
+    .card-title {
         background-color: #5D4037;
         color: white;
-        padding: 6px 10px;
-        border-radius: 6px;
+        padding: 5px 8px;
+        border-radius: 5px;
         font-weight: bold;
         text-align: center;
-        margin-bottom: 10px;
-        font-size: 1.05rem;
-        letter-spacing: 0.5px;
+        margin-bottom: 8px;
+        font-size: 1rem;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -499,23 +498,23 @@ with tab_submit:
     if auth_success:
         st.markdown("---")
         
-        # Baseball Card Style Visual Baker Gallery (Active bakers only)
+        # Rectangular Profile Card Layout (Active bakers only, photo left, stats right)
         curr_elim_all = eliminated_bakers_by_week.get(active_prediction_week, [])
         remaining_gallery_bakers = [b for b in ALL_BAKERS if b not in curr_elim_all]
         
-        with st.expander(f"📸 Visual Baker Trading Cards & Season Statistics (Active Bakers - Week {active_prediction_week})", expanded=True):
-            cols = st.columns(3)
+        with st.expander(f"📸 Visual Baker Profiles & Season Statistics (Active Bakers - Week {active_prediction_week})", expanded=True):
+            cols = st.columns(2)
             for idx, baker in enumerate(remaining_gallery_bakers):
                 sb_c, inl_c, trb_c, tech_stat = get_baker_stats(baker, active_prediction_week)
                 
-                with cols[idx % 3]:
-                    # Build baseball card container
+                with cols[idx % 2]:
+                    # Build rectangular card container
                     st.markdown(f"""
-                    <div class="baseball-card">
-                        <div class="card-header">{baker}</div>
+                    <div class="baker-profile-card">
+                        <div class="card-title">{baker}</div>
                     """, unsafe_allow_html=True)
                     
-                    card_col1, card_col2 = st.columns([1, 1.2])
+                    card_col1, card_col2 = st.columns([1, 1.5])
                     with card_col1:
                         b_img = load_baker_image(baker)
                         if b_img is not None:
@@ -524,10 +523,10 @@ with tab_submit:
                             st.markdown("🧁 *[Portrait]*")
                     with card_col2:
                         st.markdown(f"""
-                        <div style="font-size: 0.82rem; color: #3E2723; line-height: 1.35;">
-                        • Star Baker: <b>{sb_c}</b><br>
-                        • In Line: <b>{inl_c}</b><br>
-                        • In Trouble: <b>{trb_c}</b><br>
+                        <div style="font-size: 0.9rem; color: #3E2723; line-height: 1.5;">
+                        • Star Baker Wins: <b>{sb_c}</b><br>
+                        • In Line Mentions: <b>{inl_c}</b><br>
+                        • In Trouble Mentions: <b>{trb_c}</b><br>
                         """, unsafe_allow_html=True)
                         
                         if active_prediction_week <= 5:
@@ -537,7 +536,7 @@ with tab_submit:
                             else:
                                 st.markdown("• Technicals: <b>None yet</b>", unsafe_allow_html=True)
                         else:
-                            st.markdown(f"• Avg Tech: <b>{tech_stat}</b>", unsafe_allow_html=True)
+                            st.markdown(f"• Avg Technical: <b>{tech_stat}</b>", unsafe_allow_html=True)
                             
                         st.markdown("</div>", unsafe_allow_html=True)
                         
