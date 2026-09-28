@@ -488,7 +488,7 @@ with tab_submit:
     if auth_success:
         st.markdown("---")
         
-        # High-contrast solid rectangular cards with white stats background for absolute legibility
+        # High-contrast solid rectangular cards with abbreviated labels & absolute legibility
         curr_elim_all = eliminated_bakers_by_week.get(active_prediction_week, [])
         remaining_gallery_bakers = [b for b in ALL_BAKERS if b not in curr_elim_all]
         
@@ -510,9 +510,9 @@ with tab_submit:
                         tech_str = ", ".join([f"W{w}: #{p}" for w, p in sorted(tech_stat.items())])
                     else:
                         tech_str = "None yet"
-                    tech_line = f"• Technicals: <b>{tech_str}</b>"
+                    tech_line = f"Technicals: <b>{tech_str}</b>"
                 else:
-                    tech_line = f"• Avg Technical: <b>{tech_stat}</b>"
+                    tech_line = f"Technicals: <b>{tech_stat}</b>"
 
                 card_html = f"""
                 <div style="border: 2px solid #5D4037; border-radius: 10px; padding: 12px; background-color: #FFF9F5; color: #2D1B18; box-shadow: 0 3px 6px rgba(0,0,0,0.1); margin-bottom: 15px;">
@@ -524,9 +524,9 @@ with tab_submit:
                             {img_tag}
                         </div>
                         <div style="flex: 1; font-size: 0.85rem; color: #2D1B18; line-height: 1.5; background-color: #FFFFFF; padding: 8px; border-radius: 6px; border: 1px solid #D7CCC8;">
-                            <div style="color: #2D1B18; margin-bottom: 3px;">• Star Baker Wins: <b style="color: #5D4037;">{sb_c}</b></div>
-                            <div style="color: #2D1B18; margin-bottom: 3px;">• In Line Mentions: <b style="color: #5D4037;">{inl_c}</b></div>
-                            <div style="color: #2D1B18; margin-bottom: 3px;">• In Trouble Mentions: <b style="color: #5D4037;">{trb_c}</b></div>
+                            <div style="color: #2D1B18; margin-bottom: 3px;">Star Baker: <b style="color: #5D4037;">{sb_c}</b></div>
+                            <div style="color: #2D1B18; margin-bottom: 3px;">In-Line SB: <b style="color: #5D4037;">{inl_c}</b></div>
+                            <div style="color: #2D1B18; margin-bottom: 3px;">In Trouble: <b style="color: #5D4037;">{trb_c}</b></div>
                             <div style="color: #2D1B18;">{tech_line}</div>
                         </div>
                     </div>
@@ -612,7 +612,7 @@ with tab_submit:
                     
                     edit_conf = True
                     if has_submitted:
-                        edit_conf = st.checkbox("⚠️ Check this box to confirm you want to edit your previously submitted Week 2 Ballot & Season Projections.")
+                        edit_conf = st.checkbox(f"⚠️ Check this box to confirm you want to edit your previously submitted Week 2 Ballot & Season Projections.")
 
                     sub_w2 = st.form_submit_button("Submit Week 2 Ballot & Season Projections")
                     if sub_w2:
