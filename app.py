@@ -113,6 +113,20 @@ def calculate_weekly_score(predictions, actuals, week=2):
             elif pred_elim == act_elim:
                 score += 5
 
+        # In Line SB (2 pts)
+        inl_pred = predictions.get("in_line_sb")
+        inl_act = actuals.get("in_line_sb", [])
+        if not isinstance(inl_act, list): inl_act = [inl_act]
+        if inl_pred and inl_pred in inl_act:
+            score += 2
+
+        # In Trouble (2 pts)
+        trb_pred = predictions.get("in_trouble")
+        trb_act = actuals.get("in_trouble", [])
+        if not isinstance(trb_act, list): trb_act = [trb_act]
+        if trb_pred and trb_pred in trb_act:
+            score += 2
+
         # Technical challenge scoring
         act_tech_rank = actuals.get("tech_rank", [])
         if not isinstance(act_tech_rank, list): act_tech_rank = []
@@ -132,31 +146,27 @@ def calculate_weekly_score(predictions, actuals, week=2):
             if not isinstance(pred_top3, list): pred_top3 = []
             if len(pred_top3) == 3 and len(act_top3) == 3:
                 if pred_top3 == act_top3:
-                    score += 10  # Perfect Top 3 Sweep flat bonus (replaces individual scoring)
+                    score += 10  # Perfect Top 3 Sweep flat bonus
                 else:
-                    if pred_top3[0] == act_top3[0] and pred_top3[0] != "--Select Baker--": score += 3
-                    elif pred_top3[0] in act_top3: score += 1
-                    
-                    if pred_top3[1] == act_top3[1] and pred_top3[1] != "--Select Baker--": score += 2
-                    elif pred_top3[1] in act_top3: score += 1
-                    
-                    if pred_top3[2] == act_top3[2] and pred_top3[2] != "--Select Baker--": score += 2
-                    elif pred_top3[2] in act_top3: score += 1
+                    for t_idx, actual_baker in enumerate(act_top3):
+                        pred_at_pos = pred_top3[t_idx] if t_idx < len(pred_top3) else "--Select Baker--"
+                        if pred_at_pos == actual_baker and pred_at_pos != "--Select Baker--":
+                            score += 3 if t_idx == 0 else 2
+                        elif pred_at_pos in act_top3 and pred_at_pos != "--Select Baker--":
+                            score += 1
                             
             pred_bot3 = predictions.get("tech_bottom_3", [])
             if not isinstance(pred_bot3, list): pred_bot3 = []
             if len(pred_bot3) == 3 and len(act_bot3) == 3:
                 if pred_bot3 == act_bot3:
-                    score += 10  # Perfect Bottom 3 Sweep flat bonus (replaces individual scoring)
+                    score += 10  # Perfect Bottom 3 Sweep flat bonus
                 else:
-                    if pred_bot3[0] == act_bot3[0] and pred_bot3[0] != "--Select Baker--": score += 2
-                    elif pred_bot3[0] in act_bot3: score += 1
-                    
-                    if pred_bot3[1] == act_bot3[1] and pred_bot3[1] != "--Select Baker--": score += 2
-                    elif pred_bot3[1] in act_bot3: score += 1
-                    
-                    if pred_bot3[2] == act_bot3[2] and pred_bot3[2] != "--Select Baker--": score += 3
-                    elif pred_bot3[2] in act_bot3: score += 1
+                    for b_idx, actual_baker in enumerate(act_bot3):
+                        pred_at_pos = pred_bot3[b_idx] if b_idx < len(pred_bot3) else "--Select Baker--"
+                        if pred_at_pos == actual_baker and pred_at_pos != "--Select Baker--":
+                            score += 3 if b_idx == 2 else 2
+                        elif pred_at_pos in act_bot3 and pred_at_pos != "--Select Baker--":
+                            score += 1
 
     return score
 
@@ -522,7 +532,15 @@ with tab_lead:
                         st.warning(f"🔒 Week {w_num} prediction logs for other players are locked until the voting deadline passes (Tuesdays at 2:00 PM Houston time).")
                 else:
                     w_picks = p_weekly[w_num]
-                    w_pts = p_data.get("weekly_breakdown", {}).get(w_num, 0)
+                    w_pts = calculate_weekly_score(w_picks, get_week_results(w_num, weekly_results_map), w_num)
+                    # Include high scorer bonus if applicable in breakdown
+                    if w_num in weekly_results_map:
+                        # Check if high scorer
+                        all_w_scores = [calculate_weekly_score(m_dat["weekly_picks"].get(w_num, {}), get_week_results(w_num, weekly_results_map), w_num) for m_dat in st.session_state.league_members.values()]
+                        if all_w_scores and w_pts == max(all_w_scores) and w_pts > 0:
+                            # if tied or max, breakdown shows it
+                            pass
+
                     has_published = is_week_published(w_num, weekly_results_map)
                     
                     expander_title = f"Week {w_num} Ballot (Earned: {w_pts} pts)" if has_published else f"Week {w_num} Ballot (Pending Results)"
@@ -548,7 +566,7 @@ with tab_lead:
                                 * **{cat_label}:** <span style="color: #1E88E5; font-weight: bold;">{pred_str}</span> | Actual: <span style="color: #B54E43; font-weight: bold;">{act_str}</span> &nbsp;&nbsp;|&nbsp;&nbsp; <span style="color: {pts_color}; font-weight: bold;">+{pts_earned} / {max_pts} pts</span>
                                 """, unsafe_allow_html=True)
                                 
-                            # Technical challenge breakdown with sweep replacement logic
+                            # Technical challenge breakdown synchronized with backend scoring
                             st.markdown("---")
                             st.markdown("📊 **Technical Challenge Breakdown:**")
                             act_tech_rank = act_w.get("tech_rank", [])
@@ -644,7 +662,10 @@ with tab_lead:
                             else:
                                 st.write("Technical breakdown unavailable.")
                                 
-                            if w_pts > sum([item[3] for item in breakdown_items]):
+                            # Check high scorer bonus
+                            all_w_scores = [calculate_weekly_score(m_dat["weekly_picks"].get(w_num, m_dat["weekly_picks"].get(str(w_num), {})), act_w, w_num) for m_dat in st.session_state.league_members.values()]
+                            base_w_score = calculate_weekly_score(w_picks, act_w, w_num)
+                            if all_w_scores and base_w_score == max(all_w_scores) and base_w_score > 0:
                                 st.markdown("<span style='color: green; font-weight: bold;'>• Star Member High Scorer Bonus: +5 pts</span>", unsafe_allow_html=True)
                         else:
                             sb = w_picks.get("star_baker", w_picks.get("show_champion", "N/A"))
