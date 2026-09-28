@@ -499,9 +499,9 @@ with tab_lead:
                 else:
                     w_picks = p_weekly[w_num]
                     w_pts = p_data.get("weekly_breakdown", {}).get(w_num, 0)
-                    has_results_published = w_num in weekly_results_map
+                    has_published = w_num in weekly_results_map
                     
-                    expander_title = f"Week {w_num} Ballot (Earned: {w_pts} pts)" if has_results_published else f"Week {w_num} Ballot (Pending Results)"
+                    expander_title = f"Week {w_num} Ballot (Earned: {w_pts} pts)" if has_published else f"Week {w_num} Ballot (Pending Results)"
                     with st.expander(expander_title):
                         sb = w_picks.get("star_baker", w_picks.get("show_champion", "N/A"))
                         inl = w_picks.get("in_line_sb", "N/A")
