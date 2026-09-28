@@ -583,9 +583,13 @@ with tab_submit:
                         inl_idx = (["--Select Baker--"] + active_bakers).index(inl_def) if inl_def in (["--Select Baker--"] + active_bakers) else 0
                         weekly_picks["in_line_sb"] = st.selectbox("'In Line' Nominee (2 pts):", ["--Select Baker--"] + active_bakers, index=inl_idx)
                     with col2:
-                        el_def = saved_weekly.get("eliminated", "--Select Baker--")
-                        el_idx = (["--Select Baker--"] + active_bakers).index(el_def) if el_def in (["--Select Baker--"] + active_bakers) else 0
-                        weekly_picks["eliminated"] = st.selectbox("Eliminated Baker (5 pts):", ["--Select Baker--"] + active_bakers, index=el_idx)
+                        if is_grace_week_catchup:
+                            el_def = [b for b in saved_weekly.get("eliminated", []) if b in active_bakers]
+                            weekly_picks["eliminated"] = st.multiselect("Predicted 2 Eliminated Bakers (5 pts each - Select 2):", active_bakers, default=el_def, max_selections=2)
+                        else:
+                            el_def = saved_weekly.get("eliminated", "--Select Baker--")
+                            el_idx = (["--Select Baker--"] + active_bakers).index(el_def) if el_def in (["--Select Baker--"] + active_bakers) else 0
+                            weekly_picks["eliminated"] = st.selectbox("Eliminated Baker (5 pts):", ["--Select Baker--"] + active_bakers, index=el_idx)
                             
                         trb_def = saved_weekly.get("in_trouble", "--Select Baker--")
                         trb_idx = (["--Select Baker--"] + active_bakers).index(trb_def) if trb_def in (["--Select Baker--"] + active_bakers) else 0
@@ -612,7 +616,7 @@ with tab_submit:
                     
                     edit_conf = True
                     if has_submitted:
-                        edit_conf = st.checkbox(f"⚠️ Check this box to confirm you want to edit your previously submitted Week {active_prediction_week} ballot.")
+                        edit_conf = st.checkbox("⚠️ Check this box to confirm you want to edit your previously submitted Week 2 Ballot & Season Projections.")
 
                     sub_w2 = st.form_submit_button("Submit Week 2 Ballot & Season Projections")
                     if sub_w2:
@@ -645,7 +649,7 @@ with tab_submit:
                             if 2 not in st.session_state.league_members["AI Brian"]["weekly_picks"]:
                                 st.session_state.league_members["AI Brian"]["weekly_picks"][2] = {
                                     "star_baker": random.choice(active_bakers),
-                                    "eliminated": random.choice(active_bakers),
+                                    "eliminated": random.sample(active_bakers, 2) if is_grace_week_catchup else random.choice(active_bakers),
                                     "tech_top_3": random.sample(active_bakers, min(3, len(active_bakers))),
                                     "tech_bottom_3": random.sample(active_bakers, min(3, len(active_bakers)))
                                 }
