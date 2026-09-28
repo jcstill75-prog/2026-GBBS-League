@@ -488,7 +488,7 @@ with tab_submit:
     if auth_success:
         st.markdown("---")
         
-        # High-contrast solid rectangular cards (photo left, stats right)
+        # High-contrast solid rectangular cards with white stats background for absolute legibility
         curr_elim_all = eliminated_bakers_by_week.get(active_prediction_week, [])
         remaining_gallery_bakers = [b for b in ALL_BAKERS if b not in curr_elim_all]
         
@@ -501,9 +501,9 @@ with tab_submit:
                 img_b64 = image_to_base64(b_img) if b_img else ""
                 
                 if img_b64:
-                    img_tag = f'<img src="data:image/jpeg;base64,{img_b64}" style="width: 100%; max-width: 100px; height: 115px; object-fit: cover; border-radius: 6px; border: 1px solid #8D6E63;">'
+                    img_tag = f'<img src="data:image/jpeg;base64,{img_b64}" style="width: 100%; max-width: 95px; height: 110px; object-fit: cover; border-radius: 6px; border: 1px solid #8D6E63;">'
                 else:
-                    img_tag = '<div style="width: 100%; max-width: 100px; height: 115px; background-color: #EFEBE9; border-radius: 6px; display: flex; align-items: center; justify-content: center; font-size: 0.75rem; color: #5D4037;">[Photo]</div>'
+                    img_tag = '<div style="width: 100%; max-width: 95px; height: 110px; background-color: #EFEBE9; border-radius: 6px; display: flex; align-items: center; justify-content: center; font-size: 0.75rem; color: #5D4037;">[Photo]</div>'
                 
                 if active_prediction_week <= 5:
                     if isinstance(tech_stat, dict) and tech_stat:
@@ -515,19 +515,19 @@ with tab_submit:
                     tech_line = f"• Avg Technical: <b>{tech_stat}</b>"
 
                 card_html = f"""
-                <div style="border: 2px solid #8D6E63; border-radius: 10px; padding: 12px; background-color: #FFF9F5; box-shadow: 0 3px 6px rgba(93, 64, 55, 0.1); margin-bottom: 12px;">
-                    <div style="background-color: #5D4037; color: #FFFFFF !important; padding: 6px 10px; border-radius: 6px; font-weight: bold; text-align: center; margin-bottom: 10px; font-size: 1.05rem;">
+                <div style="border: 2px solid #5D4037; border-radius: 10px; padding: 12px; background-color: #FFF9F5; color: #2D1B18; box-shadow: 0 3px 6px rgba(0,0,0,0.1); margin-bottom: 15px;">
+                    <div style="background-color: #5D4037; color: #FFFFFF; padding: 6px 10px; border-radius: 6px; font-weight: bold; text-align: center; margin-bottom: 10px; font-size: 1.05rem;">
                         {baker}
                     </div>
                     <div style="display: flex; gap: 12px; align-items: center;">
-                        <div style="flex: 0 0 100px; text-align: center;">
+                        <div style="flex: 0 0 95px; text-align: center;">
                             {img_tag}
                         </div>
-                        <div style="flex: 1; font-size: 0.88rem; color: #2D1B18 !important; line-height: 1.6; font-weight: 500;">
-                            • Star Baker Wins: <b style="color: #5D4037;">{sb_c}</b><br>
-                            • In Line Mentions: <b style="color: #5D4037;">{inl_c}</b><br>
-                            • In Trouble Mentions: <b style="color: #5D4037;">{trb_c}</b><br>
-                            <span style="color: #2D1B18 !important;">{tech_line}</span>
+                        <div style="flex: 1; font-size: 0.85rem; color: #2D1B18; line-height: 1.5; background-color: #FFFFFF; padding: 8px; border-radius: 6px; border: 1px solid #D7CCC8;">
+                            <div style="color: #2D1B18; margin-bottom: 3px;">• Star Baker Wins: <b style="color: #5D4037;">{sb_c}</b></div>
+                            <div style="color: #2D1B18; margin-bottom: 3px;">• In Line Mentions: <b style="color: #5D4037;">{inl_c}</b></div>
+                            <div style="color: #2D1B18; margin-bottom: 3px;">• In Trouble Mentions: <b style="color: #5D4037;">{trb_c}</b></div>
+                            <div style="color: #2D1B18;">{tech_line}</div>
                         </div>
                     </div>
                 </div>
