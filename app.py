@@ -497,7 +497,6 @@ tab_lead, tab_submit, tab_results, tab_admin = st.tabs([
 # ==============================================================================
 with tab_lead:
     st.header("🏆 Live Leaderboard & Standings")
-    viewer_name = st.selectbox("Select Your Profile (for viewing permissions):", ROSTER_ALPHABETICAL, key="lead_viewer_sel")
     
     lb_data = []
     for name, data in st.session_state.league_members.items():
@@ -533,9 +532,16 @@ with tab_lead:
             voting_closed = is_weekly_voting_closed()
             weekly_results_map = st.session_state.get("weekly_results", {})
             
+            # Determine active logged-in human player from submit predictions tab session state if any
+            logged_in_human = None
+            for hum in ROSTER_HUMANS:
+                if st.session_state.get(f"auth_verified_{hum}", False):
+                    logged_in_human = hum
+                    break
+
             for w_num in sorted(p_weekly.keys()):
                 is_current_active_week = (w_num == active_prediction_week)
-                can_view = (selected_card_player == viewer_name) or (not is_current_active_week) or voting_closed
+                can_view = (selected_card_player == logged_in_human) or (selected_card_player == "AI Brian") or (not is_current_active_week) or voting_closed
                 
                 if not can_view:
                     with st.expander(f"Week {w_num} Ballot (Locked 🔒)"):
