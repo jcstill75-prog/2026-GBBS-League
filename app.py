@@ -361,6 +361,7 @@ tab_lead, tab_submit, tab_results, tab_admin = st.tabs([
 # ==============================================================================
 with tab_lead:
     st.header("🏆 Live Leaderboard & Standings")
+    viewer_name = st.selectbox("Select Your Profile (for viewing permissions):", ROSTER_ALPHABETICAL, key="lead_viewer_sel")
     
     lb_data = []
     for name, data in st.session_state.league_members.items():
@@ -385,7 +386,7 @@ with tab_lead:
 
     st.markdown("---")
     st.subheader("📋 Individual Player Scorecards & Projections")
-    selected_card_player = st.selectbox("Select Player to View Scorecard:", ROSTER_ALPHABETICAL, key="lb_player_card_sel")
+    selected_card_player = st.selectbox("Select Player Scorecard to View:", ROSTER_ALPHABETICAL, key="lb_player_card_sel")
     if selected_card_player in st.session_state.league_members:
         p_data = st.session_state.league_members[selected_card_player]
         p_season = p_data.get("season_picks", {})
@@ -393,37 +394,61 @@ with tab_lead:
         
         st.markdown(f"### **{selected_card_player}'s Weekly Predictions Log**")
         if p_weekly:
+            voting_closed = is_weekly_voting_closed()
             for w_num in sorted(p_weekly.keys()):
-                w_picks = p_weekly[w_num]
-                w_pts = p_data.get("weekly_breakdown", {}).get(w_num, 0)
-                with st.expander(f"Week {w_num} Ballot (Earned: {w_pts} pts)"):
-                    sb = w_picks.get("star_baker", w_picks.get("show_champion", "N/A"))
-                    inl = w_picks.get("in_line_sb", "N/A")
-                    
-                    elim = w_picks.get("eliminated", "N/A")
-                    if isinstance(elim, list):
-                        elim_str = ", ".join([str(b) for b in elim if b])
-                    else:
-                        elim_str = str(elim)
+                # Requirement: Only make other players' weekly logs available after Tuesday 2:00 PM deadline, OR if it's your own profile
+                is_current_active_week = (w_num == active_prediction_week)
+                can_view = (selected_card_player == viewer_name) or (not is_current_active_week) or voting_closed
+                
+                if not can_view:
+                    with st.expander(f"Week {w_num} Ballot (Locked 🔒)"):
+                        st.warning(f"🔒 Week {w_num} prediction logs for other players are locked until the voting deadline passes (Tuesdays at 2:00 PM Houston time).")
+                else:
+                    w_picks = p_weekly[w_num]
+                    w_pts = p_data.get("weekly_breakdown", {}).get(w_num, 0)
+                    with st.expander(f"Week {w_num} Ballot (Earned: {w_pts} pts)"):
+                        sb = w_picks.get("star_baker", w_picks.get("show_champion", "N/A"))
+                        inl = w_picks.get("in_line_sb", "N/A")
                         
-                    trb = w_picks.get("in_trouble", "N/A")
-                    
-                    tech_top = w_picks.get("tech_top_3", [])
-                    tech_bot = w_picks.get("tech_bottom_3", [])
-                    tech_rank = w_picks.get("tech_rank", [])
-                    
-                    if tech_top or tech_bot:
-                        tech_str = f"Top 3: {', '.join(tech_top)} | Bottom 3: {', '.join(tech_bot)}"
-                    elif tech_rank:
-                        tech_str = " -> ".join([f"#{i+1}: {b}" for i, b in enumerate(tech_rank) if b])
-                    else:
-                        tech_str = "N/A"
+                        elim = w_picks.get("eliminated", "N/A")
+                        if isinstance(elim, list):
+                            elim_str = ", ".join([str(b) for b in elim if b])
+                        else:
+                            elim_str = str(elim)
+                            
+                        trb = w_picks.get("in_trouble", "N/A")
                         
-                    st.write(f"🌟 **Star Baker / Champion:** {sb}")
-                    st.write(f"⭐ **In Line Nominee:** {inl}")
-                    st.write(f"🚪 **Eliminated:** {elim_str}")
-                    st.write(f"⚠️ **In Trouble Nominee:** {trb}")
-                    st.write(f"📊 **Technical Challenge:** {tech_str}")
+                        tech_top = w_picks.get("tech_top_3", [])
+                        tech_bot = w_picks.get("tech_bottom_3", [])
+                        tech_rank = w_picks.get("tech_rank", [])
+                        
+                        st.write(f"🌟 **Star Baker / Champion:** {sb}")
+                        st.write(f"⭐ **In Line SB:** {inl}")
+                        st.write(f"🚪 **Eliminated:** {elim_str}")
+                        st.write(f"⚠️ **In Trouble:** {trb}")
+                        
+                        # Requirement: List technical positions separately instead of grouping together
+                        st.markdown("📊 **Technical Challenge Predictions:**")
+                        if tech_rank:
+                            for t_idx, t_baker in enumerate(tech_rank):
+                                if t_baker and t_baker != "--Select Baker--":
+                                    r_label = "1st" if t_idx==0 else ("2nd" if t_idx==1 else ("3rd" if t_idx==2 else f"{t_idx+1}th"))
+                                    st.write(f"• {r_label} Place: {t_baker}")
+                        elif tech_top or tech_bot:
+                            if tech_top:
+                                st.write("**Top 3 Technical Positions:**")
+                                for t_idx, t_baker in enumerate(tech_top):
+                                    if t_baker and t_baker != "--Select Baker--":
+                                        r_label = "1st" if t_idx==0 else ("2nd" if t_idx==1 else "3rd")
+                                        st.write(f"• {r_label} Place: {t_baker}")
+                            if tech_bot:
+                                st.write("**Bottom 3 Technical Positions:**")
+                                for b_idx, b_baker in enumerate(tech_bot):
+                                    if b_baker and b_baker != "--Select Baker--":
+                                        b_label = "3rd-to-Last" if b_idx==0 else ("2nd-to-Last" if b_idx==1 else "Last")
+                                        st.write(f"• {b_label} Place: {b_baker}")
+                        else:
+                            st.write("N/A")
         else:
             st.info("No weekly prediction ballots submitted yet.")
 
@@ -453,7 +478,6 @@ with tab_submit:
     auth_key = f"auth_verified_{pred_player}"
     notice_key = f"sub_notice_{pred_player}"
     
-    # Display submission notice if set after logout
     if notice_key in st.session_state and not st.session_state.get(auth_key, False):
         st.success(st.session_state[notice_key])
         if st.button("Dismiss & Log In", key="dismiss_notice_btn"):
@@ -480,7 +504,6 @@ with tab_submit:
         if st.session_state.get(auth_key, False):
             auth_success = True
             
-            # Optional manual logout button for player convenience
             col_l1, col_l2 = st.columns([6, 1])
             with col_l2:
                 if st.button("🔒 Log Out"):
@@ -673,7 +696,7 @@ with tab_submit:
                             if 2 not in st.session_state.league_members["AI Brian"]["weekly_picks"]:
                                 st.session_state.league_members["AI Brian"]["weekly_picks"][2] = {
                                     "star_baker": random.choice(active_bakers),
-                                    "eliminated": random.sample(active_bakers, 2) if is_grace_week_catchup else random.choice(active_bakers),
+                                    "eliminated": random.choice(active_bakers),
                                     "tech_top_3": random.sample(active_bakers, min(3, len(active_bakers))),
                                     "tech_bottom_3": random.sample(active_bakers, min(3, len(active_bakers)))
                                 }
