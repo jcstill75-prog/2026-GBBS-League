@@ -616,19 +616,28 @@ with tab_submit:
                     
                     edit_conf = True
                     if has_submitted:
-                        edit_conf = st.checkbox("⚠️ Check this box to confirm you want to edit your previously submitted Week 2 Ballot & Season Projections.")
+                        edit_conf = st.checkbox(f"⚠️ Check this box to confirm you want to edit your previously submitted Week 2 Ballot & Season Projections.")
 
                     sub_w2 = st.form_submit_button("Submit Week 2 Ballot & Season Projections")
                     if sub_w2:
                         errors = []
                         if has_submitted and not edit_conf:
-                            errors.append("❌ Please check the confirmation box to edit your previously submitted ballot.")
+                            errors.append(f"❌ Please check the confirmation box to edit your previously submitted ballot.")
                         if s_win == "--Select Baker--":
                             errors.append("Please select a valid Season Winner.")
                         
-                        main_picks = [weekly_picks.get("star_baker"), weekly_picks.get("eliminated"), weekly_picks.get("in_line_sb"), weekly_picks.get("in_trouble")]
-                        valid_main = [p for p in main_picks if p and p != "--Select Baker--"]
-                        if len(valid_main) != len(set(valid_main)):
+                        # Safely flatten main picks (handling both strings and multiselect lists)
+                        main_picks_flat = []
+                        for k in ["star_baker", "eliminated", "in_line_sb", "in_trouble"]:
+                            val = weekly_picks.get(k)
+                            if isinstance(val, list):
+                                for item in val:
+                                    if item and item != "--Select Baker--":
+                                        main_picks_flat.append(item)
+                            elif isinstance(val, str) and val and val != "--Select Baker--":
+                                main_picks_flat.append(val)
+
+                        if len(main_picks_flat) != len(set(main_picks_flat)):
                             errors.append("❌ Duplicate Selection Error: You may not select the same baker more than once across Star Baker, In Line, In Trouble, and Eliminated!")
                             
                         valid_top = [t for t in weekly_picks.get("tech_top_3", []) if t and t != "--Select Baker--"]
@@ -730,24 +739,17 @@ with tab_submit:
                             errors.append(f"❌ Please check the confirmation box to edit your previously submitted Week {active_prediction_week} ballot.")
                         
                         if active_prediction_week < 10:
-                            main_picks = []
-                            sb = weekly_picks.get("star_baker")
-                            if sb and sb != "--Select Baker--": main_picks.append(sb)
+                            main_picks_flat = []
+                            for k in ["star_baker", "eliminated", "in_line_sb", "in_trouble"]:
+                                val = weekly_picks.get(k)
+                                if isinstance(val, list):
+                                    for item in val:
+                                        if item and item != "--Select Baker--":
+                                            main_picks_flat.append(item)
+                                elif isinstance(val, str) and val and val != "--Select Baker--":
+                                    main_picks_flat.append(val)
                             
-                            inl = weekly_picks.get("in_line_sb")
-                            if inl and inl != "--Select Baker--": main_picks.append(inl)
-                            
-                            elim = weekly_picks.get("eliminated")
-                            if isinstance(elim, list):
-                                for e in elim:
-                                    if e and e != "--Select Baker--": main_picks.append(e)
-                            elif elim and elim != "--Select Baker--":
-                                main_picks.append(elim)
-                                
-                            trb = weekly_picks.get("in_trouble")
-                            if trb and trb != "--Select Baker--": main_picks.append(trb)
-                            
-                            if len(main_picks) != len(set(main_picks)):
+                            if len(main_picks_flat) != len(set(main_picks_flat)):
                                 errors.append("❌ Duplicate Selection Error: You may not select the same baker more than once across Star Baker, In Line, In Trouble, and Eliminated!")
                                 
                         if active_prediction_week >= 8:
