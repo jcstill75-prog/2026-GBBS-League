@@ -373,7 +373,7 @@ all_scored_weeks = sorted(list(st.session_state.weekly_results.keys()))
 active_prediction_week = max(all_scored_weeks) + 1 if all_scored_weeks else 1
 if active_prediction_week > 10: active_prediction_week = 10
 
-# --- 5. SIDEBAR (Branding Header, No Sliders) ---
+# --- 5. SIDEBAR (Expanded Points Reference Guide) ---
 with st.sidebar:
     st.title("🧁 GBBS League")
     st.markdown("---")
@@ -386,7 +386,8 @@ with st.sidebar:
     st.markdown("---")
     st.header("🎯 Points Reference Guide")
     st.warning("⏰ **Weekly voting window ends on Tuesdays at 2:00 PM Houston time.**")
-    with st.expander("🌟 Season-Long Projections", expanded=False):
+    
+    with st.expander("🌟 Season-Long Projections", expanded=True):
         st.markdown("""
         * **Season Winner:** 40 pts
         * **Finalist Consolation:** 15 pts *(Top 3)*
@@ -395,12 +396,32 @@ with st.sidebar:
         * **Crying Events:** 20 pts *(spot-on)* / 10 pts *(+/- 5)*
         * **Innuendos Count:** 20 pts *(spot-on)* / 10 pts *(+/- 5)*
         """)
-    with st.expander("📅 Weekly Predictions", expanded=False):
+        
+    with st.expander("📅 Weekly Scoring: Weeks 2–7", expanded=True):
         st.markdown("""
         * **Star Baker:** 5 pts
-        * **Eliminated Baker:** 5 pts
-        * **In Line / In Trouble:** 2 pts each
-        * **Technical Exact Positions:** 3 pts (1st/Last), 2 pts (middle)
+        * **Eliminated Baker:** 5 pts *(10 pts for Double Elim)*
+        * **In Line SB Nominee:** 2 pts
+        * **In Trouble Nominee:** 2 pts
+        * **Top 3 Technical (Exact Match):** 6 pts
+        * **Top 3 Technical (Correct Baker, Wrong Spot):** 1 pt each
+        * **Top 3 Technical (Exact 1st Place):** +3 pts bonus
+        * **Bottom 3 Technical (Exact Match):** 6 pts
+        * **Bottom 3 Technical (Correct Baker, Wrong Spot):** 1 pt each
+        * **Bottom 3 Technical (Exact Last Place):** +3 pts bonus
+        * **Star Member Bonus:** +5 pts to weekly high scorer
+        """)
+        
+    with st.expander("📅 Weekly Scoring: Weeks 8–10", expanded=True):
+        st.markdown("""
+        * **Star Baker (Weeks 8-9):** 5 pts
+        * **Eliminated Baker (Weeks 8-9):** 5 pts
+        * **In Line SB / In Trouble:** 2 pts each
+        * **Technical Challenge (All Active Bakers Ranked):**
+          * Exact 1st Place: 3 pts
+          * Exact Last Place: 3 pts
+          * Any Middle Position Exact Match: 2 pts
+        * **Week 10 Show Champion:** 15 pts
         * **Star Member Bonus:** +5 pts to weekly high scorer
         """)
 
@@ -549,6 +570,10 @@ with tab_lead:
                             st.write(f"🚪 **Eliminated:** {elim_str}")
                             st.write(f"⚠️ **In Trouble:** {trb}")
                             st.info("💡 Transparent scoring comparison and actual outcomes will appear here once official broadcast results are published.")
+
+                        # Requirement: List total amount of points earned at the bottom of the ballot
+                        st.markdown("---")
+                        st.markdown(f"🏆 **Total Points Earned for Week {w_num}:** <span style='color: green; font-weight: bold; font-size: 1.1rem;'>{w_pts} pts</span>", unsafe_allow_html=True)
         else:
             st.info("No weekly prediction ballots submitted yet.")
 
