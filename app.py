@@ -1392,7 +1392,14 @@ if tab_admin:
             if not edit_allowed:
                 st.info("Form fields are locked. Check the 'Unlock to Edit' box above to modify published results.")
         
-        elim_type = st.radio("Elimination Format:", ["Single Elimination", "No Elimination (Grace Week)", "Double Elimination"], horizontal=True, key=f"adm_elim_type_w{admin_selected_week}")
+        elim_saved = saved_w.get("eliminated")
+        default_elim_idx = 0
+        if elim_saved == "None":
+            default_elim_idx = 1
+        elif isinstance(elim_saved, list) and len(elim_saved) == 2:
+            default_elim_idx = 2
+
+        elim_type = st.radio("Elimination Format:", ["Single Elimination", "No Elimination (Grace Week)", "Double Elimination"], index=default_elim_idx, horizontal=True, key=f"adm_elim_type_w{admin_selected_week}")
         
         active_bakers = [b for b in ALL_BAKERS if b not in eliminated_bakers_by_week.get(admin_selected_week, [])]
         baker_opts = ["-- Select Baker --"] + active_bakers
