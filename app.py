@@ -38,7 +38,7 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# --- 2. PERSISTENCE ENGINE ---
+# --- 2. PERSISTENCE & NORMALIZATION ENGINE ---
 DATA_FILE = "league_data.json"
 
 def load_league_data():
@@ -47,6 +47,7 @@ def load_league_data():
             with open(DATA_FILE, "r") as f:
                 data = json.load(f)
                 if isinstance(data, dict):
+                    # Normalize weekly_results keys to int
                     w_res = {}
                     for k, v in data.get("weekly_results", {}).items():
                         try:
@@ -54,6 +55,18 @@ def load_league_data():
                         except Exception:
                             w_res[k] = v
                     data["weekly_results"] = w_res
+                    
+                    # Normalize weekly_picks keys to int for all members
+                    for m_name, m_data in data.get("league_members", {}).items():
+                        if isinstance(m_data, dict) and "weekly_picks" in m_data:
+                            norm_picks = {}
+                            for wk_k, wk_v in m_data["weekly_picks"].items():
+                                try:
+                                    norm_picks[int(wk_k)] = wk_v
+                                except Exception:
+                                    norm_picks[wk_k] = wk_v
+                            m_data["weekly_picks"] = norm_picks
+                            
                     return data
         except Exception:
             pass
@@ -61,9 +74,28 @@ def load_league_data():
 
 def save_league_data():
     try:
+        # Normalize weekly_picks and weekly_results before saving
+        clean_members = st.session_state.get("league_members", {})
+        for m_name, m_data in clean_members.items():
+            if isinstance(m_data, dict) and "weekly_picks" in m_data:
+                norm_picks = {}
+                for wk_k, wk_v in m_data["weekly_picks"].items():
+                    try:
+                        norm_picks[int(wk_k)] = wk_v
+                    except Exception:
+                        norm_picks[wk_k] = wk_v
+                m_data["weekly_picks"] = norm_picks
+
+        clean_w_res = {}
+        for wk_k, wk_v in st.session_state.get("weekly_results", {}).items():
+            try:
+                clean_w_res[int(wk_k)] = wk_v
+            except Exception:
+                clean_w_res[wk_k] = wk_v
+
         payload = {
-            "league_members": st.session_state.get("league_members", {}),
-            "weekly_results": st.session_state.get("weekly_results", {}),
+            "league_members": clean_members,
+            "weekly_results": clean_w_res,
             "season_results": st.session_state.get("season_results", {}),
             "disputes": st.session_state.get("disputes", [])
         }
@@ -236,21 +268,21 @@ def get_detailed_weekly_score_breakdown(predictions, actuals, week):
     return breakdown
 
 def is_week_published(w_num, results_map):
-    if w_num in results_map: return True
-    if str(w_num) in results_map: return True
     try:
-        if int(w_num) in results_map: return True
+        w_int = int(w_num)
     except Exception:
-        pass
+        w_int = w_num
+    if w_int in results_map: return True
+    if str(w_int) in results_map: return True
     return False
 
 def get_week_results(w_num, results_map):
-    if w_num in results_map: return results_map[w_num]
-    if str(w_num) in results_map: return results_map[str(w_num)]
     try:
-        if int(w_num) in results_map: return results_map[int(w_num)]
+        w_int = int(w_num)
     except Exception:
-        pass
+        w_int = w_num
+    if w_int in results_map: return results_map[w_int]
+    if str(w_int) in results_map: return results_map[str(w_int)]
     return {}
 
 def calculate_season_score(predictions, actuals):
@@ -406,7 +438,7 @@ if not st.session_state.league_members["AI Brian"]["season_picks"]:
 def get_eliminated_bakers_by_week():
     elim_map = {}
     elim_list = []
-    for w in sorted(st.session_state.weekly_results.keys()):
+    for w in sorted(st.session_state.weekly_results.keys(), key=lambda x: int(x)):
         res = st.session_state.weekly_results[w]
         act_el = res.get("eliminated")
         if isinstance(act_el, list):
