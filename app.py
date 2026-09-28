@@ -16,7 +16,7 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# Custom Styling for cozy baking theme & card containers
+# Custom Styling for cozy baking theme & baseball card containers
 st.markdown("""
 <style>
     .stButton>button {
@@ -34,14 +34,24 @@ st.markdown("""
     h1, h2, h3 {
         color: #5D4037;
     }
-    .baker-card {
-        border: 2px solid #D7CCC8;
+    .baseball-card {
+        border: 3px solid #8D6E63;
         border-radius: 12px;
-        padding: 14px;
-        background-color: #FFF9F5;
-        box-shadow: 0 2px 4px rgba(93, 64, 55, 0.05);
-        margin-bottom: 12px;
+        padding: 12px;
+        background: linear-gradient(135deg, #FFF9F5 0%, #F5EBE6 100%);
+        box-shadow: 0 4px 8px rgba(93, 64, 55, 0.15);
+        margin-bottom: 15px;
+    }
+    .card-header {
+        background-color: #5D4037;
+        color: white;
+        padding: 6px 10px;
+        border-radius: 6px;
+        font-weight: bold;
         text-align: center;
+        margin-bottom: 10px;
+        font-size: 1.05rem;
+        letter-spacing: 0.5px;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -489,45 +499,49 @@ with tab_submit:
     if auth_success:
         st.markdown("---")
         
-        # Visual Baker Gallery & Live Stats Tracker (Wrapped in bordered card containers)
+        # Baseball Card Style Visual Baker Gallery (Active bakers only)
         curr_elim_all = eliminated_bakers_by_week.get(active_prediction_week, [])
         remaining_gallery_bakers = [b for b in ALL_BAKERS if b not in curr_elim_all]
         
-        with st.expander(f"📸 Visual Baker Gallery & Season Statistics (Active Bakers - Week {active_prediction_week})", expanded=True):
-            cols = st.columns(4)
+        with st.expander(f"📸 Visual Baker Trading Cards & Season Statistics (Active Bakers - Week {active_prediction_week})", expanded=True):
+            cols = st.columns(3)
             for idx, baker in enumerate(remaining_gallery_bakers):
                 sb_c, inl_c, trb_c, tech_stat = get_baker_stats(baker, active_prediction_week)
                 
-                with cols[idx % 4]:
-                    # Render inside a custom bordered card container
+                with cols[idx % 3]:
+                    # Build baseball card container
                     st.markdown(f"""
-                    <div class="baker-card">
-                        <b>{baker}</b><br>
+                    <div class="baseball-card">
+                        <div class="card-header">{baker}</div>
                     """, unsafe_allow_html=True)
                     
-                    b_img = load_baker_image(baker)
-                    if b_img is not None:
-                        st.image(b_img, use_container_width=True)
-                    else:
-                        st.markdown("🧁 *[Portrait]*")
-                        
-                    st.markdown(f"""
-                    <div style="text-align: left; font-size: 0.9rem; margin-top: 8px;">
-                    • Star Baker Wins: <b>{sb_c}</b><br>
-                    • In Line Mentions: <b>{inl_c}</b><br>
-                    • In Trouble Mentions: <b>{trb_c}</b><br>
-                    """, unsafe_allow_html=True)
-                    
-                    if active_prediction_week <= 5:
-                        if isinstance(tech_stat, dict) and tech_stat:
-                            tech_str = ", ".join([f"W{w}: #{p}" for w, p in sorted(tech_stat.items())])
-                            st.markdown(f"• Technicals: <b>{tech_str}</b>", unsafe_allow_html=True)
+                    card_col1, card_col2 = st.columns([1, 1.2])
+                    with card_col1:
+                        b_img = load_baker_image(baker)
+                        if b_img is not None:
+                            st.image(b_img, use_container_width=True)
                         else:
-                            st.markdown("• Technicals: <b>None yet</b>", unsafe_allow_html=True)
-                    else:
-                        st.markdown(f"• Avg Technical: <b>{tech_stat}</b>", unsafe_allow_html=True)
+                            st.markdown("🧁 *[Portrait]*")
+                    with card_col2:
+                        st.markdown(f"""
+                        <div style="font-size: 0.82rem; color: #3E2723; line-height: 1.35;">
+                        • Star Baker: <b>{sb_c}</b><br>
+                        • In Line: <b>{inl_c}</b><br>
+                        • In Trouble: <b>{trb_c}</b><br>
+                        """, unsafe_allow_html=True)
                         
-                    st.markdown("</div></div>", unsafe_allow_html=True)
+                        if active_prediction_week <= 5:
+                            if isinstance(tech_stat, dict) and tech_stat:
+                                tech_str = ", ".join([f"W{w}: #{p}" for w, p in sorted(tech_stat.items())])
+                                st.markdown(f"• Technicals: <b>{tech_str}</b>", unsafe_allow_html=True)
+                            else:
+                                st.markdown("• Technicals: <b>None yet</b>", unsafe_allow_html=True)
+                        else:
+                            st.markdown(f"• Avg Tech: <b>{tech_stat}</b>", unsafe_allow_html=True)
+                            
+                        st.markdown("</div>", unsafe_allow_html=True)
+                        
+                    st.markdown("</div>", unsafe_allow_html=True)
 
         st.markdown("---")
         if not st.session_state.weekly_results:
