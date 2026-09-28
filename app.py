@@ -241,21 +241,6 @@ ALL_BAKERS = [
     "Molly", "Moyin", "Nikki", "Shannon", "Tom", "Yannis"
 ]
 
-BAKER_INFO = {
-    "Clara": {"url": "https://thegreatbritishbakeoff.co.uk/bakers/series-17-clara/"},
-    "Connie": {"url": "https://thegreatbritishbakeoff.co.uk/bakers/series-17-connie/"},
-    "Danni": {"url": "https://thegreatbritishbakeoff.co.uk/bakers/series-17-danni/"},
-    "Gabe": {"url": "https://thegreatbritishbakeoff.co.uk/bakers/series-17-gabe/"},
-    "Gary": {"url": "https://thegreatbritishbakeoff.co.uk/bakers/series-17-gary/"},
-    "Mo": {"url": "https://thegreatbritishbakeoff.co.uk/bakers/series-17-mo/"},
-    "Molly": {"url": "https://thegreatbritishbakeoff.co.uk/bakers/series-17-molly/"},
-    "Moyin": {"url": "https://thegreatbritishbakeoff.co.uk/bakers/series-17-moyin/"},
-    "Nikki": {"url": "https://thegreatbritishbakeoff.co.uk/bakers/series-17-nikki/"},
-    "Shannon": {"url": "https://thegreatbritishbakeoff.co.uk/bakers/series-17-shannon/"},
-    "Tom": {"url": "https://thegreatbritishbakeoff.co.uk/bakers/series-17-tom/"},
-    "Yannis": {"url": "https://thegreatbritishbakeoff.co.uk/bakers/series-17-yannis/"}
-}
-
 ROSTER_HUMANS = [
     "Ana", "Becca", "Brian", "Cassie", "Emma", "Gisselle", 
     "Jasmine", "Jennifer", "Mark", "Sam", "Stacie W.", 
@@ -495,14 +480,13 @@ with tab_submit:
     if auth_success:
         st.markdown("---")
         
-        # Visual Baker Gallery & Live Stats Tracker (Filtered for remaining active bakers only)
+        # Visual Baker Gallery & Live Stats Tracker (Filtered for remaining active bakers only, no GBBO links)
         curr_elim_all = eliminated_bakers_by_week.get(active_prediction_week, [])
         remaining_gallery_bakers = [b for b in ALL_BAKERS if b not in curr_elim_all]
         
         with st.expander(f"📸 Visual Baker Gallery & Season Statistics (Active Bakers - Week {active_prediction_week})", expanded=True):
             cols = st.columns(4)
             for idx, baker in enumerate(remaining_gallery_bakers):
-                info = BAKER_INFO.get(baker, {"url": "#"})
                 sb_c, inl_c, trb_c, tech_stat = get_baker_stats(baker, active_prediction_week)
                 
                 with cols[idx % 4]:
@@ -527,8 +511,6 @@ with tab_submit:
                             st.markdown("* Technical Placements: **None yet**")
                     else:
                         st.markdown(f"* Avg Technical Placement: **{tech_stat}**")
-                        
-                    st.markdown(f"[GBBO Profile]({info['url']})")
 
         st.markdown("---")
         if not st.session_state.weekly_results:
