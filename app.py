@@ -1099,7 +1099,7 @@ with tab_results:
                     
                     elim_val = w_act.get('eliminated', 'N/A')
                     if isinstance(elim_val, list):
-                        elim_str = ", ".join([str(b) for b in elim_val if b])
+                        elim_str = ", ".join([str(b) for b in elim if b])
                     else:
                         elim_str = str(elim_val)
                     st.write(f"🚪 **Eliminated:** {elim_str}")
@@ -1215,7 +1215,6 @@ with tab_admin:
                 edit_allowed = st.checkbox(f"Unlock Week {admin_selected_week} to edit published results", value=False, key=f"unlock_w{admin_selected_week}")
             with col_unpub2:
                 if st.button(f"🗑️ Unpublish Week {admin_selected_week} Results", key=f"unpub_btn_{admin_selected_week}"):
-                    # Remove results for this week
                     if admin_selected_week in st.session_state.weekly_results:
                         del st.session_state.weekly_results[admin_selected_week]
                     if str(admin_selected_week) in st.session_state.weekly_results:
@@ -1223,7 +1222,6 @@ with tab_admin:
                     if admin_selected_week == 10:
                         st.session_state.season_results = {}
                     
-                    # Recalculate all scores
                     for member_name in st.session_state.league_members:
                         st.session_state.league_members[member_name]["total_score"] = 0
                         st.session_state.league_members[member_name]["weekly_breakdown"] = {}
@@ -1432,7 +1430,7 @@ with tab_admin:
                 st.success(f"Security PIN for {reset_sel_player} has been cleared! They can set a new 4-digit PIN upon next login.")
                 st.rerun()
 
-        st.markdown---()
+        st.markdown("---")
         st.subheader("🚨 Emergency Reset & Delete All App Data")
         confirm_erase = st.checkbox("I understand this will permanently erase all player prediction ballots, PINs, and published broadcast results.", key="confirm_erase_check")
         if st.button("🗑️ Erase All Competition Data", type="primary"):
