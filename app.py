@@ -7,6 +7,7 @@ import base64
 import datetime
 from zoneinfo import ZoneInfo
 from PIL import Image
+import io
 
 # --- 1. SETUP & PAGE CONFIG ---
 st.set_page_config(
@@ -16,7 +17,7 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# Custom Styling for cozy baking theme & rectangular profile card containers
+# Custom Styling for cozy baking theme & uniform card typography
 st.markdown("""
 <style>
     .stButton>button {
@@ -33,24 +34,6 @@ st.markdown("""
     }
     h1, h2, h3 {
         color: #5D4037;
-    }
-    .baker-profile-card {
-        border: 2px solid #8D6E63;
-        border-radius: 10px;
-        padding: 10px;
-        background-color: #FFF9F5;
-        box-shadow: 0 3px 6px rgba(93, 64, 55, 0.1);
-        margin-bottom: 12px;
-    }
-    .card-title {
-        background-color: #5D4037;
-        color: white;
-        padding: 5px 8px;
-        border-radius: 5px;
-        font-weight: bold;
-        text-align: center;
-        margin-bottom: 8px;
-        font-size: 1rem;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -191,6 +174,13 @@ def calculate_season_score(predictions, actuals):
             elif abs(p_val - a_val) <= buf: score += buffer_pts
             
     return score
+
+def image_to_base64(img):
+    if img is None:
+        return ""
+    buffered = io.BytesIO()
+    img.save(buffered, format="JPEG")
+    return base64.b64encode(buffered.getvalue()).decode()
 
 def load_baker_image(baker_name):
     if not os.path.exists("assets"):
@@ -498,49 +488,52 @@ with tab_submit:
     if auth_success:
         st.markdown("---")
         
-        # Rectangular Profile Card Layout (Active bakers only, photo left, stats right)
+        # Unified Pure-HTML Rectangular Cards (Photo left, Stats right, fully enclosed border)
         curr_elim_all = eliminated_bakers_by_week.get(active_prediction_week, [])
         remaining_gallery_bakers = [b for b in ALL_BAKERS if b not in curr_elim_all]
         
         with st.expander(f"📸 Visual Baker Profiles & Season Statistics (Active Bakers - Week {active_prediction_week})", expanded=True):
-            cols = st.columns(2)
+            card_cols = st.columns(2)
             for idx, baker in enumerate(remaining_gallery_bakers):
                 sb_c, inl_c, trb_c, tech_stat = get_baker_stats(baker, active_prediction_week)
                 
-                with cols[idx % 2]:
-                    # Build rectangular card container
-                    st.markdown(f"""
-                    <div class="baker-profile-card">
-                        <div class="card-title">{baker}</div>
-                    """, unsafe_allow_html=True)
-                    
-                    card_col1, card_col2 = st.columns([1, 1.5])
-                    with card_col1:
-                        b_img = load_baker_image(baker)
-                        if b_img is not None:
-                            st.image(b_img, use_container_width=True)
-                        else:
-                            st.markdown("🧁 *[Portrait]*")
-                    with card_col2:
-                        st.markdown(f"""
-                        <div style="font-size: 0.9rem; color: #3E2723; line-height: 1.5;">
-                        • Star Baker Wins: <b>{sb_c}</b><br>
-                        • In Line Mentions: <b>{inl_c}</b><br>
-                        • In Trouble Mentions: <b>{trb_c}</b><br>
-                        """, unsafe_allow_html=True)
-                        
-                        if active_prediction_week <= 5:
-                            if isinstance(tech_stat, dict) and tech_stat:
-                                tech_str = ", ".join([f"W{w}: #{p}" for w, p in sorted(tech_stat.items())])
-                                st.markdown(f"• Technicals: <b>{tech_str}</b>", unsafe_allow_html=True)
-                            else:
-                                st.markdown("• Technicals: <b>None yet</b>", unsafe_allow_html=True)
-                        else:
-                            st.markdown(f"• Avg Technical: <b>{tech_stat}</b>", unsafe_allow_html=True)
-                            
-                        st.markdown("</div>", unsafe_allow_html=True)
-                        
-                    st.markdown("</div>", unsafe_allow_html=True)
+                b_img = load_baker_image(baker)
+                img_b64 = image_to_base64(b_img) if b_img else ""
+                
+                if img_b64:
+                    img_tag = f'<img src="data:image/jpeg;base64,{img_b64}" style="width: 100%; max-width: 105px; height: 120px; object-fit: cover; border-radius: 6px; border: 1px solid #8D6E63;">'
+                else:
+                    img_tag = '<div style="width: 100%; max-width: 105px; height: 120px; background-color: #EFEBE9; border-radius: 6px; display: flex; align-items: center; justify-content: center; font-size: 0.8rem; color: #5D4037;">[Photo]</div>'
+                
+                if active_prediction_week <= 5:
+                    if isinstance(tech_stat, dict) and tech_stat:
+                        tech_str = ", ".join([f"W{w}: #{p}" for w, p in sorted(tech_stat.items())])
+                    else:
+                        tech_str = "None yet"
+                    tech_line = f"• Technicals: <b>{tech_str}</b>"
+                else:
+                    tech_line = f"• Avg Technical: <b>{tech_stat}</b>"
+
+                card_html = f"""
+                <div style="border: 2px solid #8D6E63; border-radius: 10px; padding: 12px; background-color: #FFF9F5; box-shadow: 0 3px 6px rgba(93, 64, 55, 0.1); margin-bottom: 12px;">
+                    <div style="background-color: #5D4037; color: #FFFFFF !important; padding: 6px 10px; border-radius: 6px; font-weight: bold; text-align: center; margin-bottom: 10px; font-size: 1.05rem;">
+                        {baker}
+                    </div>
+                    <div style="display: flex; gap: 12px; align-items: center;">
+                        <div style="flex: 1; text-align: center;">
+                            {img_tag}
+                        </div>
+                        <div style="flex: 1.5; font-size: 0.9rem; color: #3E2723 !important; line-height: 1.5;">
+                            • Star Baker Wins: <b style="color: #3E2723;">{sb_c}</b><br>
+                            • In Line Mentions: <b style="color: #3E2723;">{inl_c}</b><br>
+                            • In Trouble Mentions: <b style="color: #3E2723;">{trb_c}</b><br>
+                            <span style="color: #3E2723;">{tech_line}</span>
+                        </div>
+                    </div>
+                </div>
+                """
+                with card_cols[idx % 2]:
+                    st.markdown(card_html, unsafe_allow_html=True)
 
         st.markdown("---")
         if not st.session_state.weekly_results:
