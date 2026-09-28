@@ -647,14 +647,12 @@ if tab_lead:
     w10_g = get_week_results(10, all_w_res_global)
     act_winner_g = w10_g.get("show_champion") if w10_g else None
     
-    # Automatically compute actual semifinalists (bakers remaining active at Week 9)
-    # Week 9 active bakers = ALL_BAKERS minus all eliminated up through Week 8
-    w8_elim_map = eliminated_bakers_by_week.get(9, [])
-    act_semis_computed = [b for b in ALL_BAKERS if b not in w8_elim_map]
+    w8_elim_g = eliminated_bakers_by_week.get(9, [])
+    act_semis_g = [b for b in ALL_BAKERS if b not in w8_elim_g]
     
     current_season_actuals = {
         "winner": act_winner_g,
-        "semifinalists": act_semis_computed,
+        "semifinalists": act_semis_g,
         "handshakes": total_hs_g,
         "crying": total_cry_g,
         "innuendos": total_inn_g
@@ -698,6 +696,7 @@ if tab_lead:
         if p_weekly:
             voting_closed = is_weekly_voting_closed()
             weekly_results_map = st.session_state.get("weekly_results", {})
+            season_finished = is_week_published(10, weekly_results_map)
             
             logged_in_human = None
             for hum in ROSTER_HUMANS:
@@ -707,7 +706,7 @@ if tab_lead:
 
             for w_num in sorted(p_weekly.keys(), key=lambda x: int(x)):
                 is_current_active_week = (int(w_num) == active_prediction_week)
-                can_view = (selected_card_player == logged_in_human) or (selected_card_player == "AI Brian") or (not is_current_active_week) or voting_closed
+                can_view = (selected_card_player == logged_in_human) or (selected_card_player == "AI Brian") or (not is_current_active_week) or voting_closed or season_finished
                 
                 if not can_view:
                     with st.expander(f"Week {w_num} Ballot (Locked 🔒)", expanded=False):
@@ -1489,7 +1488,6 @@ if tab_admin:
                                 if raw_s == max_raw and raw_s > 0:
                                     st.session_state.league_members[m_name]["weekly_breakdown"][w] += 5
 
-                    # Automatically calculate season score from accumulated weekly results & Week 10 show champion
                     all_w_res_pub = st.session_state.get("weekly_results", {})
                     total_hs_all = sum(len(w_dat.get("handshake_bakers", [])) for w_dat in all_w_res_pub.values())
                     total_cry_all = sum(int(w_dat.get("crying_count", 0)) for w_dat in all_w_res_pub.values())
