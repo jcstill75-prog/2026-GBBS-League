@@ -488,7 +488,7 @@ with tab_submit:
     if auth_success:
         st.markdown("---")
         
-        # High-contrast solid rectangular cards with abbreviated labels & absolute legibility
+        # High-contrast solid rectangular cards with "In Line SB:" label & absolute legibility
         curr_elim_all = eliminated_bakers_by_week.get(active_prediction_week, [])
         remaining_gallery_bakers = [b for b in ALL_BAKERS if b not in curr_elim_all]
         
@@ -525,7 +525,7 @@ with tab_submit:
                         </div>
                         <div style="flex: 1; font-size: 0.85rem; color: #2D1B18; line-height: 1.5; background-color: #FFFFFF; padding: 8px; border-radius: 6px; border: 1px solid #D7CCC8;">
                             <div style="color: #2D1B18; margin-bottom: 3px;">Star Baker: <b style="color: #5D4037;">{sb_c}</b></div>
-                            <div style="color: #2D1B18; margin-bottom: 3px;">In-Line SB: <b style="color: #5D4037;">{inl_c}</b></div>
+                            <div style="color: #2D1B18; margin-bottom: 3px;">In Line SB: <b style="color: #5D4037;">{inl_c}</b></div>
                             <div style="color: #2D1B18; margin-bottom: 3px;">In Trouble: <b style="color: #5D4037;">{trb_c}</b></div>
                             <div style="color: #2D1B18;">{tech_line}</div>
                         </div>
@@ -612,7 +612,7 @@ with tab_submit:
                     
                     edit_conf = True
                     if has_submitted:
-                        edit_conf = st.checkbox(f"⚠️ Check this box to confirm you want to edit your previously submitted Week 2 Ballot & Season Projections.")
+                        edit_conf = st.checkbox(f"⚠️ Check this box to confirm you want to edit your previously submitted Week {active_prediction_week} ballot.")
 
                     sub_w2 = st.form_submit_button("Submit Week 2 Ballot & Season Projections")
                     if sub_w2:
