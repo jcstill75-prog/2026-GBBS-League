@@ -373,7 +373,7 @@ all_scored_weeks = sorted(list(st.session_state.weekly_results.keys()))
 active_prediction_week = max(all_scored_weeks) + 1 if all_scored_weeks else 1
 if active_prediction_week > 10: active_prediction_week = 10
 
-# --- 5. SIDEBAR (Expanded Points Reference Guide) ---
+# --- 5. SIDEBAR (Fully Synchronized Points Reference Guide) ---
 with st.sidebar:
     st.title("🧁 GBBS League")
     st.markdown("---")
@@ -392,9 +392,9 @@ with st.sidebar:
         * **Season Winner:** 40 pts
         * **Finalist Consolation:** 15 pts *(Top 3)*
         * **Other 3 Semifinalists:** 10 pts each
-        * **Handshakes Count:** 20 pts *(spot-on)* / 10 pts *(+/- 1)*
-        * **Crying Events:** 20 pts *(spot-on)* / 10 pts *(+/- 5)*
-        * **Innuendos Count:** 20 pts *(spot-on)* / 10 pts *(+/- 5)*
+        * **Hollywood Handshakes:** 20 pts *(exact)* / 10 pts *(+/- 1)*
+        * **Crying Incidents:** 20 pts *(exact)* / 10 pts *(+/- 5)*
+        * **Sexual Innuendos:** 20 pts *(exact)* / 10 pts *(+/- 5)*
         """)
         
     with st.expander("📅 Weekly Scoring: Weeks 2–7", expanded=True):
@@ -403,25 +403,34 @@ with st.sidebar:
         * **Eliminated Baker:** 5 pts *(10 pts for Double Elim)*
         * **In Line SB Nominee:** 2 pts
         * **In Trouble Nominee:** 2 pts
-        * **Top 3 Technical (Exact Match):** 6 pts
-        * **Top 3 Technical (Correct Baker, Wrong Spot):** 1 pt each
-        * **Top 3 Technical (Exact 1st Place):** +3 pts bonus
-        * **Bottom 3 Technical (Exact Match):** 6 pts
-        * **Bottom 3 Technical (Correct Baker, Wrong Spot):** 1 pt each
-        * **Bottom 3 Technical (Exact Last Place):** +3 pts bonus
+        * **Top 3 Technical:**
+          * Exact 1st Place = 3 pts
+          * Exact 2nd & 3rd = 2 pts each
+          * Correct Baker, Wrong Spot = 1 pt each
+          * Perfect Sweep = 10 pts flat bonus
+        * **Bottom 3 Technical:**
+          * Exact Last Place = 3 pts
+          * Exact 3rd/2nd-to-Last = 2 pts each
+          * Correct Baker, Wrong Spot = 1 pt each
+          * Perfect Sweep = 10 pts flat bonus
         * **Star Member Bonus:** +5 pts to weekly high scorer
         """)
         
     with st.expander("📅 Weekly Scoring: Weeks 8–10", expanded=True):
         st.markdown("""
-        * **Star Baker (Weeks 8-9):** 5 pts
-        * **Eliminated Baker (Weeks 8-9):** 5 pts
-        * **In Line SB / In Trouble:** 2 pts each
-        * **Technical Challenge (All Active Bakers Ranked):**
-          * Exact 1st Place: 3 pts
-          * Exact Last Place: 3 pts
-          * Any Middle Position Exact Match: 2 pts
-        * **Week 10 Show Champion:** 15 pts
+        * **Quarterfinals (Week 8 — 5 Bakers):**
+          * Exact 1st & 5th = 3 pts each
+          * Exact 2nd, 3rd, 4th = 2 pts each
+          * Flawless 5-for-5 Sweep = 25 pts flat
+        * **Semifinals (Week 9 — 4 Bakers):**
+          * Exact 1st & 4th = 3 pts each
+          * Exact 2nd & 3rd = 2 pts each
+          * Flawless 4-for-4 Sweep = 20 pts flat
+        * **Grand Finale (Week 10 — 3 Bakers):**
+          * Show Champion = 15 pts
+          * Exact 1st Place = 3 pts
+          * Exact 2nd & 3rd = 2 pts each
+          * Flawless 3-for-3 Sweep = 15 pts flat
         * **Star Member Bonus:** +5 pts to weekly high scorer
         """)
 
@@ -571,7 +580,7 @@ with tab_lead:
                             st.write(f"⚠️ **In Trouble:** {trb}")
                             st.info("💡 Transparent scoring comparison and actual outcomes will appear here once official broadcast results are published.")
 
-                        # Requirement: List total amount of points earned at the bottom of the ballot
+                        # Total points earned at the bottom of the ballot
                         st.markdown("---")
                         st.markdown(f"🏆 **Total Points Earned for Week {w_num}:** <span style='color: green; font-weight: bold; font-size: 1.1rem;'>{w_pts} pts</span>", unsafe_allow_html=True)
         else:
