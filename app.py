@@ -532,7 +532,6 @@ with tab_lead:
             voting_closed = is_weekly_voting_closed()
             weekly_results_map = st.session_state.get("weekly_results", {})
             
-            # Determine active logged-in human player from submit predictions tab session state if any
             logged_in_human = None
             for hum in ROSTER_HUMANS:
                 if st.session_state.get(f"auth_verified_{hum}", False):
@@ -550,7 +549,6 @@ with tab_lead:
                     w_picks = p_weekly[w_num]
                     has_published = is_week_published(w_num, weekly_results_map)
                     
-                    # Dynamically compute total points including high scorer bonus in real time
                     base_w_pts = calculate_weekly_score(w_picks, get_week_results(w_num, weekly_results_map), w_num)
                     all_w_scores = [calculate_weekly_score(m_dat["weekly_picks"].get(w_num, m_dat["weekly_picks"].get(str(w_num), {})), get_week_results(w_num, weekly_results_map), w_num) for m_dat in st.session_state.league_members.values()]
                     is_high_scorer = (all_w_scores and base_w_pts == max(all_w_scores) and base_w_pts > 0)
@@ -579,7 +577,6 @@ with tab_lead:
                                 * **{cat_label}:** <span style="color: #1E88E5; font-weight: bold;">{pred_str}</span> | Actual: <span style="color: #B54E43; font-weight: bold;">{act_str}</span> &nbsp;&nbsp;|&nbsp;&nbsp; <span style="color: {pts_color}; font-weight: bold;">+{pts_earned} / {max_pts} pts</span>
                                 """, unsafe_allow_html=True)
                                 
-                            # Technical challenge breakdown synchronized with backend scoring
                             st.markdown("---")
                             st.markdown("📊 **Technical Challenge Breakdown:**")
                             act_tech_rank = act_w.get("tech_rank", [])
@@ -607,7 +604,6 @@ with tab_lead:
                                     act_top3 = act_tech_rank[:3] if len(act_tech_rank) >= 3 else act_tech_rank
                                     act_bot3 = act_tech_rank[-3:] if len(act_tech_rank) >= 3 else act_tech_rank
                                     
-                                    # Check for Top 3 Sweep
                                     is_top3_sweep = (tech_top_3 == act_top3)
                                     
                                     if tech_top_3:
@@ -640,7 +636,6 @@ with tab_lead:
                                                 pts_disp = f"&nbsp;&nbsp;|&nbsp;&nbsp; <span style='color: {t_color}; font-weight: bold;'>{t_pts} pts</span>" if not is_top3_sweep or t_idx == 0 else ""
                                                 st.markdown(f"* {r_label} Place: <span style='color: #1E88E5; font-weight: bold;'>{pred_at_pos}</span> | Actual: <span style='color: #B54E43; font-weight: bold;'>{actual_baker}</span> {pts_disp}", unsafe_allow_html=True)
                                             
-                                    # Check for Bottom 3 Sweep
                                     is_bot3_sweep = (tech_bottom_3 == act_bot3)
                                     
                                     if tech_bottom_3:
@@ -940,9 +935,12 @@ with tab_submit:
                             p_info["season_picks"] = {"winner": s_win, "semifinalists": s_semis, "handshakes": s_hs, "crying": s_cry, "innuendos": s_inn}
                             p_info["weekly_picks"][2] = weekly_picks
                             if 2 not in st.session_state.league_members["AI Brian"]["weekly_picks"]:
+                                # Fully populate AI Brian with all required prediction keys including in_line_sb and in_trouble
                                 st.session_state.league_members["AI Brian"]["weekly_picks"][2] = {
                                     "star_baker": random.choice(active_bakers),
                                     "eliminated": random.choice(active_bakers),
+                                    "in_line_sb": random.choice(active_bakers),
+                                    "in_trouble": random.choice(active_bakers),
                                     "tech_top_3": random.sample(active_bakers, min(3, len(active_bakers))),
                                     "tech_bottom_3": random.sample(active_bakers, min(3, len(active_bakers)))
                                 }
@@ -1061,6 +1059,8 @@ with tab_submit:
                                 st.session_state.league_members["AI Brian"]["weekly_picks"][active_prediction_week] = {
                                     "star_baker": random.choice(active_bakers),
                                     "eliminated": random.sample(active_bakers, 2) if is_grace_week_catchup else random.choice(active_bakers),
+                                    "in_line_sb": random.choice(active_bakers),
+                                    "in_trouble": random.choice(active_bakers),
                                     "tech_top_3": random.sample(active_bakers, min(3, len(active_bakers))),
                                     "tech_bottom_3": random.sample(active_bakers, min(3, len(active_bakers)))
                                 }
