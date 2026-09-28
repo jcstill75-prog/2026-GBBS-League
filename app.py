@@ -591,13 +591,9 @@ with tab_submit:
                         inl_idx = (["--Select Baker--"] + active_bakers).index(inl_def) if inl_def in (["--Select Baker--"] + active_bakers) else 0
                         weekly_picks["in_line_sb"] = st.selectbox("'In Line' Nominee (2 pts):", ["--Select Baker--"] + active_bakers, index=inl_idx)
                     with col2:
-                        if is_grace_week_catchup:
-                            el_def = [b for b in saved_weekly.get("eliminated", []) if b in active_bakers]
-                            weekly_picks["eliminated"] = st.multiselect("Predicted 2 Eliminated Bakers (5 pts each - Select 2):", active_bakers, default=el_def, max_selections=2)
-                        else:
-                            el_def = saved_weekly.get("eliminated", "--Select Baker--")
-                            el_idx = (["--Select Baker--"] + active_bakers).index(el_def) if el_def in (["--Select Baker--"] + active_bakers) else 0
-                            weekly_picks["eliminated"] = st.selectbox("Eliminated Baker (5 pts):", ["--Select Baker--"] + active_bakers, index=el_idx)
+                        el_def = saved_weekly.get("eliminated", "--Select Baker--")
+                        el_idx = (["--Select Baker--"] + active_bakers).index(el_def) if el_def in (["--Select Baker--"] + active_bakers) else 0
+                        weekly_picks["eliminated"] = st.selectbox("Eliminated Baker (5 pts):", ["--Select Baker--"] + active_bakers, index=el_idx)
                             
                         trb_def = saved_weekly.get("in_trouble", "--Select Baker--")
                         trb_idx = (["--Select Baker--"] + active_bakers).index(trb_def) if trb_def in (["--Select Baker--"] + active_bakers) else 0
@@ -624,13 +620,13 @@ with tab_submit:
                     
                     edit_conf = True
                     if has_submitted:
-                        edit_conf = st.checkbox(f"⚠️ Check this box to confirm you want to edit your previously submitted Week {active_prediction_week} Ballot & Season Projections.")
+                        edit_conf = st.checkbox(f"⚠️ Check this box to confirm you want to edit your previously submitted Week 2 Ballot & Season Projections.")
 
                     sub_w2 = st.form_submit_button("Submit Week 2 Ballot & Season Projections")
                     if sub_w2:
                         errors = []
                         if has_submitted and not edit_conf:
-                            errors.append("❌ Please check the confirmation box to edit your previously submitted ballot.")
+                            errors.append(f"❌ Please check the confirmation box to edit your previously submitted ballot.")
                         if s_win == "--Select Baker--":
                             errors.append("Please select a valid Season Winner.")
                         
@@ -670,7 +666,7 @@ with tab_submit:
                                     "tech_bottom_3": random.sample(active_bakers, min(3, len(active_bakers)))
                                 }
                             save_league_data()
-                            st.success("Week 2 Ballot and Season Projections successfully saved! You have been logged out.")
+                            st.success(f"✅ Success! Your Week 2 Ballot and Season Projections have been successfully submitted and locked in. You can log back in with your PIN anytime to review or edit your choices before the deadline. You have now been logged out.")
                             st.session_state[auth_key] = False
                             st.rerun()
 
@@ -788,7 +784,7 @@ with tab_submit:
                                     "tech_bottom_3": random.sample(active_bakers, min(3, len(active_bakers)))
                                 }
                             save_league_data()
-                            st.success(f"Week {active_prediction_week} ballot submitted successfully! You have been logged out.")
+                            st.success(f"✅ Success! Your Week {active_prediction_week} Ballot has been successfully submitted and locked in. You can log back in with your PIN anytime to review or edit your choices before the deadline. You have now been logged out.")
                             st.session_state[auth_key] = False
                             st.rerun()
 
