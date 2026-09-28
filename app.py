@@ -451,7 +451,6 @@ all_scored_weeks = sorted([int(k) for k in st.session_state.weekly_results.keys(
 active_prediction_week = max(all_scored_weeks) + 1 if all_scored_weeks else 1
 if active_prediction_week > 10: active_prediction_week = 10
 
-# Robust AI Brian weekly pick generator enforcing strict uniqueness rules
 def generate_ai_brian_weekly_picks(active_bakers, is_grace_week_catchup, week):
     pool = list(active_bakers)
     random.shuffle(pool)
@@ -1219,6 +1218,7 @@ with tab_results:
                 })
                 save_league_data()
                 st.success("Dispute submitted successfully for league review!")
+                st.rerun()
     else:
         st.info("👆 Please select your player name from the dropdown above to open the dispute submission form.")
 
@@ -1452,23 +1452,28 @@ with tab_admin:
         st.write("Review active disputes submitted by players, vote in GroupMe, and record the final ruling below:")
         if st.session_state.get("disputes"):
             for idx, disp in enumerate(st.session_state.disputes):
-                st.markdown(f"**Dispute #{idx+1}** | Player: **{disp.get('Player')}** | Week: **{disp.get('Week')}** | Status: `{disp.get('Status')}`")
+                status_text = disp.get('Status', 'Pending Review 🗳️')
+                is_resolved = ("Accepted" in status_text) or ("Rejected" in status_text)
+                
+                st.markdown(f"**Dispute #{idx+1}** | Player: **{disp.get('Player')}** | Week: **{disp.get('Week')}** | Status: `{status_text}`")
                 st.markdown(f"*Evidence:* {disp.get('Evidence')}")
                 st.markdown(f"*Correction Requested:* {disp.get('Correction')}")
                 
-                c_res1, c_res2 = st.columns(2)
-                with c_res1:
-                    if st.button(f"Accept Dispute #{idx+1}", key=f"accept_disp_{idx}"):
-                        st.session_state.disputes[idx]["Status"] = "Accepted ✅"
-                        save_league_data()
-                        st.success(f"Dispute #{idx+1} marked as Accepted!")
-                        st.rerun()
-                with c_res2:
-                    if st.button(f"Reject Dispute #{idx+1}", key=f"reject_disp_{idx}"):
-                        st.session_state.disputes[idx]["Status"] = "Rejected ❌"
-                        save_league_data()
-                        st.success(f"Dispute #{idx+1} marked as Rejected!")
-                        st.rerun()
+                # Only show voting buttons if the dispute is still pending review
+                if not is_resolved:
+                    c_res1, c_res2 = st.columns(2)
+                    with c_res1:
+                        if st.button(f"Accept Dispute #{idx+1}", key=f"accept_disp_{idx}"):
+                            st.session_state.disputes[idx]["Status"] = "Accepted ✅"
+                            save_league_data()
+                            st.success(f"Dispute #{idx+1} marked as Accepted!")
+                            st.rerun()
+                    with c_res2:
+                        if st.button(f"Reject Dispute #{idx+1}", key=f"reject_disp_{idx}"):
+                            st.session_state.disputes[idx]["Status"] = "Rejected ❌"
+                            save_league_data()
+                            st.success(f"Dispute #{idx+1} marked as Rejected!")
+                            st.rerun()
                 st.markdown("---")
         else:
             st.info("No active disputes to resolve.")
