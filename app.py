@@ -1088,8 +1088,8 @@ with tab_submit:
                                     for item in val:
                                         if item and item != "--Select Baker--":
                                             main_picks_flat.append(item)
-                                elif isinstance(val, str) and val and val != "--Select Baker--":
-                                    main_picks_flat.append(val)
+                            elif isinstance(val, str) and val and val != "--Select Baker--":
+                                main_picks_flat.append(val)
                             
                             if len(main_picks_flat) != len(set(main_picks_flat)):
                                 errors.append("❌ Duplicate Selection Error: You may not select the same baker more than once across Star Baker, In Line, In Trouble, and Eliminated!")
@@ -1118,7 +1118,7 @@ with tab_submit:
                             save_league_data()
                             st.session_state[notice_key] = f"✅ Success! Your Week {active_prediction_week} Ballot has been successfully submitted and locked in. You can log back in with your PIN anytime to review or edit your choices before the deadline."
                             st.session_state[auth_key] = False
-                            st.rerun()
+                            st.rer()
 
 # ==============================================================================
 # TAB 3: SHOW RESULTS
@@ -1204,21 +1204,29 @@ with tab_results:
     dispute_player_choice = st.selectbox("Select Your Name to Log a Dispute:", ["-- Select Name --"] + ROSTER_HUMANS, key="dispute_player_dropdown")
     
     if dispute_player_choice != "-- Select Name --":
-        st.success(f"Logging dispute as **{dispute_player_choice}**")
-        with st.form("dispute_form"):
-            disp_week = st.selectbox("Week to Contest", [f"Week {w}" for w in sorted([int(k) for k in weekly_res_map.keys()])] if weekly_res_map else ["Week 1"])
-            disp_evidence = st.text_area("Video Timestamp & Evidence Description:")
-            disp_correction = st.text_input("Requested Correction:")
-            
-            if st.form_submit_button("Submit Dispute"):
-                st.session_state.disputes.append({
-                    "Player": dispute_player_choice, "Week": disp_week,
-                    "Evidence": disp_evidence, "Correction": disp_correction,
-                    "Status": "Pending Review 🗳️"
-                })
-                save_league_data()
-                st.success("Dispute submitted successfully for league review!")
+        # Check if user just submitted a dispute in this session
+        sub_key = f"dispute_sent_{dispute_player_choice}"
+        if st.session_state.get(sub_key, False):
+            st.success(f"✅ Dispute successfully submitted for {dispute_player_choice}! You can submit another or select a different player above.")
+            if st.button("Submit Another Dispute", key="reset_disp_btn"):
+                st.session_state[sub_key] = False
                 st.rerun()
+        else:
+            st.success(f"Logging dispute as **{dispute_player_choice}**")
+            with st.form("dispute_form"):
+                disp_week = st.selectbox("Week to Contest", [f"Week {w}" for w in sorted([int(k) for k in weekly_res_map.keys()])] if weekly_res_map else ["Week 1"])
+                disp_evidence = st.text_area("Video Timestamp & Evidence Description:")
+                disp_correction = st.text_input("Requested Correction:")
+                
+                if st.form_submit_button("Submit Dispute"):
+                    st.session_state.disputes.append({
+                        "Player": dispute_player_choice, "Week": disp_week,
+                        "Evidence": disp_evidence, "Correction": disp_correction,
+                        "Status": "Pending Review 🗳️"
+                    })
+                    save_league_data()
+                    st.session_state[sub_key] = True
+                    st.rerun()
     else:
         st.info("👆 Please select your player name from the dropdown above to open the dispute submission form.")
 
@@ -1449,34 +1457,36 @@ with tab_admin:
 
         st.markdown("---")
         st.subheader("🗳️ Resolve League Disputes")
-        st.write("Review active disputes submitted by players, vote in GroupMe, and record the final ruling below:")
-        if st.session_state.get("disputes"):
-            for idx, disp in enumerate(st.session_state.disputes):
-                status_text = disp.get('Status', 'Pending Review 🗳️')
-                is_resolved = ("Accepted" in status_text) or ("Rejected" in status_text)
-                
-                st.markdown(f"**Dispute #{idx+1}** | Player: **{disp.get('Player')}** | Week: **{disp.get('Week')}** | Status: `{status_text}`")
+        
+        pending_disputes = [d for d in st.session_state.get("disputes", []) if "Pending Review" in d.get("Status", "")]
+        
+        if pending_disputes:
+            st.write("Review active pending disputes, vote in GroupMe, and record the final ruling below:")
+            for idx, disp in enumerate(st.session_state.get("disputes", [])):
+                # Only show pending disputes in the review console
+                if "Pending Review" not in disp.get("Status", ""):
+                    continue
+                    
+                st.markdown(f"**Dispute #{idx+1}** | Player: **{disp.get('Player')}** | Week: **{disp.get('Week')}** | Status: `{disp.get('Status')}`")
                 st.markdown(f"*Evidence:* {disp.get('Evidence')}")
                 st.markdown(f"*Correction Requested:* {disp.get('Correction')}")
                 
-                # Only show voting buttons if the dispute is still pending review
-                if not is_resolved:
-                    c_res1, c_res2 = st.columns(2)
-                    with c_res1:
-                        if st.button(f"Accept Dispute #{idx+1}", key=f"accept_disp_{idx}"):
-                            st.session_state.disputes[idx]["Status"] = "Accepted ✅"
-                            save_league_data()
-                            st.success(f"Dispute #{idx+1} marked as Accepted!")
-                            st.rerun()
-                    with c_res2:
-                        if st.button(f"Reject Dispute #{idx+1}", key=f"reject_disp_{idx}"):
-                            st.session_state.disputes[idx]["Status"] = "Rejected ❌"
-                            save_league_data()
-                            st.success(f"Dispute #{idx+1} marked as Rejected!")
-                            st.rerun()
+                c_res1, c_res2 = st.columns(2)
+                with c_res1:
+                    if st.button(f"Accept Dispute #{idx+1}", key=f"accept_disp_{idx}"):
+                        st.session_state.disputes[idx]["Status"] = "Accepted ✅"
+                        save_league_data()
+                        st.success(f"Dispute #{idx+1} marked as Accepted!")
+                        st.rerun()
+                with c_res2:
+                    if st.button(f"Reject Dispute #{idx+1}", key=f"reject_disp_{idx}"):
+                        st.session_state.disputes[idx]["Status"] = "Rejected ❌"
+                        save_league_data()
+                        st.success(f"Dispute #{idx+1} marked as Rejected!")
+                        st.rerun()
                 st.markdown("---")
         else:
-            st.info("No active disputes to resolve.")
+            st.info("No active pending disputes to resolve.")
 
         st.subheader("🔑 Reset Forgotten Player Security PIN")
         human_players = [m for m in sorted(st.session_state.league_members.keys()) if m != "AI Brian"]
