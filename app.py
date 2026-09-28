@@ -115,8 +115,11 @@ def calculate_weekly_score(predictions, actuals, week=2):
 
         # Technical challenge scoring
         act_tech_rank = actuals.get("tech_rank", [])
+        if not isinstance(act_tech_rank, list): act_tech_rank = []
+
         if week >= 8:
             pred_rank = predictions.get("tech_rank", [])
+            if not isinstance(pred_rank, list): pred_rank = []
             if pred_rank and act_tech_rank:
                 for idx, b in enumerate(pred_rank):
                     if idx < len(act_tech_rank) and act_tech_rank[idx] == b and b != "--Select Baker--":
@@ -126,6 +129,7 @@ def calculate_weekly_score(predictions, actuals, week=2):
             act_bot3 = act_tech_rank[-3:] if len(act_tech_rank) >= 3 else act_tech_rank
             
             pred_top3 = predictions.get("tech_top_3", [])
+            if not isinstance(pred_top3, list): pred_top3 = []
             if len(pred_top3) == 3 and len(act_top3) == 3:
                 if pred_top3 == act_top3:
                     score += 6
@@ -136,6 +140,7 @@ def calculate_weekly_score(predictions, actuals, week=2):
                             score += 1
                             
             pred_bot3 = predictions.get("tech_bottom_3", [])
+            if not isinstance(pred_bot3, list): pred_bot3 = []
             if len(pred_bot3) == 3 and len(act_bot3) == 3:
                 if pred_bot3 == act_bot3:
                     score += 6
@@ -185,20 +190,18 @@ def get_detailed_weekly_score_breakdown(predictions, actuals, week):
         # In Line SB
         inl_pred = predictions.get("in_line_sb")
         inl_act = actuals.get("in_line_sb", [])
+        if not isinstance(inl_act, list): inl_act = [inl_act]
         inl_pts = 0
-        if isinstance(inl_act, list):
-            if inl_pred in inl_act: inl_pts += 2
-        elif inl_pred == inl_act:
+        if inl_pred in inl_act:
             inl_pts += 2
         breakdown.append(("In Line SB", inl_pred, inl_act, inl_pts, 2))
 
         # In Trouble
         trb_pred = predictions.get("in_trouble")
         trb_act = actuals.get("in_trouble", [])
+        if not isinstance(trb_act, list): trb_act = [trb_act]
         trb_pts = 0
-        if isinstance(trb_act, list):
-            if trb_pred in trb_act: trb_pts += 2
-        elif trb_pred == trb_act:
+        if trb_pred in trb_act:
             trb_pts += 2
         breakdown.append(("In Trouble", trb_pred, trb_act, trb_pts, 2))
 
@@ -519,13 +522,20 @@ with tab_lead:
                                 * **{cat_label}:** <span style="color: #1E88E5; font-weight: bold;">{pred_str}</span> | Actual: <span style="color: #B54E43; font-weight: bold;">{act_str}</span> &nbsp;&nbsp;|&nbsp;&nbsp; <span style="color: {pts_color}; font-weight: bold;">+{pts_earned} / {max_pts} pts</span>
                                 """, unsafe_allow_html=True)
                                 
-                            # Technical challenge breakdown
+                            # Technical challenge breakdown with type safety
                             st.markdown("---")
                             st.markdown("📊 **Technical Challenge Breakdown:**")
                             act_tech_rank = act_w.get("tech_rank", [])
+                            if not isinstance(act_tech_rank, list): act_tech_rank = []
+                            
                             tech_rank = w_picks.get("tech_rank", [])
+                            if not isinstance(tech_rank, list): tech_rank = []
+                            
                             tech_top_3 = w_picks.get("tech_top_3", [])
+                            if not isinstance(tech_top_3, list): tech_top_3 = []
+                            
                             tech_bottom_3 = w_picks.get("tech_bottom_3", [])
+                            if not isinstance(tech_bottom_3, list): tech_bottom_3 = []
                             
                             if act_tech_rank:
                                 if tech_rank:
@@ -580,7 +590,6 @@ with tab_lead:
                             st.write(f"⚠️ **In Trouble:** {trb}")
                             st.info("💡 Transparent scoring comparison and actual outcomes will appear here once official broadcast results are published.")
 
-                        # Total points earned at the bottom of the ballot
                         st.markdown("---")
                         st.markdown(f"🏆 **Total Points Earned for Week {w_num}:** <span style='color: green; font-weight: bold; font-size: 1.1rem;'>{w_pts} pts</span>", unsafe_allow_html=True)
         else:
