@@ -294,6 +294,10 @@ def get_week_results(w_num, results_map):
     return {}
 
 def calculate_season_score(predictions, actuals):
+    # Season projections are only evaluated and scored after Week 10 results are published!
+    if not is_week_published(10, st.session_state.get("weekly_results", {})):
+        return 0
+
     score = 0
     if not predictions or not actuals:
         return score
@@ -326,48 +330,51 @@ def get_detailed_season_score_breakdown(predictions, actuals):
     if not predictions:
         return breakdown
         
+    season_published = is_week_published(10, st.session_state.get("weekly_results", {}))
+    
     w_pred = predictions.get("winner")
-    w_act = actuals.get("winner")
+    w_act = actuals.get("winner") if season_published else None
     w_pts = 0
     max_w = 40
-    if w_pred and w_act and w_pred == w_act:
+    if season_published and w_pred and w_act and w_pred == w_act:
         w_pts = 40
-    elif w_pred and actuals.get("finalists") and w_pred in actuals.get("finalists"):
+    elif season_published and w_pred and actuals.get("finalists") and w_pred in actuals.get("finalists"):
         w_pts = 15
         max_w = 15
-    breakdown.append(("Season Winner", w_pred, w_act if w_act else "Pending W10", w_pts, max_w))
+    breakdown.append(("Season Winner", w_pred, w_act if (season_published and w_act) else "Pending W10", w_pts if season_published else 0, max_w))
     
     semis_pred = predictions.get("semifinalists", [])
-    semis_act = actuals.get("semifinalists", [])
+    semis_act = actuals.get("semifinalists", []) if season_published else []
     semis_pts = 0
-    for b in semis_pred:
-        if semis_act and b in semis_act and b != w_pred:
-            semis_pts += 10
-    breakdown.append(("Semifinalists", ", ".join(semis_pred) if semis_pred else "None", ", ".join(semis_act) if semis_act else "Pending", semis_pts, 30))
+    if season_published:
+        for b in semis_pred:
+            if semis_act and b in semis_act and b != w_pred:
+                semis_pts += 10
+    breakdown.append(("Semifinalists", ", ".join(semis_pred) if semis_pred else "None", ", ".join(semis_act) if (season_published and semis_act) else "Pending W10", semis_pts if season_published else 0, 30))
     
     hs_pred = predictions.get("handshakes")
-    hs_act = actuals.get("handshakes")
+    hs_act = actuals.get("handshakes") if season_published else None
     hs_pts = 0
-    if hs_pred is not None and hs_act is not None:
+    if season_published and hs_pred is not None and hs_act is not None:
         if hs_pred == hs_act: hs_pts = 20
         elif abs(hs_pred - hs_act) <= 1: hs_pts = 10
-    breakdown.append(("Hollywood Handshakes", hs_pred, hs_act, hs_pts, 20))
+    breakdown.append(("Hollywood Handshakes", hs_pred, hs_act if season_published else "Pending W10", hs_pts if season_published else 0, 20))
     
     cry_pred = predictions.get("crying")
-    cry_act = actuals.get("crying")
+    cry_act = actuals.get("crying") if season_published else None
     cry_pts = 0
-    if cry_pred is not None and cry_act is not None:
+    if season_published and cry_pred is not None and cry_act is not None:
         if cry_pred == cry_act: cry_pts = 20
         elif abs(cry_pred - cry_act) <= 5: cry_pts = 10
-    breakdown.append(("Crying Incidents", cry_pred, cry_act, cry_pts, 20))
+    breakdown.append(("Crying Incidents", cry_pred, cry_act if season_published else "Pending W10", cry_pts if season_published else 0, 20))
     
     inn_pred = predictions.get("innuendos")
-    inn_act = actuals.get("innuendos")
+    inn_act = actuals.get("innuendos") if season_published else None
     inn_pts = 0
-    if inn_pred is not None and inn_act is not None:
+    if season_published and inn_pred is not None and inn_act is not None:
         if inn_pred == inn_act: inn_pts = 20
         elif abs(inn_pred - inn_act) <= 5: inn_pts = 10
-    breakdown.append(("Sexual Innuendos", inn_pred, inn_act, inn_pts, 20))
+    breakdown.append(("Sexual Innuendos", inn_pred, inn_act if season_published else "Pending W10", inn_pts if season_published else 0, 20))
     
     return breakdown
 
@@ -561,6 +568,10 @@ active_prediction_week = max(all_scored_weeks) + 1 if all_scored_weeks else 1
 if active_prediction_week > 10: active_prediction_week = 10
 
 def generate_ai_brian_weekly_picks(active_bakers, is_grace_week_catchup, week):
+    # AI Brian must NEVER make picks for Week 1 (scouting phase)
+    if week == 1:
+        return {}
+
     pool = list(active_bakers)
     random.shuffle(pool)
     
