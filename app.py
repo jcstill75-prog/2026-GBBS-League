@@ -474,7 +474,6 @@ with tab_lead:
                             
                             st.markdown("🔍 **Transparent Prediction vs. Actual Outcome & Points:**")
                             for cat_label, pred_val, act_val, pts_earned, max_pts in breakdown_items:
-                                # Format values nicely
                                 if isinstance(pred_val, list):
                                     pred_str = ", ".join([str(x) for x in pred_val if x])
                                 else:
@@ -494,31 +493,48 @@ with tab_lead:
                             st.markdown("---")
                             st.markdown("📊 **Technical Challenge Breakdown:**")
                             act_tech_rank = act_w.get("tech_rank", [])
-                            tech_pred_rank = w_picks.get("tech_rank", [])
-                            tech_pred_top = w_picks.get("tech_top_3", [])
-                            tech_pred_bot = w_picks.get("tech_bottom_3", [])
+                            tech_rank = w_picks.get("tech_rank", [])
+                            tech_top_3 = w_picks.get("tech_top_3", [])
+                            tech_bottom_3 = w_picks.get("tech_bottom_3", [])
                             
-                            if tech_rank:
-                                for t_idx, actual_baker in enumerate(act_tech_rank):
-                                    r_label = "1st" if t_idx==0 else ("2nd" if t_idx==1 else ("3rd" if t_idx==2 else f"{t_idx+1}th"))
-                                    # check if predicted correctly
-                                    pred_at_pos = "None"
-                                    if tech_pred_rank and t_idx < len(tech_pred_rank):
-                                        pred_at_pos = tech_pred_rank[t_idx]
-                                    elif tech_pred_top and t_idx < len(tech_pred_top):
-                                        pred_at_pos = tech_pred_top[t_idx]
-                                        
-                                    is_match = (pred_at_pos == actual_baker and pred_at_pos != "--Select Baker--")
-                                    t_color = "green" if is_match else "gray"
-                                    t_pts = "+3" if (is_match and t_idx in [0, len(act_tech_rank)-1]) else ("+2" if is_match else "+0")
-                                    st.markdown(f"* {r_label} Place: Actual <span style='color: #B54E43; font-weight: bold;'>{actual_baker}</span> (Predicted: *{pred_at_pos}*) &nbsp;&nbsp;|&nbsp;&nbsp; <span style='color: {t_color}; font-weight: bold;'>{t_pts} pts</span>", unsafe_allow_html=True)
+                            if act_tech_rank:
+                                if tech_rank:
+                                    for t_idx, actual_baker in enumerate(act_tech_rank):
+                                        r_label = "1st" if t_idx==0 else ("2nd" if t_idx==1 else ("3rd" if t_idx==2 else f"{t_idx+1}th"))
+                                        pred_at_pos = tech_rank[t_idx] if t_idx < len(tech_rank) else "--Select Baker--"
+                                        is_match = (pred_at_pos == actual_baker and pred_at_pos != "--Select Baker--")
+                                        t_color = "green" if is_match else "gray"
+                                        t_pts = "+3" if (is_match and t_idx in [0, len(act_tech_rank)-1]) else ("+2" if is_match else "+0")
+                                        st.markdown(f"* {r_label} Place: Actual <span style='color: #B54E43; font-weight: bold;'>{actual_baker}</span> (Predicted: *{pred_at_pos}*) &nbsp;&nbsp;|&nbsp;&nbsp; <span style='color: {t_color}; font-weight: bold;'>{t_pts} pts</span>", unsafe_allow_html=True)
+                                else:
+                                    act_top3 = act_tech_rank[:3] if len(act_tech_rank) >= 3 else act_tech_rank
+                                    act_bot3 = act_tech_rank[-3:] if len(act_tech_rank) >= 3 else act_tech_rank
+                                    
+                                    if tech_top_3:
+                                        st.write("**Top 3 Technical Positions:**")
+                                        for t_idx, actual_baker in enumerate(act_top3):
+                                            r_label = "1st" if t_idx==0 else ("2nd" if t_idx==1 else "3rd")
+                                            pred_at_pos = tech_top_3[t_idx] if t_idx < len(tech_top_3) else "--Select Baker--"
+                                            is_match = (pred_at_pos == actual_baker and pred_at_pos != "--Select Baker--")
+                                            t_color = "green" if is_match else "gray"
+                                            t_pts = "+3" if (is_match and t_idx == 0) else ("+1" if is_match else "+0")
+                                            st.markdown(f"* {r_label} Place: Actual <span style='color: #B54E43; font-weight: bold;'>{actual_baker}</span> (Predicted: *{pred_at_pos}*) &nbsp;&nbsp;|&nbsp;&nbsp; <span style='color: {t_color}; font-weight: bold;'>{t_pts} pts</span>", unsafe_allow_html=True)
+                                            
+                                    if tech_bottom_3:
+                                        st.write("**Bottom 3 Technical Positions:**")
+                                        for b_idx, actual_baker in enumerate(act_bot3):
+                                            b_label = "3rd-to-Last" if b_idx==0 else ("2nd-to-Last" if b_idx==1 else "Last")
+                                            pred_at_pos = tech_bottom_3[b_idx] if b_idx < len(tech_bottom_3) else "--Select Baker--"
+                                            is_match = (pred_at_pos == actual_baker and pred_at_pos != "--Select Baker--")
+                                            b_color = "green" if is_match else "gray"
+                                            b_pts = "+3" if (is_match and b_idx == 2) else ("+1" if is_match else "+0")
+                                            st.markdown(f"* {b_label} Place: Actual <span style='color: #B54E43; font-weight: bold;'>{actual_baker}</span> (Predicted: *{pred_at_pos}*) &nbsp;&nbsp;|&nbsp;&nbsp; <span style='color: {b_color}; font-weight: bold;'>{b_pts} pts</span>", unsafe_allow_html=True)
                             else:
                                 st.write("Technical breakdown unavailable.")
                                 
                             if w_pts > sum([item[3] for item in breakdown_items]):
                                 st.markdown("<span style='color: green; font-weight: bold;'>• Star Member High Scorer Bonus: +5 pts</span>", unsafe_allow_html=True)
                         else:
-                            # If results not published yet, just show submitted picks
                             sb = w_picks.get("star_baker", w_picks.get("show_champion", "N/A"))
                             inl = w_picks.get("in_line_sb", "N/A")
                             elim = w_picks.get("eliminated", "N/A")
