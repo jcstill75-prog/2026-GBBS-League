@@ -156,13 +156,13 @@ def get_detailed_weekly_score_breakdown(predictions, actuals, week):
         champ_pred = predictions.get("show_champion")
         champ_act = actuals.get("show_champion")
         pts = 15 if (champ_pred and champ_pred == champ_act) else 0
-        breakdown.append(("Show Champion Prediction", pts, 15))
+        breakdown.append(("Show Champion", champ_pred, champ_act, pts, 15))
     else:
         # Star Baker
         sb_pred = predictions.get("star_baker")
         sb_act = actuals.get("star_baker")
         sb_pts = 5 if (sb_pred and sb_act and sb_pred == sb_act) else 0
-        breakdown.append(("Star Baker Prediction", sb_pts, 5))
+        breakdown.append(("Star Baker", sb_pred, sb_act, sb_pts, 5))
             
         # Eliminated
         act_elim = actuals.get("eliminated")
@@ -180,7 +180,7 @@ def get_detailed_weekly_score_breakdown(predictions, actuals, week):
             elif pred_elim == act_elim:
                 elim_pts += 5
         max_elim_pts = 10 if isinstance(pred_elim, list) else 5
-        breakdown.append(("Eliminated Prediction", elim_pts, max_elim_pts))
+        breakdown.append(("Eliminated", pred_elim, act_elim, elim_pts, max_elim_pts))
 
         # In Line SB
         inl_pred = predictions.get("in_line_sb")
@@ -190,7 +190,7 @@ def get_detailed_weekly_score_breakdown(predictions, actuals, week):
             if inl_pred in inl_act: inl_pts += 2
         elif inl_pred == inl_act:
             inl_pts += 2
-        breakdown.append(("In Line SB Prediction", inl_pts, 2))
+        breakdown.append(("In Line SB", inl_pred, inl_act, inl_pts, 2))
 
         # In Trouble
         trb_pred = predictions.get("in_trouble")
@@ -200,42 +200,7 @@ def get_detailed_weekly_score_breakdown(predictions, actuals, week):
             if trb_pred in trb_act: trb_pts += 2
         elif trb_pred == trb_act:
             trb_pts += 2
-        breakdown.append(("In Trouble Prediction", trb_pts, 2))
-
-        # Technical challenge scoring
-        act_tech_rank = actuals.get("tech_rank", [])
-        tech_pts = 0
-        max_tech_pts = 12 if week >= 8 else 12
-        if week >= 8:
-            pred_rank = predictions.get("tech_rank", [])
-            if pred_rank and act_tech_rank:
-                for idx, b in enumerate(pred_rank):
-                    if idx < len(act_tech_rank) and act_tech_rank[idx] == b and b != "--Select Baker--":
-                        tech_pts += (3 if idx in [0, len(act_tech_rank)-1] else 2)
-        else:
-            act_top3 = act_tech_rank[:3] if len(act_tech_rank) >= 3 else act_tech_rank
-            act_bot3 = act_tech_rank[-3:] if len(act_tech_rank) >= 3 else act_tech_rank
-            
-            pred_top3 = predictions.get("tech_top_3", [])
-            if len(pred_top3) == 3 and len(act_top3) == 3:
-                if pred_top3 == act_top3:
-                    tech_pts += 6
-                else:
-                    if pred_top3[0] == act_top3[0] and pred_top3[0] != "--Select Baker--": tech_pts += 3
-                    for idx, baker in enumerate(pred_top3):
-                        if baker in act_top3 and baker != "--Select Baker--" and baker != act_top3[idx]:
-                            tech_pts += 1
-                            
-            pred_bot3 = predictions.get("tech_bottom_3", [])
-            if len(pred_bot3) == 3 and len(act_bot3) == 3:
-                if pred_bot3 == act_bot3:
-                    tech_pts += 6
-                else:
-                    if pred_bot3[2] == act_bot3[2] and pred_bot3[2] != "--Select Baker--": tech_pts += 3
-                    for idx, baker in enumerate(pred_bot3):
-                        if baker in act_bot3 and baker != "--Select Baker--" and baker != act_bot3[idx]:
-                            tech_pts += 1
-        breakdown.append(("Technical Challenge Prediction", tech_pts, max_tech_pts))
+        breakdown.append(("In Trouble", trb_pred, trb_act, trb_pts, 2))
 
     return breakdown
 
@@ -477,14 +442,14 @@ with tab_lead:
         """, unsafe_allow_html=True)
 
     st.markdown("---")
-    st.subheader("📋 Individual Player Scorecards & Projections")
+    st.subheader("📋 Individual Player Scorecards & Transparent Scoring")
     selected_card_player = st.selectbox("Select Player Scorecard to View:", ROSTER_ALPHABETICAL, key="lb_player_card_sel")
     if selected_card_player in st.session_state.league_members:
         p_data = st.session_state.league_members[selected_card_player]
         p_season = p_data.get("season_picks", {})
         p_weekly = p_data.get("weekly_picks", {})
         
-        st.markdown(f"### **{selected_card_player}'s Weekly Predictions Log & Transparent Scoring**")
+        st.markdown(f"### **{selected_card_player}'s Weekly Predictions Log & Results**")
         if p_weekly:
             voting_closed = is_weekly_voting_closed()
             weekly_results_map = st.session_state.get("weekly_results", {})
@@ -503,60 +468,71 @@ with tab_lead:
                     
                     expander_title = f"Week {w_num} Ballot (Earned: {w_pts} pts)" if has_published else f"Week {w_num} Ballot (Pending Results)"
                     with st.expander(expander_title):
-                        sb = w_picks.get("star_baker", w_picks.get("show_champion", "N/A"))
-                        inl = w_picks.get("in_line_sb", "N/A")
-                        
-                        elim = w_picks.get("eliminated", "N/A")
-                        if isinstance(elim, list):
-                            elim_str = ", ".join([str(b) for b in elim if b])
-                        else:
-                            elim_str = str(elim)
-                            
-                        trb = w_picks.get("in_trouble", "N/A")
-                        
-                        tech_top = w_picks.get("tech_top_3", [])
-                        tech_bot = w_picks.get("tech_bottom_3", [])
-                        tech_rank = w_picks.get("tech_rank", [])
-                        
-                        st.write(f"🌟 **Star Baker / Champion:** {sb}")
-                        st.write(f"⭐ **In Line SB:** {inl}")
-                        st.write(f"🚪 **Eliminated:** {elim_str}")
-                        st.write(f"⚠️ **In Trouble:** {trb}")
-                        
-                        st.markdown("📊 **Technical Challenge Predictions:**")
-                        if tech_rank:
-                            for t_idx, t_baker in enumerate(tech_rank):
-                                if t_baker and t_baker != "--Select Baker--":
-                                    r_label = "1st" if t_idx==0 else ("2nd" if t_idx==1 else ("3rd" if t_idx==2 else f"{t_idx+1}th"))
-                                    st.write(f"• {r_label} Place: {t_baker}")
-                        elif tech_top or tech_bot:
-                            if tech_top:
-                                st.write("**Top 3 Technical Positions:**")
-                                for t_idx, t_baker in enumerate(tech_top):
-                                    if t_baker and t_baker != "--Select Baker--":
-                                        r_label = "1st" if t_idx==0 else ("2nd" if t_idx==1 else "3rd")
-                                        st.write(f"• {r_label} Place: {t_baker}")
-                            if tech_bot:
-                                st.write("**Bottom 3 Technical Positions:**")
-                                for b_idx, b_baker in enumerate(tech_bot):
-                                    if b_baker and b_baker != "--Select Baker--":
-                                        b_label = "3rd-to-Last" if b_idx==0 else ("2nd-to-Last" if b_idx==1 else "Last")
-                                        st.write(f"• {b_label} Place: {b_baker}")
-                        else:
-                            st.write("N/A")
-
-                        # Transparent Scoring Breakdown
                         if has_published:
+                            act_w = weekly_results_map[w_num]
+                            breakdown_items = get_detailed_weekly_score_breakdown(w_picks, act_w, w_num)
+                            
+                            st.markdown("🔍 **Transparent Prediction vs. Actual Outcome & Points:**")
+                            for cat_label, pred_val, act_val, pts_earned, max_pts in breakdown_items:
+                                # Format values nicely
+                                if isinstance(pred_val, list):
+                                    pred_str = ", ".join([str(x) for x in pred_val if x])
+                                else:
+                                    pred_str = str(pred_val)
+                                    
+                                if isinstance(act_val, list):
+                                    act_str = ", ".join([str(x) for x in act_val if x])
+                                else:
+                                    act_str = str(act_val)
+                                    
+                                color = "green" if pts_earned > 0 else "gray"
+                                st.markdown(f"""
+                                * **{cat_label}:** Predicted: *{pred_str}* | Actual: <span style="color: #B54E43; font-weight: bold;">{act_str}</span> &nbsp;&nbsp;|&nbsp;&nbsp; <span style="color: {color}; font-weight: bold;">+{pts_earned} / {max_pts} pts</span>
+                                """, unsafe_allow_html=True)
+                                
+                            # Technical challenge breakdown
                             st.markdown("---")
-                            st.markdown("🔍 **Transparent Scoring Breakdown:**")
-                            breakdown_items = get_detailed_weekly_score_breakdown(w_picks, weekly_results_map[w_num], w_num)
-                            for cat_name, pts_earned, pts_max in breakdown_items:
-                                st.write(f"• {cat_name}: **+{pts_earned} / {pts_max} pts**")
-                            if w_pts > sum([item[1] for item in breakdown_items]):
-                                st.write(f"• Star Member High Scorer Bonus: **+5 pts**")
+                            st.markdown("📊 **Technical Challenge Breakdown:**")
+                            act_tech_rank = act_w.get("tech_rank", [])
+                            tech_pred_rank = w_picks.get("tech_rank", [])
+                            tech_pred_top = w_picks.get("tech_top_3", [])
+                            tech_pred_bot = w_picks.get("tech_bottom_3", [])
+                            
+                            if tech_rank:
+                                for t_idx, actual_baker in enumerate(act_tech_rank):
+                                    r_label = "1st" if t_idx==0 else ("2nd" if t_idx==1 else ("3rd" if t_idx==2 else f"{t_idx+1}th"))
+                                    # check if predicted correctly
+                                    pred_at_pos = "None"
+                                    if tech_pred_rank and t_idx < len(tech_pred_rank):
+                                        pred_at_pos = tech_pred_rank[t_idx]
+                                    elif tech_pred_top and t_idx < len(tech_pred_top):
+                                        pred_at_pos = tech_pred_top[t_idx]
+                                        
+                                    is_match = (pred_at_pos == actual_baker and pred_at_pos != "--Select Baker--")
+                                    t_color = "green" if is_match else "gray"
+                                    t_pts = "+3" if (is_match and t_idx in [0, len(act_tech_rank)-1]) else ("+2" if is_match else "+0")
+                                    st.markdown(f"* {r_label} Place: Actual <span style='color: #B54E43; font-weight: bold;'>{actual_baker}</span> (Predicted: *{pred_at_pos}*) &nbsp;&nbsp;|&nbsp;&nbsp; <span style='color: {t_color}; font-weight: bold;'>{t_pts} pts</span>", unsafe_allow_html=True)
+                            else:
+                                st.write("Technical breakdown unavailable.")
+                                
+                            if w_pts > sum([item[3] for item in breakdown_items]):
+                                st.markdown("<span style='color: green; font-weight: bold;'>• Star Member High Scorer Bonus: +5 pts</span>", unsafe_allow_html=True)
                         else:
-                            st.markdown("---")
-                            st.info("💡 Scoring breakdown will appear here once official broadcast results are published for this week.")
+                            # If results not published yet, just show submitted picks
+                            sb = w_picks.get("star_baker", w_picks.get("show_champion", "N/A"))
+                            inl = w_picks.get("in_line_sb", "N/A")
+                            elim = w_picks.get("eliminated", "N/A")
+                            if isinstance(elim, list):
+                                elim_str = ", ".join([str(b) for b in elim if b])
+                            else:
+                                elim_str = str(elim)
+                            trb = w_picks.get("in_trouble", "N/A")
+                            
+                            st.write(f"🌟 **Star Baker / Champion:** {sb}")
+                            st.write(f"⭐ **In Line SB:** {inl}")
+                            st.write(f"🚪 **Eliminated:** {elim_str}")
+                            st.write(f"⚠️ **In Trouble:** {trb}")
+                            st.info("💡 Transparent scoring comparison and actual outcomes will appear here once official broadcast results are published.")
         else:
             st.info("No weekly prediction ballots submitted yet.")
 
