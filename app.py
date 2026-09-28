@@ -1210,9 +1210,57 @@ with tab_admin:
         edit_allowed = True
         if is_published:
             st.warning(f"⚠️ Week {admin_selected_week} results are already published.")
-            edit_allowed = st.checkbox(f"Unlock Week {admin_selected_week} to edit published results and modify historical scoring", value=False, key=f"unlock_w{admin_selected_week}")
+            col_unpub1, col_unpub2 = st.columns(2)
+            with col_unpub1:
+                edit_allowed = st.checkbox(f"Unlock Week {admin_selected_week} to edit published results", value=False, key=f"unlock_w{admin_selected_week}")
+            with col_unpub2:
+                if st.button(f"🗑️ Unpublish Week {admin_selected_week} Results", key=f"unpub_btn_{admin_selected_week}"):
+                    # Remove results for this week
+                    if admin_selected_week in st.session_state.weekly_results:
+                        del st.session_state.weekly_results[admin_selected_week]
+                    if str(admin_selected_week) in st.session_state.weekly_results:
+                        del st.session_state.weekly_results[str(admin_selected_week)]
+                    if admin_selected_week == 10:
+                        st.session_state.season_results = {}
+                    
+                    # Recalculate all scores
+                    for member_name in st.session_state.league_members:
+                        st.session_state.league_members[member_name]["total_score"] = 0
+                        st.session_state.league_members[member_name]["weekly_breakdown"] = {}
+
+                    all_weeks_scored = sorted([int(k) for k in st.session_state.weekly_results.keys()])
+                    for w in all_weeks_scored:
+                        act_w = get_week_results(w, st.session_state.weekly_results)
+                        weekly_raw = {}
+                        for m_name, m_data in st.session_state.league_members.items():
+                            pred_w = m_data["weekly_picks"].get(w, m_data["weekly_picks"].get(str(w), {}))
+                            raw_score = calculate_weekly_score(pred_w, act_w, w)
+                            weekly_raw[m_name] = raw_score
+                            m_data["weekly_breakdown"][w] = raw_score
+
+                        if weekly_raw:
+                            max_raw = max(weekly_raw.values())
+                            for m_name, raw_s in weekly_raw.items():
+                                if raw_s == max_raw and raw_s > 0:
+                                    st.session_state.league_members[m_name]["weekly_breakdown"][w] += 5
+
+                    if st.session_state.season_results:
+                        for m_name, m_data in st.session_state.league_members.items():
+                            season_pred = m_data["season_picks"]
+                            season_score = calculate_season_score(season_pred, st.session_state.season_results)
+                            m_data["season_score"] = season_score
+
+                    for m_name, m_data in st.session_state.league_members.items():
+                        weekly_total = sum(m_data["weekly_breakdown"].values())
+                        season_total = m_data.get("season_score", 0)
+                        m_data["total_score"] = weekly_total + season_total
+
+                    save_league_data()
+                    st.session_state.admin_verification_msg = f"✅ Week {admin_selected_week} successfully unpublished! All standings and active weeks recalculated."
+                    st.rerun()
+
             if not edit_allowed:
-                st.info("Form fields are locked to protect existing historical scoring. Check the box above to enable editing.")
+                st.info("Form fields are locked. Check the 'Unlock to Edit' box above to modify published results.")
         
         elim_type = st.radio("Elimination Format:", ["Single Elimination", "No Elimination (Grace Week)", "Double Elimination"], horizontal=True, key=f"adm_elim_type_w{admin_selected_week}")
         
@@ -1384,7 +1432,7 @@ with tab_admin:
                 st.success(f"Security PIN for {reset_sel_player} has been cleared! They can set a new 4-digit PIN upon next login.")
                 st.rerun()
 
-        st.markdown("---")
+        st.markdown---()
         st.subheader("🚨 Emergency Reset & Delete All App Data")
         confirm_erase = st.checkbox("I understand this will permanently erase all player prediction ballots, PINs, and published broadcast results.", key="confirm_erase_check")
         if st.button("🗑️ Erase All Competition Data", type="primary"):
