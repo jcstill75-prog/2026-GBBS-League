@@ -451,6 +451,15 @@ with tab_submit:
     p_info = st.session_state.league_members[pred_player]
     
     auth_key = f"auth_verified_{pred_player}"
+    notice_key = f"sub_notice_{pred_player}"
+    
+    # Display submission notice if set after logout
+    if notice_key in st.session_state and not st.session_state.get(auth_key, False):
+        st.success(st.session_state[notice_key])
+        if st.button("Dismiss & Log In", key="dismiss_notice_btn"):
+            del st.session_state[notice_key]
+            st.rerun()
+
     auth_success = False
     
     if p_info.get("pin") is None:
@@ -666,7 +675,7 @@ with tab_submit:
                                     "tech_bottom_3": random.sample(active_bakers, min(3, len(active_bakers)))
                                 }
                             save_league_data()
-                            st.success(f"✅ Success! Your Week 2 Ballot and Season Projections have been successfully submitted and locked in. You can log back in with your PIN anytime to review or edit your choices before the deadline. You have now been logged out.")
+                            st.session_state[notice_key] = f"✅ Success! Your Week 2 Ballot and Season Projections have been successfully submitted and locked in. You can log back in with your PIN anytime to review or edit your choices before the deadline."
                             st.session_state[auth_key] = False
                             st.rerun()
 
@@ -784,7 +793,7 @@ with tab_submit:
                                     "tech_bottom_3": random.sample(active_bakers, min(3, len(active_bakers)))
                                 }
                             save_league_data()
-                            st.success(f"✅ Success! Your Week {active_prediction_week} Ballot has been successfully submitted and locked in. You can log back in with your PIN anytime to review or edit your choices before the deadline. You have now been logged out.")
+                            st.session_state[notice_key] = f"✅ Success! Your Week {active_prediction_week} Ballot has been successfully submitted and locked in. You can log back in with your PIN anytime to review or edit your choices before the deadline."
                             st.session_state[auth_key] = False
                             st.rerun()
 
