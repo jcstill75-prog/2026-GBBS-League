@@ -450,6 +450,7 @@ with tab_submit:
     pred_player = st.selectbox("Select Your Player Profile:", ROSTER_HUMANS, key="pred_player_login_sel")
     p_info = st.session_state.league_members[pred_player]
     
+    auth_key = f"auth_verified_{pred_player}"
     auth_success = False
     
     if p_info.get("pin") is None:
@@ -467,9 +468,16 @@ with tab_submit:
                 else:
                     st.error("PIN must be exactly 4 numeric digits and match in both fields.")
     else:
-        auth_key = f"auth_verified_{pred_player}"
         if st.session_state.get(auth_key, False):
             auth_success = True
+            
+            # Optional manual logout button for player convenience
+            col_l1, col_l2 = st.columns([6, 1])
+            with col_l2:
+                if st.button("🔒 Log Out"):
+                    st.session_state[auth_key] = False
+                    st.rerun()
+                    
             st.success(f"🔓 Authenticated as {pred_player}!")
         else:
             with st.form(f"pin_login_form_{pred_player}"):
@@ -616,17 +624,16 @@ with tab_submit:
                     
                     edit_conf = True
                     if has_submitted:
-                        edit_conf = st.checkbox(f"⚠️ Check this box to confirm you want to edit your previously submitted Week 2 Ballot & Season Projections.")
+                        edit_conf = st.checkbox(f"⚠️ Check this box to confirm you want to edit your previously submitted Week {active_prediction_week} Ballot & Season Projections.")
 
                     sub_w2 = st.form_submit_button("Submit Week 2 Ballot & Season Projections")
                     if sub_w2:
                         errors = []
                         if has_submitted and not edit_conf:
-                            errors.append(f"❌ Please check the confirmation box to edit your previously submitted ballot.")
+                            errors.append("❌ Please check the confirmation box to edit your previously submitted ballot.")
                         if s_win == "--Select Baker--":
                             errors.append("Please select a valid Season Winner.")
                         
-                        # Safely flatten main picks (handling both strings and multiselect lists)
                         main_picks_flat = []
                         for k in ["star_baker", "eliminated", "in_line_sb", "in_trouble"]:
                             val = weekly_picks.get(k)
@@ -658,12 +665,14 @@ with tab_submit:
                             if 2 not in st.session_state.league_members["AI Brian"]["weekly_picks"]:
                                 st.session_state.league_members["AI Brian"]["weekly_picks"][2] = {
                                     "star_baker": random.choice(active_bakers),
-                                    "eliminated": random.sample(active_bakers, 2) if is_grace_week_catchup else random.choice(active_bakers),
+                                    "eliminated": random.choice(active_bakers),
                                     "tech_top_3": random.sample(active_bakers, min(3, len(active_bakers))),
                                     "tech_bottom_3": random.sample(active_bakers, min(3, len(active_bakers)))
                                 }
                             save_league_data()
-                            st.success("Week 2 Ballot and Season Projections successfully saved!")
+                            st.success("Week 2 Ballot and Season Projections successfully saved! You have been logged out.")
+                            st.session_state[auth_key] = False
+                            st.rerun()
 
             else:
                 st.markdown(f"### 📅 Week {active_prediction_week} Prediction Ballot")
@@ -779,7 +788,9 @@ with tab_submit:
                                     "tech_bottom_3": random.sample(active_bakers, min(3, len(active_bakers)))
                                 }
                             save_league_data()
-                            st.success(f"Week {active_prediction_week} ballot submitted successfully!")
+                            st.success(f"Week {active_prediction_week} ballot submitted successfully! You have been logged out.")
+                            st.session_state[auth_key] = False
+                            st.rerun()
 
 # ==============================================================================
 # TAB 3: SHOW RESULTS
@@ -812,7 +823,7 @@ with tab_results:
                     
                     elim_val = w_act.get('eliminated', 'N/A')
                     if isinstance(elim_val, list):
-                        elim_str = ", ".join([str(b) for b in elim_val if b])
+                        elim_str = ", ".join([str(b) for b in elim if b])
                     else:
                         elim_str = str(elim_val)
                     st.write(f"🚪 **Eliminated:** {elim_str}")
