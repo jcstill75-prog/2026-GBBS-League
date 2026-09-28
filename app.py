@@ -136,20 +136,8 @@ def calculate_weekly_score(predictions, actuals, week=2):
                 for idx, b in enumerate(pred_rank):
                     if idx < len(act_tech_rank) and act_tech_rank[idx] == b and b != "--Select Baker--":
                         score += 3 if idx == 0 else 2
-    elif week >= 8:
-        pred_rank = predictions.get("tech_rank", [])
-        act_tech_rank = actuals.get("tech_rank", [])
-        if isinstance(pred_rank, list) and isinstance(act_tech_rank, list) and pred_rank and act_tech_rank:
-            if pred_rank == act_tech_rank:
-                score += 25 if week == 8 else 20  # Flawless sweep bonus (25 pts for W8, 20 pts for W9)
-            else:
-                for idx, b in enumerate(pred_rank):
-                    if idx < len(act_tech_rank) and act_tech_rank[idx] == b and b != "--Select Baker--":
-                        if week == 8:
-                            score += 3 if idx in [0, 4] else 2
-                        elif week == 9:
-                            score += 3 if idx in [0, 3] else 2
     else:
+        # Main categories (Star Baker, Eliminated, In Line, In Trouble)
         if predictions.get("star_baker") and predictions.get("star_baker") == actuals.get("star_baker"):
             score += 5
         
@@ -183,37 +171,52 @@ def calculate_weekly_score(predictions, actuals, week=2):
         if trb_pred and trb_pred in trb_act:
             score += 2
 
+        # Technical challenge scoring
         act_tech_rank = actuals.get("tech_rank", [])
         if not isinstance(act_tech_rank, list): act_tech_rank = []
 
-        act_top3 = act_tech_rank[:3] if len(act_tech_rank) >= 3 else act_tech_rank
-        act_bot3 = act_tech_rank[-3:] if len(act_tech_rank) >= 3 else act_tech_rank
-        
-        pred_top3 = predictions.get("tech_top_3", [])
-        if not isinstance(pred_top3, list): pred_top3 = []
-        if len(pred_top3) == 3 and len(act_top3) == 3:
-            if pred_top3 == act_top3:
-                score += 10  # Perfect Top 3 Sweep flat bonus
-            else:
-                for t_idx, actual_baker in enumerate(act_top3):
-                    pred_at_pos = pred_top3[t_idx] if t_idx < len(pred_top3) else "--Select Baker--"
-                    if pred_at_pos == actual_baker and pred_at_pos != "--Select Baker--":
-                        score += 3 if t_idx == 0 else 2
-                    elif pred_at_pos in act_top3 and pred_at_pos != "--Select Baker--":
-                        score += 1
-                        
-        pred_bot3 = predictions.get("tech_bottom_3", [])
-        if not isinstance(pred_bot3, list): pred_bot3 = []
-        if len(pred_bot3) == 3 and len(act_bot3) == 3:
-            if pred_bot3 == act_bot3:
-                score += 10  # Perfect Bottom 3 Sweep flat bonus
-            else:
-                for b_idx, actual_baker in enumerate(act_bot3):
-                    pred_at_pos = pred_bot3[b_idx] if b_idx < len(pred_bot3) else "--Select Baker--"
-                    if pred_at_pos == actual_baker and pred_at_pos != "--Select Baker--":
-                        score += 3 if b_idx == 2 else 2
-                    elif pred_at_pos in act_bot3 and pred_at_pos != "--Select Baker--":
-                        score += 1
+        if week >= 8:
+            pred_rank = predictions.get("tech_rank", [])
+            if not isinstance(pred_rank, list): pred_rank = []
+            if pred_rank and act_tech_rank:
+                if pred_rank == act_tech_rank:
+                    score += 25 if week == 8 else 20  # Flawless sweep bonus (25 pts for W8, 20 pts for W9)
+                else:
+                    for idx, b in enumerate(pred_rank):
+                        if idx < len(act_tech_rank) and act_tech_rank[idx] == b and b != "--Select Baker--":
+                            if week == 8:
+                                score += 3 if idx in [0, 4] else 2
+                            elif week == 9:
+                                score += 3 if idx in [0, 3] else 2
+        else:
+            act_top3 = act_tech_rank[:3] if len(act_tech_rank) >= 3 else act_tech_rank
+            act_bot3 = act_tech_rank[-3:] if len(act_tech_rank) >= 3 else act_tech_rank
+            
+            pred_top3 = predictions.get("tech_top_3", [])
+            if not isinstance(pred_top3, list): pred_top3 = []
+            if len(pred_top3) == 3 and len(act_top3) == 3:
+                if pred_top3 == act_top3:
+                    score += 10  # Perfect Top 3 Sweep flat bonus
+                else:
+                    for t_idx, actual_baker in enumerate(act_top3):
+                        pred_at_pos = pred_top3[t_idx] if t_idx < len(pred_top3) else "--Select Baker--"
+                        if pred_at_pos == actual_baker and pred_at_pos != "--Select Baker--":
+                            score += 3 if t_idx == 0 else 2
+                        elif pred_at_pos in act_top3 and pred_at_pos != "--Select Baker--":
+                            score += 1
+                            
+            pred_bot3 = predictions.get("tech_bottom_3", [])
+            if not isinstance(pred_bot3, list): pred_bot3 = []
+            if len(pred_bot3) == 3 and len(act_bot3) == 3:
+                if pred_bot3 == act_bot3:
+                    score += 10  # Perfect Bottom 3 Sweep flat bonus
+                else:
+                    for b_idx, actual_baker in enumerate(act_bot3):
+                        pred_at_pos = pred_bot3[b_idx] if b_idx < len(pred_bot3) else "--Select Baker--"
+                        if pred_at_pos == actual_baker and pred_at_pos != "--Select Baker--":
+                            score += 3 if b_idx == 2 else 2
+                        elif pred_at_pos in act_bot3 and pred_at_pos != "--Select Baker--":
+                            score += 1
 
     return score
 
