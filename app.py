@@ -472,7 +472,7 @@ with tab_lead:
                             act_w = weekly_results_map[w_num]
                             breakdown_items = get_detailed_weekly_score_breakdown(w_picks, act_w, w_num)
                             
-                            st.markdown("🔍 **Transparent Prediction vs. Actual Outcome & Points:**")
+                            st.markdown("🔍 **Prediction vs. Actual Outcome & Points:**")
                             for cat_label, pred_val, act_val, pts_earned, max_pts in breakdown_items:
                                 if isinstance(pred_val, list):
                                     pred_str = ", ".join([str(x) for x in pred_val if x])
@@ -484,9 +484,9 @@ with tab_lead:
                                 else:
                                     act_str = str(act_val)
                                     
-                                color = "green" if pts_earned > 0 else "gray"
+                                pts_color = "green" if pts_earned > 0 else "gray"
                                 st.markdown(f"""
-                                * **{cat_label}:** Predicted: *{pred_str}* | Actual: <span style="color: #B54E43; font-weight: bold;">{act_str}</span> &nbsp;&nbsp;|&nbsp;&nbsp; <span style="color: {color}; font-weight: bold;">+{pts_earned} / {max_pts} pts</span>
+                                * **{cat_label}:** <span style="color: #1E88E5; font-weight: bold;">{pred_str}</span> | Actual: <span style="color: #B54E43; font-weight: bold;">{act_str}</span> &nbsp;&nbsp;|&nbsp;&nbsp; <span style="color: {pts_color}; font-weight: bold;">+{pts_earned} / {max_pts} pts</span>
                                 """, unsafe_allow_html=True)
                                 
                             # Technical challenge breakdown
@@ -505,7 +505,7 @@ with tab_lead:
                                         is_match = (pred_at_pos == actual_baker and pred_at_pos != "--Select Baker--")
                                         t_color = "green" if is_match else "gray"
                                         t_pts = "+3" if (is_match and t_idx in [0, len(act_tech_rank)-1]) else ("+2" if is_match else "+0")
-                                        st.markdown(f"* {r_label} Place: Actual <span style='color: #B54E43; font-weight: bold;'>{actual_baker}</span> (Predicted: *{pred_at_pos}*) &nbsp;&nbsp;|&nbsp;&nbsp; <span style='color: {t_color}; font-weight: bold;'>{t_pts} pts</span>", unsafe_allow_html=True)
+                                        st.markdown(f"* {r_label} Place: <span style='color: #1E88E5; font-weight: bold;'>{pred_at_pos}</span> | Actual: <span style='color: #B54E43; font-weight: bold;'>{actual_baker}</span> &nbsp;&nbsp;|&nbsp;&nbsp; <span style='color: {t_color}; font-weight: bold;'>{t_pts} pts</span>", unsafe_allow_html=True)
                                 else:
                                     act_top3 = act_tech_rank[:3] if len(act_tech_rank) >= 3 else act_tech_rank
                                     act_bot3 = act_tech_rank[-3:] if len(act_tech_rank) >= 3 else act_tech_rank
@@ -518,7 +518,7 @@ with tab_lead:
                                             is_match = (pred_at_pos == actual_baker and pred_at_pos != "--Select Baker--")
                                             t_color = "green" if is_match else "gray"
                                             t_pts = "+3" if (is_match and t_idx == 0) else ("+1" if is_match else "+0")
-                                            st.markdown(f"* {r_label} Place: Actual <span style='color: #B54E43; font-weight: bold;'>{actual_baker}</span> (Predicted: *{pred_at_pos}*) &nbsp;&nbsp;|&nbsp;&nbsp; <span style='color: {t_color}; font-weight: bold;'>{t_pts} pts</span>", unsafe_allow_html=True)
+                                            st.markdown(f"* {r_label} Place: <span style='color: #1E88E5; font-weight: bold;'>{pred_at_pos}</span> | Actual: <span style='color: #B54E43; font-weight: bold;'>{actual_baker}</span> &nbsp;&nbsp;|&nbsp;&nbsp; <span style='color: {t_color}; font-weight: bold;'>{t_pts} pts</span>", unsafe_allow_html=True)
                                             
                                     if tech_bottom_3:
                                         st.write("**Bottom 3 Technical Positions:**")
@@ -528,7 +528,7 @@ with tab_lead:
                                             is_match = (pred_at_pos == actual_baker and pred_at_pos != "--Select Baker--")
                                             b_color = "green" if is_match else "gray"
                                             b_pts = "+3" if (is_match and b_idx == 2) else ("+1" if is_match else "+0")
-                                            st.markdown(f"* {b_label} Place: Actual <span style='color: #B54E43; font-weight: bold;'>{actual_baker}</span> (Predicted: *{pred_at_pos}*) &nbsp;&nbsp;|&nbsp;&nbsp; <span style='color: {b_color}; font-weight: bold;'>{b_pts} pts</span>", unsafe_allow_html=True)
+                                            st.markdown(f"* {b_label} Place: <span style='color: #1E88E5; font-weight: bold;'>{pred_at_pos}</span> | Actual: <span style='color: #B54E43; font-weight: bold;'>{actual_baker}</span> &nbsp;&nbsp;|&nbsp;&nbsp; <span style='color: {b_color}; font-weight: bold;'>{b_pts} pts</span>", unsafe_allow_html=True)
                             else:
                                 st.write("Technical breakdown unavailable.")
                                 
@@ -676,7 +676,7 @@ with tab_submit:
 
         st.markdown("---")
         if not st.session_state.weekly_results:
-            st.warning("🔒 **Week 1 Scouting Phase:** Season-wide projections and Week 2 ballots unlock together once Week 1 results are published by the Admin!")
+            st.warning("🔒 **Week 1 Scouting Phase:** Season-wide predictions & Week 2 ballots unlock together once Week 1 results are published by the Admin!")
         elif is_weekly_voting_closed():
             st.error("⏰ **Weekly Voting Closed:** The weekly voting deadline (Tuesdays at 2:00 PM Houston time) has passed. Ballot submissions and edits are locked.")
         else:
