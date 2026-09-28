@@ -496,7 +496,7 @@ with tab_submit:
                     st.markdown(f"**{baker}**")
                     b_img = load_baker_image(baker)
                     if b_img is not None:
-                        st.image(b_img, use_column_width=True)
+                        st.image(b_img, use_container_width=True)
                     else:
                         st.markdown("🧁 *[Portrait]*")
                     st.markdown(f"""
@@ -913,7 +913,6 @@ with tab_admin:
                     def_sb_i = baker_opts.index(def_sb) if def_sb in baker_opts else 0
                     actuals["star_baker"] = st.selectbox("Actual Star Baker", baker_opts, index=def_sb_i, key=f"adm_sb_w{admin_selected_week}")
                     
-                    # Requirement (1): Multiple baker selection for In-Line for Star Baker
                     def_inline = saved_w.get("in_line_sb", [])
                     if isinstance(def_inline, str): def_inline = [def_inline]
                     def_inline_defaults = [b for b in def_inline if b in active_bakers]
@@ -934,38 +933,21 @@ with tab_admin:
                         e2 = st.selectbox("Eliminated #2", baker_opts, index=baker_opts.index(def_e2) if def_e2 in baker_opts else 0, key=f"adm_elim2_w{admin_selected_week}")
                         actuals["eliminated"] = [e1, e2]
                         
-                    # Requirement (1): Multiple baker selection for In-Trouble
                     def_introuble = saved_w.get("in_trouble", [])
                     if isinstance(def_introuble, str): def_introuble = [def_introuble]
                     def_introuble_defaults = [b for b in def_introuble if b in active_bakers]
                     actuals["in_trouble"] = st.multiselect("Actual 'In Trouble' Nominees", active_bakers, default=def_introuble_defaults, key=f"adm_introuble_w{admin_selected_week}")
             
-            st.markdown("#### Technical Challenge Rankings:")
-            if admin_selected_week >= 8:
-                act_tech = []
-                saved_tech_rank = saved_w.get("tech_rank", [])
-                for idx, b in enumerate(active_bakers):
-                    def_t = saved_tech_rank[idx] if idx < len(saved_tech_rank) else baker_opts[0]
-                    def_t_i = baker_opts.index(def_t) if def_t in baker_opts else 0
-                    sel = st.selectbox(f"Actual Rank #{idx+1}", baker_opts, index=def_t_i, key=f"adm_t_{idx}_{admin_selected_week}")
-                    act_tech.append(sel)
-                actuals["tech_rank"] = act_tech
-            else:
-                saved_top = saved_w.get("tech_top_3", [])
-                saved_bot = saved_w.get("tech_bottom_3", [])
-                col_at1, col_at2 = st.columns(2)
-                with col_at1:
-                    st.write("**Actual Top 3 Technical:**")
-                    at1 = st.selectbox("1st Place", baker_opts, index=baker_opts.index(saved_top[0]) if (saved_top and saved_top[0] in baker_opts) else 0, key="at_1")
-                    at2 = st.selectbox("2nd Place", baker_opts, index=baker_opts.index(saved_top[1]) if (len(saved_top) > 1 and saved_top[1] in baker_opts) else 0, key="at_2")
-                    at3 = st.selectbox("3rd Place", baker_opts, index=baker_opts.index(saved_top[2]) if (len(saved_top) > 2 and saved_top[2] in baker_opts) else 0, key="at_3")
-                    actuals["tech_top_3"] = [at1, at2, at3]
-                with col_at2:
-                    st.write("**Actual Bottom 3 Technical:**")
-                    ab1 = st.selectbox("3rd-to-Last Place", baker_opts, index=baker_opts.index(saved_bot[0]) if (saved_bot and saved_bot[0] in baker_opts) else 0, key="ab_1")
-                    ab2 = st.selectbox("2nd-to-Last Place", baker_opts, index=baker_opts.index(saved_bot[1]) if (len(saved_bot) > 1 and saved_bot[1] in baker_opts) else 0, key="ab_2")
-                    ab3 = st.selectbox("Last Place", baker_opts, index=baker_opts.index(saved_bot[2]) if (len(saved_bot) > 2 and saved_bot[2] in baker_opts) else 0, key="ab_3")
-                    actuals["tech_bottom_3"] = [ab1, ab2, ab3]
+            st.markdown(f"#### Technical Challenge Rankings (Enter all {len(active_bakers)} active bakers 1st through {len(active_bakers)}th):")
+            act_tech = []
+            saved_tech_rank = saved_w.get("tech_rank", [])
+            for idx, b in enumerate(active_bakers):
+                def_t = saved_tech_rank[idx] if (isinstance(saved_tech_rank, list) and idx < len(saved_tech_rank)) else baker_opts[0]
+                def_t_i = baker_opts.index(def_t) if def_t in baker_opts else 0
+                rank_str = "1st" if idx==0 else ("2nd" if idx==1 else ("3rd" if idx==2 else f"{idx+1}th"))
+                sel = st.selectbox(f"Actual Technical {rank_str} Place", baker_opts, index=def_t_i, key=f"adm_t_{idx}_{admin_selected_week}")
+                act_tech.append(sel)
+            actuals["tech_rank"] = act_tech
             
             st.markdown("#### Chaos Categories & Timestamps:")
             def_hs_bakers = saved_w.get("handshake_bakers", [])
