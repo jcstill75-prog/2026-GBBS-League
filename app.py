@@ -232,7 +232,7 @@ def get_detailed_weekly_score_breakdown(predictions, actuals, week):
     if week == 10:
         champ_pred = predictions.get("show_champion")
         champ_act = actuals.get("show_champion")
-        pts = 15 if (champ_pred and champ_pred == champ_act) else 0
+        pts = 15 if (champ_pred and champ_act and champ_pred == champ_act) else 0
         breakdown.append(("Show Champion", champ_pred, champ_act, pts, 15))
     else:
         sb_pred = predictions.get("star_baker")
@@ -326,7 +326,6 @@ def get_detailed_season_score_breakdown(predictions, actuals):
     if not predictions:
         return breakdown
         
-    # Winner
     w_pred = predictions.get("winner")
     w_act = actuals.get("winner")
     w_pts = 0
@@ -338,7 +337,6 @@ def get_detailed_season_score_breakdown(predictions, actuals):
         max_w = 15
     breakdown.append(("Season Winner", w_pred, w_act if w_act else "Pending W10", w_pts, max_w))
     
-    # Semifinalists
     semis_pred = predictions.get("semifinalists", [])
     semis_act = actuals.get("semifinalists", [])
     semis_pts = 0
@@ -347,7 +345,6 @@ def get_detailed_season_score_breakdown(predictions, actuals):
             semis_pts += 10
     breakdown.append(("Semifinalists", ", ".join(semis_pred) if semis_pred else "None", ", ".join(semis_act) if semis_act else "Pending", semis_pts, 30))
     
-    # Handshakes
     hs_pred = predictions.get("handshakes")
     hs_act = actuals.get("handshakes")
     hs_pts = 0
@@ -356,7 +353,6 @@ def get_detailed_season_score_breakdown(predictions, actuals):
         elif abs(hs_pred - hs_act) <= 1: hs_pts = 10
     breakdown.append(("Hollywood Handshakes", hs_pred, hs_act, hs_pts, 20))
     
-    # Crying
     cry_pred = predictions.get("crying")
     cry_act = actuals.get("crying")
     cry_pts = 0
@@ -365,7 +361,6 @@ def get_detailed_season_score_breakdown(predictions, actuals):
         elif abs(cry_pred - cry_act) <= 5: cry_pts = 10
     breakdown.append(("Crying Incidents", cry_pred, cry_act, cry_pts, 20))
     
-    # Innuendos
     inn_pred = predictions.get("innuendos")
     inn_act = actuals.get("innuendos")
     inn_pts = 0
@@ -521,6 +516,12 @@ def generate_ai_brian_weekly_picks(active_bakers, is_grace_week_catchup, week):
     pool = list(active_bakers)
     random.shuffle(pool)
     
+    if week == 10:
+        return {
+            "show_champion": random.choice(active_bakers),
+            "tech_rank": random.sample(active_bakers, len(active_bakers))
+        }
+        
     needed_main = 3 if is_grace_week_catchup else 4
     sampled_main = random.sample(active_bakers, min(len(active_bakers), max(needed_main, len(active_bakers))))
     
@@ -639,7 +640,6 @@ tab_admin = (selected_tab == tabs_list[3])
 if tab_lead:
     st.header("🏆 Live Leaderboard & Standings")
     
-    # Compute active season actuals for Leaderboard & Scorecards
     all_w_res_global = st.session_state.get("weekly_results", {})
     total_hs_g = sum(len(w_dat.get("handshake_bakers", [])) for w_dat in all_w_res_global.values())
     total_cry_g = sum(int(w_dat.get("crying_count", 0)) for w_dat in all_w_res_global.values())
