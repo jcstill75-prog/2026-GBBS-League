@@ -488,7 +488,7 @@ with tab_submit:
     if auth_success:
         st.markdown("---")
         
-        # Unified Pure-HTML Rectangular Cards (Photo left, Stats right, fully enclosed border)
+        # High-contrast solid rectangular cards (photo left, stats right)
         curr_elim_all = eliminated_bakers_by_week.get(active_prediction_week, [])
         remaining_gallery_bakers = [b for b in ALL_BAKERS if b not in curr_elim_all]
         
@@ -501,9 +501,9 @@ with tab_submit:
                 img_b64 = image_to_base64(b_img) if b_img else ""
                 
                 if img_b64:
-                    img_tag = f'<img src="data:image/jpeg;base64,{img_b64}" style="width: 100%; max-width: 105px; height: 120px; object-fit: cover; border-radius: 6px; border: 1px solid #8D6E63;">'
+                    img_tag = f'<img src="data:image/jpeg;base64,{img_b64}" style="width: 100%; max-width: 100px; height: 115px; object-fit: cover; border-radius: 6px; border: 1px solid #8D6E63;">'
                 else:
-                    img_tag = '<div style="width: 100%; max-width: 105px; height: 120px; background-color: #EFEBE9; border-radius: 6px; display: flex; align-items: center; justify-content: center; font-size: 0.8rem; color: #5D4037;">[Photo]</div>'
+                    img_tag = '<div style="width: 100%; max-width: 100px; height: 115px; background-color: #EFEBE9; border-radius: 6px; display: flex; align-items: center; justify-content: center; font-size: 0.75rem; color: #5D4037;">[Photo]</div>'
                 
                 if active_prediction_week <= 5:
                     if isinstance(tech_stat, dict) and tech_stat:
@@ -520,14 +520,14 @@ with tab_submit:
                         {baker}
                     </div>
                     <div style="display: flex; gap: 12px; align-items: center;">
-                        <div style="flex: 1; text-align: center;">
+                        <div style="flex: 0 0 100px; text-align: center;">
                             {img_tag}
                         </div>
-                        <div style="flex: 1.5; font-size: 0.9rem; color: #3E2723 !important; line-height: 1.5;">
-                            • Star Baker Wins: <b style="color: #3E2723;">{sb_c}</b><br>
-                            • In Line Mentions: <b style="color: #3E2723;">{inl_c}</b><br>
-                            • In Trouble Mentions: <b style="color: #3E2723;">{trb_c}</b><br>
-                            <span style="color: #3E2723;">{tech_line}</span>
+                        <div style="flex: 1; font-size: 0.88rem; color: #2D1B18 !important; line-height: 1.6; font-weight: 500;">
+                            • Star Baker Wins: <b style="color: #5D4037;">{sb_c}</b><br>
+                            • In Line Mentions: <b style="color: #5D4037;">{inl_c}</b><br>
+                            • In Trouble Mentions: <b style="color: #5D4037;">{trb_c}</b><br>
+                            <span style="color: #2D1B18 !important;">{tech_line}</span>
                         </div>
                     </div>
                 </div>
