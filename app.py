@@ -647,9 +647,14 @@ if tab_lead:
     w10_g = get_week_results(10, all_w_res_global)
     act_winner_g = w10_g.get("show_champion") if w10_g else None
     
+    # Automatically compute actual semifinalists (bakers remaining active at Week 9)
+    # Week 9 active bakers = ALL_BAKERS minus all eliminated up through Week 8
+    w8_elim_map = eliminated_bakers_by_week.get(9, [])
+    act_semis_computed = [b for b in ALL_BAKERS if b not in w8_elim_map]
+    
     current_season_actuals = {
         "winner": act_winner_g,
-        "semifinalists": [],
+        "semifinalists": act_semis_computed,
         "handshakes": total_hs_g,
         "crying": total_cry_g,
         "innuendos": total_inn_g
@@ -811,9 +816,19 @@ if tab_lead:
         
         st.markdown("🔍 **Projection vs. Actual Season Outcome & Points:**")
         for cat_label, pred_val, act_val, pts_earned, max_pts in season_breakdown:
+            if isinstance(pred_val, list):
+                pred_str = ", ".join([str(x) for x in pred_val if x])
+            else:
+                pred_str = str(pred_val)
+                
+            if isinstance(act_val, list):
+                act_str = ", ".join([str(x) for x in act_val if x])
+            else:
+                act_str = str(act_val)
+                
             pts_color = "green" if pts_earned > 0 else "gray"
             st.markdown(f"""
-            * **{cat_label}:** <span style="color: #1E88E5; font-weight: bold;">{pred_val}</span> | Actual: <span style="color: #B54E43; font-weight: bold;">{act_val}</span> &nbsp;&nbsp;|&nbsp;&nbsp; <span style="color: {pts_color}; font-weight: bold;">+{pts_earned} / {max_pts} pts</span>
+            * **{cat_label}:** <span style="color: #1E88E5; font-weight: bold;">{pred_str}</span> | Actual: <span style="color: #B54E43; font-weight: bold;">{act_str}</span> &nbsp;&nbsp;|&nbsp;&nbsp; <span style="color: {pts_color}; font-weight: bold;">+{pts_earned} / {max_pts} pts</span>
             """, unsafe_allow_html=True)
             
         st.markdown("---")
@@ -1353,10 +1368,12 @@ if tab_admin:
                     total_inn_all2 = sum(int(w_dat.get("innuendo_count", 0)) for w_dat in all_w_res_pub2.values())
                     w10_pub2 = get_week_results(10, all_w_res_pub2)
                     act_winner_pub2 = w10_pub2.get("show_champion") if w10_pub2 else None
+                    w8_elim_c2 = eliminated_bakers_by_week.get(9, [])
+                    act_semis_c2 = [b for b in ALL_BAKERS if b not in w8_elim_c2]
 
                     comp_season_act2 = {
                         "winner": act_winner_pub2,
-                        "semifinalists": [],
+                        "semifinalists": act_semis_c2,
                         "handshakes": total_hs_all2,
                         "crying": total_cry_all2,
                         "innuendos": total_inn_all2
@@ -1479,10 +1496,12 @@ if tab_admin:
                     total_inn_all = sum(int(w_dat.get("innuendo_count", 0)) for w_dat in all_w_res_pub.values())
                     w10_pub = get_week_results(10, all_w_res_pub)
                     act_winner_pub = w10_pub.get("show_champion") if w10_pub else None
+                    w8_elim_pub = eliminated_bakers_by_week.get(9, [])
+                    act_semis_pub = [b for b in ALL_BAKERS if b not in w8_elim_pub]
 
                     computed_season_actuals = {
                         "winner": act_winner_pub,
-                        "semifinalists": [],
+                        "semifinalists": act_semis_pub,
                         "handshakes": total_hs_all,
                         "crying": total_cry_all,
                         "innuendos": total_inn_all
