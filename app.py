@@ -191,11 +191,12 @@ def load_baker_image(baker_name):
         pass
     return None
 
-def get_baker_stats(baker_name):
+def get_baker_stats(baker_name, current_week=1):
     sb_count = 0
     inline_count = 0
     trouble_count = 0
-    tech_ranks = []
+    tech_placements = {}
+    tech_ranks_list = []
     
     weekly_res = st.session_state.get("weekly_results", {})
     for w_num, w_res in weekly_res.items():
@@ -216,15 +217,23 @@ def get_baker_stats(baker_name):
             
         tech_r = w_res.get("tech_rank", [])
         if isinstance(tech_r, list) and baker_name in tech_r:
-            tech_ranks.append(tech_r.index(baker_name) + 1)
+            rank = tech_r.index(baker_name) + 1
+            tech_placements[w_num] = rank
+            tech_ranks_list.append(rank)
         else:
             t_top = w_res.get("tech_top_3", [])
             t_bot = w_res.get("tech_bottom_3", [])
             if baker_name in t_top:
-                tech_ranks.append(t_top.index(baker_name) + 1)
+                rank = t_top.index(baker_name) + 1
+                tech_placements[w_num] = rank
+                tech_ranks_list.append(rank)
                 
-    avg_tech = round(sum(tech_ranks) / len(tech_ranks), 1) if tech_ranks else "N/A"
-    return sb_count, inline_count, trouble_count, avg_tech
+    if current_week <= 5:
+        tech_display = tech_placements if tech_placements else "None yet"
+    else:
+        tech_display = round(sum(tech_ranks_list) / len(tech_ranks_list), 1) if tech_ranks_list else "N/A"
+        
+    return sb_count, inline_count, trouble_count, tech_display
 
 # --- 4. ROSTER & STATE INITIALIZATION ---
 ALL_BAKERS = [
@@ -486,12 +495,16 @@ with tab_submit:
     if auth_success:
         st.markdown("---")
         
-        # Visual Baker Gallery & Live Stats Tracker
-        with st.expander("📸 Visual Baker Gallery & Season Statistics (Class of 2026)", expanded=True):
+        # Visual Baker Gallery & Live Stats Tracker (Filtered for remaining active bakers only)
+        curr_elim_all = eliminated_bakers_by_week.get(active_prediction_week, [])
+        remaining_gallery_bakers = [b for b in ALL_BAKERS if b not in curr_elim_all]
+        
+        with st.expander(f"📸 Visual Baker Gallery & Season Statistics (Active Bakers - Week {active_prediction_week})", expanded=True):
             cols = st.columns(4)
-            for idx, baker in enumerate(ALL_BAKERS):
+            for idx, baker in enumerate(remaining_gallery_bakers):
                 info = BAKER_INFO.get(baker, {"url": "#"})
-                sb_c, inl_c, trb_c, avg_t = get_baker_stats(baker)
+                sb_c, inl_c, trb_c, tech_stat = get_baker_stats(baker, active_prediction_week)
+                
                 with cols[idx % 4]:
                     st.markdown(f"**{baker}**")
                     b_img = load_baker_image(baker)
@@ -499,12 +512,22 @@ with tab_submit:
                         st.image(b_img, use_container_width=True)
                     else:
                         st.markdown("🧁 *[Portrait]*")
+                        
                     st.markdown(f"""
-                    * ⭐ Star Baker: **{sb_c}**
-                    * ⭐ In Line: **{inl_c}**
-                    * ⚠️ In Trouble: **{trb_c}**
-                    * 📊 Avg Tech: **{avg_t}**
+                    * Star Baker Wins: **{sb_c}**
+                    * In Line Mentions: **{inl_c}**
+                    * In Trouble Mentions: **{trb_c}**
                     """)
+                    
+                    if active_prediction_week <= 5:
+                        if isinstance(tech_stat, dict) and tech_stat:
+                            tech_str = ", ".join([f"W{w}: #{p}" for w, p in sorted(tech_stat.items())])
+                            st.markdown(f"* Technical Placements: **{tech_str}**")
+                        else:
+                            st.markdown("* Technical Placements: **None yet**")
+                    else:
+                        st.markdown(f"* Avg Technical Placement: **{tech_stat}**")
+                        
                     st.markdown(f"[GBBO Profile]({info['url']})")
 
         st.markdown("---")
