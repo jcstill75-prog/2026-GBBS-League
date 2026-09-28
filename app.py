@@ -560,19 +560,30 @@ with st.sidebar:
         * **Star Member Bonus:** +5 pts to weekly high scorer
         """)
 
-# --- 6. MAIN NAVIGATION TABS ---
+# --- 6. MAIN NAVIGATION TABS (Using Radio for Tab State Reset) ---
 st.title("🧁 Great British Baking Show Fantasy League 2026")
-tab_lead, tab_submit, tab_results, tab_admin = st.tabs([
+
+tabs_list = [
     "📊 Leaderboard & Standings", 
     "📝 Submit Predictions", 
     "📺 Show Results", 
     "👑 Admin Panel"
-])
+]
+
+selected_tab = st.radio("Navigation", tabs_list, horizontal=True, label_visibility="collapsed")
+st.markdown("---")
+
+tab_lead, tab_submit, tab_results, tab_admin = (
+    selected_tab == tabs_list[0],
+    selected_tab == tabs_list[1],
+    selected_tab == tabs_list[2],
+    selected_tab == tabs_list[3]
+)
 
 # ==============================================================================
 # TAB 1: LEADERBOARD & STANDINGS
 # ==============================================================================
-with tab_lead:
+if tab_lead:
     st.header("🏆 Live Leaderboard & Standings")
     
     lb_data = []
@@ -737,7 +748,7 @@ with tab_lead:
 # ==============================================================================
 # TAB 2: SUBMIT PREDICTIONS
 # ==============================================================================
-with tab_submit:
+if tab_submit:
     st.header("📝 Submit Predictions")
     pred_player = st.selectbox("Select Your Player Profile:", ROSTER_HUMANS, key="pred_player_login_sel")
     p_info = st.session_state.league_members[pred_player]
@@ -1083,7 +1094,7 @@ with tab_submit:
 # ==============================================================================
 # TAB 3: SHOW RESULTS
 # ==============================================================================
-with tab_results:
+if tab_results:
     st.header("📺 Official Broadcast Results")
     
     weekly_res_map = st.session_state.get("weekly_results", {})
@@ -1199,7 +1210,7 @@ with tab_results:
 # ==============================================================================
 # TAB 4: ADMIN PANEL
 # ==============================================================================
-with tab_admin:
+if tab_admin:
     st.header("👑 League Administrator Console")
     
     if not st.session_state.admin_authenticated:
