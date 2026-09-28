@@ -1099,7 +1099,7 @@ with tab_results:
                     
                     elim_val = w_act.get('eliminated', 'N/A')
                     if isinstance(elim_val, list):
-                        elim_str = ", ".join([str(b) for b in elim if b])
+                        elim_str = ", ".join([str(b) for b in elim_val if b])
                     else:
                         elim_str = str(elim_val)
                     st.write(f"🚪 **Eliminated:** {elim_str}")
