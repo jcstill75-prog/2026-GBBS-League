@@ -1088,8 +1088,8 @@ with tab_submit:
                                     for item in val:
                                         if item and item != "--Select Baker--":
                                             main_picks_flat.append(item)
-                            elif isinstance(val, str) and val and val != "--Select Baker--":
-                                main_picks_flat.append(val)
+                                elif isinstance(val, str) and val and val != "--Select Baker--":
+                                    main_picks_flat.append(val)
                             
                             if len(main_picks_flat) != len(set(main_picks_flat)):
                                 errors.append("❌ Duplicate Selection Error: You may not select the same baker more than once across Star Baker, In Line, In Trouble, and Eliminated!")
@@ -1118,7 +1118,7 @@ with tab_submit:
                             save_league_data()
                             st.session_state[notice_key] = f"✅ Success! Your Week {active_prediction_week} Ballot has been successfully submitted and locked in. You can log back in with your PIN anytime to review or edit your choices before the deadline."
                             st.session_state[auth_key] = False
-                            st.rer()
+                            st.rerun()
 
 # ==============================================================================
 # TAB 3: SHOW RESULTS
@@ -1204,7 +1204,6 @@ with tab_results:
     dispute_player_choice = st.selectbox("Select Your Name to Log a Dispute:", ["-- Select Name --"] + ROSTER_HUMANS, key="dispute_player_dropdown")
     
     if dispute_player_choice != "-- Select Name --":
-        # Check if user just submitted a dispute in this session
         sub_key = f"dispute_sent_{dispute_player_choice}"
         if st.session_state.get(sub_key, False):
             st.success(f"✅ Dispute successfully submitted for {dispute_player_choice}! You can submit another or select a different player above.")
@@ -1463,7 +1462,6 @@ with tab_admin:
         if pending_disputes:
             st.write("Review active pending disputes, vote in GroupMe, and record the final ruling below:")
             for idx, disp in enumerate(st.session_state.get("disputes", [])):
-                # Only show pending disputes in the review console
                 if "Pending Review" not in disp.get("Status", ""):
                     continue
                     
