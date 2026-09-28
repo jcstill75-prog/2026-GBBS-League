@@ -479,6 +479,22 @@ if "admin_authenticated" not in st.session_state:
 if "admin_verification_msg" not in st.session_state:
     st.session_state.admin_verification_msg = ""
 
+def get_eliminated_bakers_by_week():
+    elim_map = {}
+    elim_list = []
+    for w in sorted(st.session_state.weekly_results.keys(), key=lambda x: int(x)):
+        res = st.session_state.weekly_results[w]
+        act_el = res.get("eliminated")
+        if isinstance(act_el, list):
+            for b in act_el:
+                if b and b != "None" and b not in elim_list: elim_list.append(b)
+        elif isinstance(act_el, str) and act_el and act_el != "None":
+            if act_el not in elim_list: elim_list.append(act_el)
+        elim_map[int(w) + 1] = list(elim_list)
+    return elim_map
+
+eliminated_bakers_by_week = get_eliminated_bakers_by_week()
+
 # Force dynamic recalculation of scores on load to prevent stale legacy test scores
 def recalculate_all_scores():
     all_w_res = st.session_state.get("weekly_results", {})
@@ -540,21 +556,6 @@ def generate_ai_brian_season_picks():
 if not st.session_state.league_members["AI Brian"]["season_picks"]:
     st.session_state.league_members["AI Brian"]["season_picks"] = generate_ai_brian_season_picks()
 
-def get_eliminated_bakers_by_week():
-    elim_map = {}
-    elim_list = []
-    for w in sorted(st.session_state.weekly_results.keys(), key=lambda x: int(x)):
-        res = st.session_state.weekly_results[w]
-        act_el = res.get("eliminated")
-        if isinstance(act_el, list):
-            for b in act_el:
-                if b and b != "None" and b not in elim_list: elim_list.append(b)
-        elif isinstance(act_el, str) and act_el and act_el != "None":
-            if act_el not in elim_list: elim_list.append(act_el)
-        elim_map[int(w) + 1] = list(elim_list)
-    return elim_map
-
-eliminated_bakers_by_week = get_eliminated_bakers_by_week()
 all_scored_weeks = sorted([int(k) for k in st.session_state.weekly_results.keys()])
 active_prediction_week = max(all_scored_weeks) + 1 if all_scored_weeks else 1
 if active_prediction_week > 10: active_prediction_week = 10
