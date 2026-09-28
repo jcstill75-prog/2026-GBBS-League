@@ -47,7 +47,6 @@ def load_league_data():
             with open(DATA_FILE, "r") as f:
                 data = json.load(f)
                 if isinstance(data, dict):
-                    # Normalize weekly_results keys to int
                     w_res = {}
                     for k, v in data.get("weekly_results", {}).items():
                         try:
@@ -56,7 +55,6 @@ def load_league_data():
                             w_res[k] = v
                     data["weekly_results"] = w_res
                     
-                    # Normalize weekly_picks keys to int for all members
                     for m_name, m_data in data.get("league_members", {}).items():
                         if isinstance(m_data, dict) and "weekly_picks" in m_data:
                             norm_picks = {}
@@ -74,7 +72,6 @@ def load_league_data():
 
 def save_league_data():
     try:
-        # Normalize weekly_picks and weekly_results before saving
         clean_members = st.session_state.get("league_members", {})
         for m_name, m_data in clean_members.items():
             if isinstance(m_data, dict) and "weekly_picks" in m_data:
@@ -454,6 +451,44 @@ all_scored_weeks = sorted([int(k) for k in st.session_state.weekly_results.keys(
 active_prediction_week = max(all_scored_weeks) + 1 if all_scored_weeks else 1
 if active_prediction_week > 10: active_prediction_week = 10
 
+# Robust AI Brian weekly pick generator enforcing strict uniqueness rules
+def generate_ai_brian_weekly_picks(active_bakers, is_grace_week_catchup, week):
+    pool = list(active_bakers)
+    random.shuffle(pool)
+    
+    needed_main = 3 if is_grace_week_catchup else 4
+    sampled_main = random.sample(active_bakers, min(len(active_bakers), max(needed_main, len(active_bakers))))
+    
+    sb = sampled_main[0]
+    if is_grace_week_catchup:
+        elim = [sampled_main[1], sampled_main[2]]
+        inl = sampled_main[3] if len(sampled_main) > 3 else sampled_main[0]
+        trb = sampled_main[4] if len(sampled_main) > 4 else sampled_main[0]
+    else:
+        elim = sampled_main[1]
+        inl = sampled_main[2]
+        trb = sampled_main[3] if len(sampled_main) > 3 else sampled_main[0]
+        
+    picks = {
+        "star_baker": sb,
+        "eliminated": elim,
+        "in_line_sb": inl,
+        "in_trouble": trb
+    }
+    
+    if week >= 8:
+        picks["tech_rank"] = random.sample(active_bakers, len(active_bakers))
+    else:
+        top3 = random.sample(active_bakers, min(3, len(active_bakers)))
+        rem_bot = [b for b in active_bakers if b not in top3]
+        if len(rem_bot) < 3:
+            rem_bot = list(active_bakers)
+        bot3 = random.sample(rem_bot, min(3, len(rem_bot)))
+        picks["tech_top_3"] = top3
+        picks["tech_bottom_3"] = bot3
+        
+    return picks
+
 # --- 5. SIDEBAR (Fully Synchronized Points Reference Guide) ---
 with st.sidebar:
     st.title("🧁 GBBS League")
@@ -682,7 +717,7 @@ with tab_lead:
                                             
                                             if is_bot3_sweep:
                                                 b_color = "green"
-                                                b_pts = "+10 (Sweep)" if b_idx == 0 else ""
+                                                b_pts = "+10 (Sweep)" if b_idx == 2 else ""
                                             else:
                                                 is_exact = (pred_at_pos == actual_baker and pred_at_pos != "--Select Baker--")
                                                 is_wrong_spot = (not is_exact and pred_at_pos in act_bot3 and pred_at_pos != "--Select Baker--")
@@ -694,10 +729,10 @@ with tab_lead:
                                                 else:
                                                     b_pts = "+0"
                                                     
-                                            if is_bot3_sweep and b_idx > 0:
+                                            if is_bot3_sweep and b_idx < 2:
                                                 st.markdown(f"* {b_label} Place: <span style='color: #1E88E5; font-weight: bold;'>{pred_at_pos}</span> | Actual: <span style='color: #B54E43; font-weight: bold;'>{actual_baker}</span>", unsafe_allow_html=True)
                                             else:
-                                                pts_disp = f"&nbsp;&nbsp;|&nbsp;&nbsp; <span style='color: {b_color}; font-weight: bold;'>{b_pts} pts</span>" if not is_bot3_sweep or b_idx == 0 else ""
+                                                pts_disp = f"&nbsp;&nbsp;|&nbsp;&nbsp; <span style='color: {b_color}; font-weight: bold;'>{b_pts} pts</span>" if not is_bot3_sweep or b_idx == 2 else ""
                                                 st.markdown(f"* {b_label} Place: <span style='color: #1E88E5; font-weight: bold;'>{pred_at_pos}</span> | Actual: <span style='color: #B54E43; font-weight: bold;'>{actual_baker}</span> {pts_disp}", unsafe_allow_html=True)
                             else:
                                 st.write("Technical breakdown unavailable.")
@@ -967,14 +1002,7 @@ with tab_submit:
                             p_info["season_picks"] = {"winner": s_win, "semifinalists": s_semis, "handshakes": s_hs, "crying": s_cry, "innuendos": s_inn}
                             p_info["weekly_picks"][2] = weekly_picks
                             if 2 not in st.session_state.league_members["AI Brian"]["weekly_picks"]:
-                                st.session_state.league_members["AI Brian"]["weekly_picks"][2] = {
-                                    "star_baker": random.choice(active_bakers),
-                                    "eliminated": random.choice(active_bakers),
-                                    "in_line_sb": random.choice(active_bakers),
-                                    "in_trouble": random.choice(active_bakers),
-                                    "tech_top_3": random.sample(active_bakers, min(3, len(active_bakers))),
-                                    "tech_bottom_3": random.sample(active_bakers, min(3, len(active_bakers)))
-                                }
+                                st.session_state.league_members["AI Brian"]["weekly_picks"][2] = generate_ai_brian_weekly_picks(active_bakers, is_grace_week_catchup, 2)
                             save_league_data()
                             st.session_state[notice_key] = f"✅ Success! Your Week 2 Ballot and Season Projections have been successfully submitted and locked in. You can log back in with your PIN anytime to review or edit your choices before the deadline."
                             st.session_state[auth_key] = False
@@ -1087,14 +1115,7 @@ with tab_submit:
                         else:
                             p_info["weekly_picks"][active_prediction_week] = weekly_picks
                             if active_prediction_week not in st.session_state.league_members["AI Brian"]["weekly_picks"]:
-                                st.session_state.league_members["AI Brian"]["weekly_picks"][active_prediction_week] = {
-                                    "star_baker": random.choice(active_bakers),
-                                    "eliminated": random.sample(active_bakers, 2) if is_grace_week_catchup else random.choice(active_bakers),
-                                    "in_line_sb": random.choice(active_bakers),
-                                    "in_trouble": random.choice(active_bakers),
-                                    "tech_top_3": random.sample(active_bakers, min(3, len(active_bakers))),
-                                    "tech_bottom_3": random.sample(active_bakers, min(3, len(active_bakers)))
-                                }
+                                st.session_state.league_members["AI Brian"]["weekly_picks"][active_prediction_week] = generate_ai_brian_weekly_picks(active_bakers, is_grace_week_catchup, active_prediction_week)
                             save_league_data()
                             st.session_state[notice_key] = f"✅ Success! Your Week {active_prediction_week} Ballot has been successfully submitted and locked in. You can log back in with your PIN anytime to review or edit your choices before the deadline."
                             st.session_state[auth_key] = False
