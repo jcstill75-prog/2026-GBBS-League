@@ -560,7 +560,7 @@ with st.sidebar:
         * **Star Member Bonus:** +5 pts to weekly high scorer
         """)
 
-# --- 6. MAIN NAVIGATION TABS (Using Radio for Tab State Reset) ---
+# --- 6. MAIN NAVIGATION TABS ---
 st.title("🧁 Great British Baking Show Fantasy League 2026")
 
 tabs_list = [
@@ -573,12 +573,10 @@ tabs_list = [
 selected_tab = st.radio("Navigation", tabs_list, horizontal=True, label_visibility="collapsed")
 st.markdown("---")
 
-tab_lead, tab_submit, tab_results, tab_admin = (
-    selected_tab == tabs_list[0],
-    selected_tab == tabs_list[1],
-    selected_tab == tabs_list[2],
-    selected_tab == tabs_list[3]
-)
+tab_lead = (selected_tab == tabs_list[0])
+tab_submit = (selected_tab == tabs_list[1])
+tab_results = (selected_tab == tabs_list[2])
+tab_admin = (selected_tab == tabs_list[3])
 
 # ==============================================================================
 # TAB 1: LEADERBOARD & STANDINGS
