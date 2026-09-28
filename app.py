@@ -586,6 +586,29 @@ if tab_lead:
     
     lb_data = []
     for name, data in st.session_state.league_members.items():
+        # Automatically compute cumulative season results from weekly results for season projection scoring
+        all_w_results = st.session_state.get("weekly_results", {})
+        total_hs_season = sum(len(w_dat.get("handshake_bakers", [])) for w_dat in all_w_results.values())
+        total_cry_season = sum(int(w_dat.get("crying_count", 0)) for w_dat in all_w_results.values())
+        total_inn_season = sum(int(w_dat.get("innuendo_count", 0)) for w_dat in all_w_results.values())
+        
+        # Determine actual season winner from Week 10 if published, else None
+        w10_res = get_week_results(10, all_w_results)
+        act_winner_season = w10_res.get("show_champion") if w10_res else None
+        
+        season_actuals_computed = {
+            "winner": act_winner_season,
+            "semifinalists": [],
+            "handshakes": total_hs_season,
+            "crying": total_cry_season,
+            "innuendos": total_inn_season
+        }
+        season_score = calculate_season_score(data.get("season_picks", {}), season_actuals_computed)
+        data["season_score"] = season_score
+        
+        weekly_total = sum(data.get("weekly_breakdown", {}).values())
+        data["total_score"] = weekly_total + season_score
+        
         lb_data.append({"member": name, "points": data.get("total_score", 0), "data": data})
         
     df_lb = pd.DataFrame(lb_data)
@@ -1271,15 +1294,23 @@ if tab_admin:
                                 if raw_s == max_raw and raw_s > 0:
                                     st.session_state.league_members[m_name]["weekly_breakdown"][w] += 5
 
-                    if st.session_state.season_results:
-                        for m_name, m_data in st.session_state.league_members.items():
-                            season_pred = m_data["season_picks"]
-                            season_score = calculate_season_score(season_pred, st.session_state.season_results)
-                            m_data["season_score"] = season_score
-
                     for m_name, m_data in st.session_state.league_members.items():
                         weekly_total = sum(m_data["weekly_breakdown"].values())
-                        season_total = m_data.get("season_score", 0)
+                        all_w_res_curr = st.session_state.get("weekly_results", {})
+                        total_hs_c = sum(len(w_dat.get("handshake_bakers", [])) for w_dat in all_w_res_curr.values())
+                        total_cry_c = sum(int(w_dat.get("crying_count", 0)) for w_dat in all_w_res_curr.values())
+                        total_inn_c = sum(int(w_dat.get("innuendo_count", 0)) for w_dat in all_w_res_curr.values())
+                        w10_r = get_week_results(10, all_w_res_curr)
+                        act_win_c = w10_r.get("show_champion") if w10_r else None
+                        comp_season_act = {
+                            "winner": act_win_c,
+                            "semifinalists": [],
+                            "handshakes": total_hs_c,
+                            "crying": total_cry_c,
+                            "innuendos": total_inn_c
+                        }
+                        season_total = calculate_season_score(m_data.get("season_picks", {}), comp_season_act)
+                        m_data["season_score"] = season_total
                         m_data["total_score"] = weekly_total + season_total
 
                     save_league_data()
@@ -1356,25 +1387,6 @@ if tab_admin:
             st.markdown("##### 💬 Sexual Innuendos")
             actuals["innuendo_count"] = st.number_input("Number of Innuendo Occurrences", min_value=0, value=int(saved_w.get("innuendo_count", 0)), key=f"adm_inn_count_{admin_selected_week}")
             actuals["innuendo_timestamps"] = st.text_input("Description of Innuendos", value=saved_w.get("innuendo_timestamps", ""), placeholder="e.g. Soggy bottom @ 18:45", key=f"adm_inn_desc_{admin_selected_week}")
-            
-            if admin_selected_week == 10:
-                st.markdown("---")
-                st.subheader("Final Seasonal Broadcast Totals")
-                act_winner = st.selectbox("Actual Season Winner", baker_opts, key=f"adm_season_winner_w{admin_selected_week}")
-                act_semis = st.multiselect("Actual Semifinalists (Select 4)", ALL_BAKERS, max_selections=4, key=f"adm_season_semis_w{admin_selected_week}")
-                act_finalists = st.multiselect("Actual Finalists (Select 3)", ALL_BAKERS, max_selections=3, key=f"adm_season_fin_w{admin_selected_week}")
-                act_handshakes = st.number_input("Actual Season Total Handshakes", min_value=0, value=5, key=f"adm_season_hs_w{admin_selected_week}")
-                act_crying = st.number_input("Actual Season Total Crying Incidents", min_value=0, value=12, key=f"adm_season_cry_w{admin_selected_week}")
-                act_innuendos = st.number_input("Actual Season Total Sexual Innuendos", min_value=0, value=48, key=f"adm_season_inn_w{admin_selected_week}")
-
-                actuals_season = {
-                    "winner": act_winner,
-                    "semifinalists": act_semis,
-                    "finalists": act_finalists,
-                    "handshakes": act_handshakes,
-                    "crying": act_crying,
-                    "innuendos": act_innuendos
-                }
 
             pub_btn = st.form_submit_button("Publish Results & Recalculate Standings")
             if pub_btn:
@@ -1382,8 +1394,6 @@ if tab_admin:
                     st.error("❌ Week results are locked. Please check the 'Unlock to Edit' box above before publishing changes.")
                 else:
                     st.session_state.weekly_results[admin_selected_week] = actuals
-                    if admin_selected_week == 10:
-                        st.session_state.season_results = actuals_season
 
                     for member_name in st.session_state.league_members:
                         st.session_state.league_members[member_name]["total_score"] = 0
@@ -1406,11 +1416,26 @@ if tab_admin:
                                 if raw_s == max_raw and raw_s > 0:
                                     st.session_state.league_members[m_name]["weekly_breakdown"][w] += 5
 
-                    if st.session_state.season_results:
-                        for m_name, m_data in st.session_state.league_members.items():
-                            season_pred = m_data["season_picks"]
-                            season_score = calculate_season_score(season_pred, st.session_state.season_results)
-                            m_data["season_score"] = season_score
+                    # Automatically calculate season score from accumulated weekly results & Week 10 show champion
+                    all_w_res_pub = st.session_state.get("weekly_results", {})
+                    total_hs_all = sum(len(w_dat.get("handshake_bakers", [])) for w_dat in all_w_res_pub.values())
+                    total_cry_all = sum(int(w_dat.get("crying_count", 0)) for w_dat in all_w_res_pub.values())
+                    total_inn_all = sum(int(w_dat.get("innuendo_count", 0)) for w_dat in all_w_res_pub.values())
+                    w10_pub = get_week_results(10, all_w_res_pub)
+                    act_winner_pub = w10_pub.get("show_champion") if w10_pub else None
+
+                    computed_season_actuals = {
+                        "winner": act_winner_pub,
+                        "semifinalists": [],
+                        "handshakes": total_hs_all,
+                        "crying": total_cry_all,
+                        "innuendos": total_inn_all
+                    }
+
+                    for m_name, m_data in st.session_state.league_members.items():
+                        season_pred = m_data["season_picks"]
+                        season_score = calculate_season_score(season_pred, computed_season_actuals)
+                        m_data["season_score"] = season_score
 
                     for m_name, m_data in st.session_state.league_members.items():
                         weekly_total = sum(m_data["weekly_breakdown"].values())
