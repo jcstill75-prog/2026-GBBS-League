@@ -935,7 +935,6 @@ with tab_submit:
                             p_info["season_picks"] = {"winner": s_win, "semifinalists": s_semis, "handshakes": s_hs, "crying": s_cry, "innuendos": s_inn}
                             p_info["weekly_picks"][2] = weekly_picks
                             if 2 not in st.session_state.league_members["AI Brian"]["weekly_picks"]:
-                                # Fully populate AI Brian with all required prediction keys including in_line_sb and in_trouble
                                 st.session_state.league_members["AI Brian"]["weekly_picks"][2] = {
                                     "star_baker": random.choice(active_bakers),
                                     "eliminated": random.choice(active_bakers),
@@ -1100,7 +1099,7 @@ with tab_results:
                     
                     elim_val = w_act.get('eliminated', 'N/A')
                     if isinstance(elim_val, list):
-                        elim_str = ", ".join([str(b) for b in elim if b])
+                        elim_str = ", ".join([str(b) for b in elim_val if b])
                     else:
                         elim_str = str(elim_val)
                     st.write(f"🚪 **Eliminated:** {elim_str}")
