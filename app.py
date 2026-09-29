@@ -445,6 +445,32 @@ def get_baker_stats(baker_name, current_week=1):
         
     return sb_count, inline_count, trouble_count, tech_display
 
+def get_star_member_wins_count(member_name):
+    count = 0
+    weekly_res_map = st.session_state.get("weekly_results", {})
+    if not weekly_res_map:
+        return count
+    
+    all_weeks = sorted([int(k) for k in weekly_res_map.keys()])
+    for w in all_weeks:
+        act_w = get_week_results(w, weekly_res_map)
+        if not act_w:
+            continue
+            
+        scores = {}
+        for m_name, m_data in st.session_state.league_members.items():
+            pred = m_data["weekly_picks"].get(w, m_data["weekly_picks"].get(str(w), {}))
+            scores[m_name] = calculate_weekly_score(pred, act_w, w)
+            
+        if not scores:
+            continue
+            
+        max_score = max(scores.values())
+        if max_score > 0 and scores.get(member_name, 0) == max_score:
+            count += 1
+            
+    return count
+
 # --- 4. ROSTER & STATE INITIALIZATION ---
 ALL_BAKERS = [
     "Clara", "Connie", "Danni", "Gabe", "Gary", "Mo", 
@@ -732,7 +758,9 @@ if tab_lead:
         html_rows = []
         for idx, row in df_lb.iterrows():
             badge = "🥇" if idx == 1 else ("🥈" if idx == 2 else ("🥉" if idx == 3 else f"#{idx}"))
-            html_rows.append(f"<tr><td><b>{badge}</b></td><td>{row['member']}</td><td style='text-align: right;'><b>{row['points']} pts</b></td></tr>")
+            star_wins = get_star_member_wins_count(row['member'])
+            star_badge = f" &nbsp;<span style='font-size: 0.85rem;' title='Star Member High Scorer Wins'>⭐ x{star_wins}</span>" if star_wins > 0 else ""
+            html_rows.append(f"<tr><td><b>{badge}</b></td><td>{row['member']}{star_badge}</td><td style='text-align: right;'><b>{row['points']} pts</b></td></tr>")
             
         st.markdown(f"""
         <table style="width: 100%; border-collapse: collapse;">
