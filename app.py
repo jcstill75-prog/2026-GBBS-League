@@ -526,6 +526,9 @@ def get_eliminated_bakers_by_week():
     return elim_map
 
 eliminated_bakers_by_week = get_eliminated_bakers_by_week()
+all_scored_weeks = sorted([int(k) for k in st.session_state.weekly_results.keys()])
+active_prediction_week = max(all_scored_weeks) + 1 if all_scored_weeks else 1
+if active_prediction_week > 10: active_prediction_week = 10
 
 # Force dynamic recalculation of scores on load to prevent stale legacy test scores
 def recalculate_all_scores():
@@ -587,10 +590,6 @@ def generate_ai_brian_season_picks():
 
 if not st.session_state.league_members["AI Brian"]["season_picks"]:
     st.session_state.league_members["AI Brian"]["season_picks"] = generate_ai_brian_season_picks()
-
-all_scored_weeks = sorted([int(k) for k in st.session_state.weekly_results.keys()])
-active_prediction_week = max(all_scored_weeks) + 1 if all_scored_weeks else 1
-if active_prediction_week > 10: active_prediction_week = 10
 
 def generate_ai_brian_weekly_picks(active_bakers, is_grace_week_catchup, week):
     if week == 1:
@@ -979,54 +978,6 @@ if tab_submit:
 
     if auth_success:
         st.markdown("---")
-        
-        curr_elim_all = eliminated_bakers_by_week.get(active_prediction_week, [])
-        remaining_gallery_bakers = [b for b in ALL_BAKERS if b not in curr_elim_all]
-        
-        with st.expander(f"📸 Visual Baker Profiles & Season Statistics (Active Bakers - Week {active_prediction_week})", expanded=True):
-            card_cols = st.columns(2)
-            for idx, baker in enumerate(remaining_gallery_bakers):
-                sb_c, inl_c, trb_c, tech_stat = get_baker_stats(baker, active_prediction_week)
-                
-                b_img = load_baker_image(baker)
-                img_b64 = image_to_base64(b_img) if b_img else ""
-                
-                if img_b64:
-                    img_tag = f'<img src="data:image/jpeg;base64,{img_b64}" style="width: 100%; max-width: 95px; height: 110px; object-fit: cover; border-radius: 6px; border: 1px solid #8D6E63;">'
-                else:
-                    img_tag = '<div style="width: 100%; max-width: 95px; height: 110px; background-color: #EFEBE9; border-radius: 6px; display: flex; align-items: center; justify-content: center; font-size: 0.75rem; color: #5D4037;">[Photo]</div>'
-                
-                if active_prediction_week <= 5:
-                    if isinstance(tech_stat, dict) and tech_stat:
-                        tech_str = ", ".join([f"W{w}: #{p}" for w, p in sorted(tech_stat.items())])
-                    else:
-                        tech_str = "None yet"
-                    tech_line = f"Technicals: <b>{tech_str}</b>"
-                else:
-                    tech_line = f"Technicals: <b>{tech_stat}</b>"
-
-                card_html = f"""
-                <div style="border: 2px solid #5D4037; border-radius: 10px; padding: 12px; background-color: #FFF9F5; color: #2D1B18; box-shadow: 0 3px 6px rgba(0,0,0,0.1); margin-bottom: 15px;">
-                    <div style="background-color: #5D4037; color: #FFFFFF; padding: 6px 10px; border-radius: 6px; font-weight: bold; text-align: center; margin-bottom: 10px; font-size: 1.05rem;">
-                        {baker}
-                    </div>
-                    <div style="display: flex; gap: 12px; align-items: center;">
-                        <div style="flex: 0 0 95px; text-align: center;">
-                            {img_tag}
-                        </div>
-                        <div style="flex: 1; font-size: 0.85rem; color: #2D1B18; line-height: 1.5; background-color: #FFFFFF; padding: 8px; border-radius: 6px; border: 1px solid #D7CCC8;">
-                            <div style="color: #2D1B18; margin-bottom: 3px;">Star Baker: <b style="color: #5D4037;">{sb_c}</b></div>
-                            <div style="color: #2D1B18; margin-bottom: 3px;">In Line SB: <b style="color: #5D4037;">{inl_c}</b></div>
-                            <div style="color: #2D1B18; margin-bottom: 3px;">In Trouble: <b style="color: #5D4037;">{trb_c}</b></div>
-                            <div style="color: #2D1B18;">{tech_line}</div>
-                        </div>
-                    </div>
-                </div>
-                """
-                with card_cols[idx % 2]:
-                    st.markdown(card_html, unsafe_allow_html=True)
-
-        st.markdown("---")
         if not st.session_state.weekly_results:
             st.warning("🔒 **Week 1 Scouting Phase:** Season-wide predictions & Week 2 ballots unlock together once Week 1 results are published by the Admin!")
         elif is_weekly_voting_closed():
@@ -1269,8 +1220,55 @@ if tab_submit:
 # TAB 3: SHOW RESULTS
 # ==============================================================================
 if tab_results:
-    st.header("📺 Official Broadcast Results")
+    st.header("📺 Official Broadcast Results & Visual Baker Gallery")
     
+    curr_elim_all_res = eliminated_bakers_by_week.get(active_prediction_week, [])
+    remaining_gallery_bakers_res = [b for b in ALL_BAKERS if b not in curr_elim_all_res]
+    
+    with st.expander(f"📸 Visual Baker Profiles & Season Statistics (Active Bakers - Week {active_prediction_week})", expanded=True):
+        card_cols = st.columns(2)
+        for idx, baker in enumerate(remaining_gallery_bakers_res):
+            sb_c, inl_c, trb_c, tech_stat = get_baker_stats(baker, active_prediction_week)
+            
+            b_img = load_baker_image(baker)
+            img_b64 = image_to_base64(b_img) if b_img else ""
+            
+            if img_b64:
+                img_tag = f'<img src="data:image/jpeg;base64,{img_b64}" style="width: 100%; max-width: 95px; height: 110px; object-fit: cover; border-radius: 6px; border: 1px solid #8D6E63;">'
+            else:
+                img_tag = '<div style="width: 100%; max-width: 95px; height: 110px; background-color: #EFEBE9; border-radius: 6px; display: flex; align-items: center; justify-content: center; font-size: 0.75rem; color: #5D4037;">[Photo]</div>'
+            
+            if active_prediction_week <= 5:
+                if isinstance(tech_stat, dict) and tech_stat:
+                    tech_str = ", ".join([f"W{w}: #{p}" for w, p in sorted(tech_stat.items())])
+                else:
+                    tech_str = "None yet"
+                tech_line = f"Technicals: <b>{tech_str}</b>"
+            else:
+                tech_line = f"Technicals: <b>{tech_stat}</b>"
+
+            card_html = f"""
+            <div style="border: 2px solid #5D4037; border-radius: 10px; padding: 12px; background-color: #FFF9F5; color: #2D1B18; box-shadow: 0 3px 6px rgba(0,0,0,0.1); margin-bottom: 15px;">
+                <div style="background-color: #5D4037; color: #FFFFFF; padding: 6px 10px; border-radius: 6px; font-weight: bold; text-align: center; margin-bottom: 10px; font-size: 1.05rem;">
+                    {baker}
+                </div>
+                <div style="display: flex; gap: 12px; align-items: center;">
+                    <div style="flex: 0 0 95px; text-align: center;">
+                        {img_tag}
+                    </div>
+                    <div style="flex: 1; font-size: 0.85rem; color: #2D1B18; line-height: 1.5; background-color: #FFFFFF; padding: 8px; border-radius: 6px; border: 1px solid #D7CCC8;">
+                        <div style="color: #2D1B18; margin-bottom: 3px;">Star Baker: <b style="color: #5D4037;">{sb_c}</b></div>
+                        <div style="color: #2D1B18; margin-bottom: 3px;">In Line SB: <b style="color: #5D4037;">{inl_c}</b></div>
+                        <div style="color: #2D1B18; margin-bottom: 3px;">In Trouble: <b style="color: #5D4037;">{trb_c}</b></div>
+                        <div style="color: #2D1B18;">{tech_line}</div>
+                    </div>
+                </div>
+            </div>
+            """
+            with card_cols[idx % 2]:
+                st.markdown(card_html, unsafe_allow_html=True)
+
+    st.markdown("---")
     weekly_res_map = st.session_state.get("weekly_results", {})
     
     if weekly_res_map:
