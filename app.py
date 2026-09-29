@@ -103,7 +103,10 @@ def save_league_data():
 
 # --- 3. DEADLINE & SCORING ENGINE ---
 def is_weekly_voting_closed():
-    """Returns True ONLY on Tuesday at or after 2:00 PM Houston time."""
+    """Returns True ONLY on Tuesday at or after 2:00 PM Houston time, unless Admin override is active."""
+    if st.session_state.get("admin_deadline_override", False):
+        return False
+
     try:
         now = datetime.datetime.now(ZoneInfo("America/Chicago"))
     except Exception:
@@ -512,6 +515,8 @@ if "admin_verification_msg" not in st.session_state:
     st.session_state.admin_verification_msg = ""
 if "admin_pin_reset_msg" not in st.session_state:
     st.session_state.admin_pin_reset_msg = ""
+if "admin_deadline_override" not in st.session_state:
+    st.session_state.admin_deadline_override = False
 
 def get_eliminated_bakers_by_week():
     elim_map = {}
@@ -983,8 +988,11 @@ if tab_submit:
         if not st.session_state.weekly_results:
             st.warning("🔒 **Week 1 Scouting Phase:** Season-wide predictions & Week 2 ballots unlock together once Week 1 results are published by the Admin!")
         elif is_weekly_voting_closed():
-            st.error("⏰ **Weekly Voting Closed:** The weekly voting deadline (Tuesdays at 2:00 PM Houston time) has passed. Ballot submissions and edits are locked.")
+            st.error("⏰ **Weekly Voting Closed:** The weekly voting deadline (Tuesdays at 2:00 PM Houston time) has passed. Ballot submissions and edits are locked. *(Note: The Administrator can grant an extension from the Admin Panel if needed.)*")
         else:
+            if st.session_state.get("admin_deadline_override", False):
+                st.info("🔓 **Admin Extension Active:** Deadline restrictions are temporarily lifted for late submissions.")
+
             curr_elim = eliminated_bakers_by_week.get(active_prediction_week, [])
             active_bakers = [b for b in ALL_BAKERS if b not in curr_elim]
             
@@ -1415,6 +1423,17 @@ if tab_admin:
                 if st.button("Dismiss", key="dismiss_pin_msg_btn"):
                     st.session_state.admin_pin_reset_msg = ""
                     st.rerun()
+
+        st.subheader("🔓 Grant Late Ballot Submission Extension")
+        override_status = st.toggle("Enable Deadline Override (Allow Late Submissions)", value=st.session_state.get("admin_deadline_override", False), key="deadline_override_toggle")
+        if override_status != st.session_state.get("admin_deadline_override", False):
+            st.session_state.admin_deadline_override = override_status
+            st.rerun()
+
+        if st.session_state.get("admin_deadline_override", False):
+            st.warning("⚠️ **Deadline Override Active:** The weekly voting deadline is currently bypassed. Players can submit or edit their ballots for the active week.")
+
+        st.markdown("---")
             
         admin_selected_week = st.selectbox("Select Episode Week:", list(range(1, 11)), key="adm_w_sel")
         
