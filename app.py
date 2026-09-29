@@ -294,7 +294,6 @@ def get_week_results(w_num, results_map):
     return {}
 
 def calculate_season_score(predictions, actuals):
-    # Season projections are only evaluated and scored after Week 10 results are published!
     if not is_week_published(10, st.session_state.get("weekly_results", {})):
         return 0
 
@@ -568,7 +567,6 @@ active_prediction_week = max(all_scored_weeks) + 1 if all_scored_weeks else 1
 if active_prediction_week > 10: active_prediction_week = 10
 
 def generate_ai_brian_weekly_picks(active_bakers, is_grace_week_catchup, week):
-    # AI Brian must NEVER make picks for Week 1 (scouting phase)
     if week == 1:
         return {}
 
@@ -756,6 +754,7 @@ if tab_lead:
             voting_closed = is_weekly_voting_closed()
             weekly_results_map = st.session_state.get("weekly_results", {})
             season_finished = is_week_published(10, weekly_results_map)
+            admin_unlocked = st.session_state.get("admin_authenticated", False)
             
             logged_in_human = None
             for hum in ROSTER_HUMANS:
@@ -765,7 +764,7 @@ if tab_lead:
 
             for w_num in sorted(p_weekly.keys(), key=lambda x: int(x)):
                 is_current_active_week = (int(w_num) == active_prediction_week)
-                can_view = (selected_card_player == logged_in_human) or (selected_card_player == "AI Brian") or (not is_current_active_week) or voting_closed or season_finished
+                can_view = (selected_card_player == logged_in_human) or (selected_card_player == "AI Brian") or (not is_current_active_week) or voting_closed or season_finished or admin_unlocked
                 
                 if not can_view:
                     with st.expander(f"Week {w_num} Ballot (Locked 🔒)", expanded=False):
