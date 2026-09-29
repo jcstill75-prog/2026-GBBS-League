@@ -510,6 +510,8 @@ if "admin_authenticated" not in st.session_state:
     st.session_state.admin_authenticated = False
 if "admin_verification_msg" not in st.session_state:
     st.session_state.admin_verification_msg = ""
+if "admin_pin_reset_msg" not in st.session_state:
+    st.session_state.admin_pin_reset_msg = ""
 
 def get_eliminated_bakers_by_week():
     elim_map = {}
@@ -1405,6 +1407,15 @@ if tab_admin:
         if st.session_state.admin_verification_msg:
             st.success(st.session_state.admin_verification_msg)
             
+        if st.session_state.admin_pin_reset_msg:
+            c_msg1, c_msg2 = st.columns([5, 1])
+            with c_msg1:
+                st.success(st.session_state.admin_pin_reset_msg)
+            with c_msg2:
+                if st.button("Dismiss", key="dismiss_pin_msg_btn"):
+                    st.session_state.admin_pin_reset_msg = ""
+                    st.rerun()
+            
         admin_selected_week = st.selectbox("Select Episode Week:", list(range(1, 11)), key="adm_w_sel")
         
         saved_w = get_week_results(admin_selected_week, st.session_state.weekly_results)
@@ -1646,12 +1657,17 @@ if tab_admin:
 
         st.subheader("🔑 Reset Forgotten Player Security PIN")
         human_players = [m for m in sorted(st.session_state.league_members.keys()) if m != "AI Brian"]
-        reset_sel_player = st.selectbox("Select Player Profile to Reset PIN:", ["-- Select Player --"] + human_players, key="admin_pin_reset_dropdown")
-        if reset_sel_player != "-- Select Player --":
+        
+        player_options = ["-- Select Player --"] + [f"{p} ({'🔐 PIN Active' if st.session_state.league_members[p].get('pin') else '🔓 PIN Cleared'})" for p in human_players]
+        
+        reset_sel_selection = st.selectbox("Select Player Profile to Reset PIN:", player_options, key="admin_pin_reset_dropdown")
+        
+        if reset_sel_selection != "-- Select Player --":
+            reset_sel_player = reset_sel_selection.split(" (")[0]
             if st.button(f"Reset PIN for {reset_sel_player}"):
                 st.session_state.league_members[reset_sel_player]["pin"] = None
                 save_league_data()
-                st.success(f"Security PIN for {reset_sel_player} has been cleared! They can set a new 4-digit PIN upon next login.")
+                st.session_state.admin_pin_reset_msg = f"✅ Security PIN for **{reset_sel_player}** has been successfully cleared! They can now set a new 4-digit PIN upon next login."
                 st.rerun()
 
         st.markdown("---")
