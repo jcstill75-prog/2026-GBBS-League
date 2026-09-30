@@ -965,7 +965,7 @@ if tab_lead:
                                         r_label = "1st" if t_idx==0 else ("2nd" if t_idx==1 else ("3rd" if t_idx==2 else f"{t_idx+1}th"))
                                         st.markdown(f'* {r_label} Place: <span style="color: #1E88E5; font-weight: bold;">{b_val if b_val else "None"}</span>', unsafe_allow_html=True)
 
-                            st.info("💡 Transparent scoring comparison and actual outcomes will appear here once official broadcast results are published.")
+                            st.info("💡 Actual outcomes and scoring will appear here once official broadcast results are published.")
 
                         st.markdown("---")
                         st.markdown(f"🏆 **Total Points Earned for Week {w_num}:** <span style='color: green; font-weight: bold; font-size: 1.1rem;'>{w_pts} pts</span>", unsafe_allow_html=True)
@@ -991,7 +991,7 @@ if tab_lead:
             st.markdown(f'* **Hollywood Handshakes:** <span style="color: #1E88E5; font-weight: bold;">{hs_pred}</span>', unsafe_allow_html=True)
             st.markdown(f'* **Crying Incidents:** <span style="color: #1E88E5; font-weight: bold;">{cry_pred}</span>', unsafe_allow_html=True)
             st.markdown(f'* **Sexual Innuendos:** <span style="color: #1E88E5; font-weight: bold;">{inn_pred}</span>', unsafe_allow_html=True)
-            st.info("💡 Transparent season scoring comparison and actual outcomes will appear here once Week 10 grand finale results are published.")
+            st.info("💡 Actual outcomes and scoring will appear here once Week 10 grand finale results are published.")
         else:
             st.markdown("🔍 **Projection vs. Actual Season Outcome & Points:**")
             for cat_label, pred_val, act_val, pts_earned, max_pts in season_breakdown:
@@ -1288,7 +1288,6 @@ if tab_submit:
                             main_picks_flat = []
                             for k in ["star_baker", "eliminated", "in_line_sb", "in_trouble"]:
                                 val = weekly_picks.get(k)
-                                isinstance(val, list)
                                 if isinstance(val, list):
                                     for item in val:
                                         if item and item != "--Select Baker--":
