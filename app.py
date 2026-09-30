@@ -943,8 +943,17 @@ if tab_submit:
             st.rerun()
 
     auth_success = False
-    
-    if p_info.get("pin") is None:
+    admin_proxy_active = st.session_state.get("admin_authenticated", False)
+
+    if admin_proxy_active:
+        st.info(f"👑 **Admin Proxy Mode Available:** As the administrator, you can open and edit **{pred_player}'s** ballot directly without entering their personal PIN.")
+        col_prox1, col_prox2 = st.columns(2)
+        with col_prox1:
+            if st.button(f"🔓 Open Ballot as Admin for {pred_player}", key="admin_proxy_unlock_btn"):
+                st.session_state[auth_key] = True
+                st.rerun()
+
+    if p_info.get("pin") is None and not st.session_state.get(auth_key, False):
         st.info(f"Welcome {pred_player}! Please create a 4-digit security PIN for your account:")
         with st.form(f"pin_create_form_{pred_player}"):
             p1 = st.text_input("Create 4-Digit Security PIN:", type="password")
@@ -968,7 +977,8 @@ if tab_submit:
                     st.session_state[auth_key] = False
                     st.rerun()
                     
-            st.success(f"🔓 Authenticated as {pred_player}!")
+            proxy_badge = " (via Admin Proxy Override)" if admin_proxy_active else ""
+            st.success(f"🔓 Authenticated as {pred_player}{proxy_badge}!")
         else:
             with st.form(f"pin_login_form_{pred_player}"):
                 entered_pin = st.text_input(f"Enter 4-Digit Security PIN for {pred_player}:", type="password")
