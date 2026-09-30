@@ -924,6 +924,21 @@ if tab_lead:
                             st.write(f"⭐ **In Line SB:** {inl}")
                             st.write(f"🚪 **Eliminated:** {elim_str}")
                             st.write(f"⚠️ **In Trouble:** {trb}")
+                            
+                            # Display pending technical predictions for Weeks 2-7
+                            w_int_num = int(w_num)
+                            if w_int_num < 8:
+                                tech_top = w_picks.get("tech_top_3", [])
+                                tech_bot = w_picks.get("tech_bottom_3", [])
+                                if tech_top:
+                                    st.write(f"🥇 **Top 3 Technical:** {', '.join([str(b) for b in tech_top if b])}")
+                                if tech_bot:
+                                    st.write(f"📉 **Bottom 3 Technical:** {', '.join([str(b) for b in tech_bot if b])}")
+                            elif w_int_num >= 8:
+                                tech_r = w_picks.get("tech_rank", [])
+                                if tech_r:
+                                    st.write(f"📊 **Technical Rankings:** {', '.join([str(b) for b in tech_r if b])}")
+
                             st.info("💡 Transparent scoring comparison and actual outcomes will appear here once official broadcast results are published.")
 
                         st.markdown("---")
