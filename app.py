@@ -814,13 +814,13 @@ if tab_lead:
                     
                     expander_title = f"Week {w_num} Ballot (Earned: {w_pts} pts)" if has_published else f"Week {w_num} Ballot (Pending Results)"
                     with st.expander(expander_title, expanded=False):
+                        w_int_num = int(w_num)
+                        sb_label = "Champion" if w_int_num == 10 else "Star Baker"
+
                         if has_published:
                             act_w = get_week_results(w_num, weekly_results_map)
                             
                             st.markdown("🔍 **Core Predictions:**")
-                            w_int_num = int(w_num)
-                            sb_label = "Champion" if w_int_num == 10 else "Star Baker"
-                            
                             sb_pred = w_picks.get("show_champion") if w_int_num == 10 else w_picks.get("star_baker")
                             sb_act = act_w.get("show_champion") if w_int_num == 10 else act_w.get("star_baker")
                             sb_pts = 15 if (w_int_num == 10 and sb_pred and sb_act and sb_pred == sb_act) else (5 if (sb_pred and sb_act and sb_pred == sb_act) else 0)
@@ -930,7 +930,7 @@ if tab_lead:
                             if is_high_scorer:
                                 st.markdown("<span style='color: green; font-weight: bold;'>• Star Member High Scorer Bonus: +5 pts</span>", unsafe_allow_html=True)
                         else:
-                            sb = w_picks.get("star_baker", w_picks.get("show_champion", "N/A"))
+                            sb = w_picks.get("show_champion") if w_int_num == 10 else w_picks.get("star_baker", "N/A")
                             inl = w_picks.get("in_line_sb", "N/A")
                             elim = w_picks.get("eliminated", "N/A")
                             if isinstance(elim, list):
@@ -1397,7 +1397,7 @@ if tab_results:
                         trouble_str = ", ".join([str(b) for b in trouble_val if b])
                     else:
                         trouble_str = str(trouble_val)
-                    st.write(f"⚠️ **'In Trouble':** {trouble_str}")
+                    st.write(f"⚠️️ **'In Trouble':** {trouble_str}")
             with col_res2:
                 hs_bakers = w_act.get('handshake_bakers', [])
                 hs_str = ", ".join([str(b) for b in hs_bakers if b]) if hs_bakers else "None"
