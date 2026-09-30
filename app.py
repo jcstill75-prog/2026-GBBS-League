@@ -816,25 +816,45 @@ if tab_lead:
                     with st.expander(expander_title, expanded=False):
                         if has_published:
                             act_w = get_week_results(w_num, weekly_results_map)
-                            breakdown_items = get_detailed_weekly_score_breakdown(w_picks, act_w, w_num)
                             
-                            st.markdown("🔍 **Prediction vs. Actual Outcome & Points:**")
-                            for cat_label, pred_val, act_val, pts_earned, max_pts in breakdown_items:
-                                if isinstance(pred_val, list):
-                                    pred_str = ", ".join([str(x) for x in pred_val if x])
-                                else:
-                                    pred_str = str(pred_val)
-                                    
-                                if isinstance(act_val, list):
-                                    act_str = ", ".join([str(x) for x in act_val if x])
-                                else:
-                                    act_str = str(act_val)
-                                    
-                                pts_color = "green" if pts_earned > 0 else "gray"
-                                st.markdown(f"""
-                                * **{cat_label}:** <span style="color: #1E88E5; font-weight: bold;">{pred_str}</span> | Actual: <span style="color: #B54E43; font-weight: bold;">{act_str}</span> &nbsp;&nbsp;|&nbsp;&nbsp; <span style="color: {pts_color}; font-weight: bold;">+{pts_earned} / {max_pts} pts</span>
-                                """, unsafe_allow_html=True)
-                                
+                            st.markdown("🔍 **Core Predictions:**")
+                            sb_pred = w_picks.get("star_baker")
+                            sb_act = act_w.get("star_baker")
+                            sb_pts = 5 if (sb_pred and sb_act and sb_pred == sb_act) else 0
+                            pts_color = "green" if sb_pts > 0 else "gray"
+                            st.markdown(f'* **Star Baker:** <span style="color: #1E88E5; font-weight: bold;">{sb_pred}</span> | Actual: <span style="color: #B54E43; font-weight: bold;">{sb_act}</span> &nbsp;&nbsp;|&nbsp;&nbsp; <span style="color: {pts_color}; font-weight: bold;">+{sb_pts} pts</span>', unsafe_allow_html=True)
+                            
+                            act_elim = act_w.get("eliminated")
+                            pred_elim = w_picks.get("eliminated")
+                            elim_pts = 0
+                            if isinstance(act_elim, list):
+                                if isinstance(pred_elim, list):
+                                    for p in pred_elim:
+                                        if p in act_elim: elim_pts += 5
+                            elif act_elim != "None":
+                                if isinstance(pred_elim, list):
+                                    if act_elim in pred_elim: elim_pts += 5
+                                elif pred_elim == act_elim:
+                                    elim_pts += 5
+                            pred_elim_str = ", ".join(pred_elim) if isinstance(pred_elim, list) else str(pred_elim)
+                            act_elim_str = ", ".join(act_elim) if isinstance(act_elim, list) else str(act_elim)
+                            pts_color = "green" if elim_pts > 0 else "gray"
+                            st.markdown(f'* **Eliminated:** <span style="color: #1E88E5; font-weight: bold;">{pred_elim_str}</span> | Actual: <span style="color: #B54E43; font-weight: bold;">{act_elim_str}</span> &nbsp;&nbsp;|&nbsp;&nbsp; <span style="color: {pts_color}; font-weight: bold;">+{elim_pts} pts</span>', unsafe_allow_html=True)
+                            
+                            inl_pred = w_picks.get("in_line_sb")
+                            inl_act = act_w.get("in_line_sb", [])
+                            if not isinstance(inl_act, list): inl_act = [inl_act]
+                            inl_pts = 2 if inl_pred in inl_act else 0
+                            pts_color = "green" if inl_pts > 0 else "gray"
+                            st.markdown(f'* **In Line SB:** <span style="color: #1E88E5; font-weight: bold;">{inl_pred}</span> | Actual: <span style="color: #B54E43; font-weight: bold;">{", ".join(inl_act)}</span> &nbsp;&nbsp;|&nbsp;&nbsp; <span style="color: {pts_color}; font-weight: bold;">+{inl_pts} pts</span>', unsafe_allow_html=True)
+                            
+                            trb_pred = w_picks.get("in_trouble")
+                            trb_act = act_w.get("in_trouble", [])
+                            if not isinstance(trb_act, list): trb_act = [trb_act]
+                            trb_pts = 2 if trb_pred in trb_act else 0
+                            pts_color = "green" if trb_pts > 0 else "gray"
+                            st.markdown(f'* **In Trouble:** <span style="color: #1E88E5; font-weight: bold;">{trb_pred}</span> | Actual: <span style="color: #B54E43; font-weight: bold;">{", ".join(trb_act)}</span> &nbsp;&nbsp;|&nbsp;&nbsp; <span style="color: {pts_color}; font-weight: bold;">+{trb_pts} pts</span>', unsafe_allow_html=True)
+                            
                             st.markdown("---")
                             st.markdown("📊 **Technical Challenge Breakdown:**")
                             act_tech_rank = act_w.get("tech_rank", [])
@@ -849,26 +869,19 @@ if tab_lead:
                                     sweep_pts = 25 if w_int_num == 8 else (20 if w_int_num == 9 else 15)
                                     if is_sweep:
                                         st.markdown(f"✨ **Technical Challenge (Flawless Sweep Bonus: <span style='color: green;'>+{sweep_pts} pts</span>):**", unsafe_allow_html=True)
-                                    else:
-                                        st.markdown("**Technical Challenge Rankings:**")
                                         
                                     for t_idx, actual_baker in enumerate(act_tech_rank):
                                         r_label = "1st" if t_idx==0 else ("2nd" if t_idx==1 else ("3rd" if t_idx==2 else f"{t_idx+1}th"))
                                         pred_at_pos = tech_rank[t_idx] if t_idx < len(tech_rank) else "--Select Baker--"
                                         
                                         if is_sweep:
-                                            t_color = "green"
-                                            t_pts = f"+{sweep_pts} (Sweep)" if t_idx == 0 else ""
+                                            t_pts = sweep_pts if t_idx == 0 else 0
                                         else:
                                             is_match = (pred_at_pos == actual_baker and pred_at_pos != "--Select Baker--")
-                                            t_color = "green" if is_match else "gray"
-                                            t_pts = "+3" if (is_match and t_idx in [0, len(act_tech_rank)-1]) else ("+2" if is_match else "+0")
-                                                
-                                        if is_sweep and t_idx > 0:
-                                            st.markdown(f"* {r_label} Place: <span style='color: #1E88E5; font-weight: bold;'>{pred_at_pos}</span> | Actual: <span style='color: #B54E43; font-weight: bold;'>{actual_baker}</span>", unsafe_allow_html=True)
-                                        else:
-                                            pts_disp = f"&nbsp;&nbsp;|&nbsp;&nbsp; <span style='color: {t_color}; font-weight: bold;'>{t_pts} pts</span>" if not is_sweep or t_idx == 0 else ""
-                                            st.markdown(f"* {r_label} Place: <span style='color: #1E88E5; font-weight: bold;'>{pred_at_pos}</span> | Actual: <span style='color: #B54E43; font-weight: bold;'>{actual_baker}</span> {pts_disp}", unsafe_allow_html=True)
+                                            t_pts = 3 if (is_match and t_idx in [0, len(act_tech_rank)-1]) else (2 if is_match else 0)
+                                            
+                                        t_color = "green" if t_pts > 0 else "gray"
+                                        st.markdown(f'* {r_label} Place: <span style="color: #1E88E5; font-weight: bold;">{pred_at_pos}</span> | Actual: <span style="color: #B54E43; font-weight: bold;">{actual_baker}</span> &nbsp;&nbsp;|&nbsp;&nbsp; <span style="color: {t_color}; font-weight: bold;">+{t_pts} pts</span>', unsafe_allow_html=True)
                             else:
                                 act_top3 = act_tech_rank[:3] if len(act_tech_rank) >= 3 else act_tech_rank
                                 act_bot3 = act_tech_rank[-3:] if len(act_tech_rank) >= 3 else act_tech_rank
@@ -878,7 +891,7 @@ if tab_lead:
                                 pred_bot3 = w_picks.get("tech_bottom_3", [])
                                 if not isinstance(pred_bot3, list): pred_bot3 = []
                                 
-                                st.markdown("**Top 3 Technical Challenge Predictions:**")
+                                st.markdown("**Top 3 Technical Challenge:**")
                                 top3_sweep = (pred_top3 == act_top3 and len(pred_top3) == 3)
                                 if top3_sweep:
                                     st.markdown("✨ **Top 3 Flawless Sweep Bonus: <span style='color: green;'>+10 pts</span>**", unsafe_allow_html=True)
@@ -886,14 +899,14 @@ if tab_lead:
                                     r_label = "1st" if t_idx==0 else ("2nd" if t_idx==1 else "3rd")
                                     pred_b = pred_top3[t_idx] if t_idx < len(pred_top3) else "--Select Baker--"
                                     if top3_sweep:
-                                        st.markdown(f"* {r_label} Place: <span style='color: #1E88E5; font-weight: bold;'>{pred_b}</span> | Actual: <span style='color: #B54E43; font-weight: bold;'>{actual_baker}</span>", unsafe_allow_html=True)
+                                        t_pts = 10 if t_idx == 0 else 0
                                     else:
                                         is_match = (pred_b == actual_baker and pred_b != "--Select Baker--")
-                                        t_color = "green" if is_match else ("orange" if pred_b in act_top3 else "gray")
-                                        t_pts = "+3" if (is_match and t_idx==0) else ("+2" if is_match else ("+1" if pred_b in act_top3 else "+0"))
-                                        st.markdown(f"* {r_label} Place: <span style='color: #1E88E5; font-weight: bold;'>{pred_b}</span> | Actual: <span style='color: #B54E43; font-weight: bold;'>{actual_baker}</span> &nbsp;&nbsp;|&nbsp;&nbsp; <span style='color: {t_color}; font-weight: bold;'>{t_pts} pts</span>", unsafe_allow_html=True)
+                                        t_pts = 3 if (is_match and t_idx==0) else (2 if is_match else (1 if pred_b in act_top3 else 0))
+                                    t_color = "green" if t_pts > 0 else "gray"
+                                    st.markdown(f'* {r_label} Place: <span style="color: #1E88E5; font-weight: bold;">{pred_b}</span> | Actual: <span style="color: #B54E43; font-weight: bold;">{actual_baker}</span> &nbsp;&nbsp;|&nbsp;&nbsp; <span style="color: {t_color}; font-weight: bold;">+{t_pts} pts</span>', unsafe_allow_html=True)
 
-                                st.markdown("**Bottom 3 Technical Challenge Predictions:**")
+                                st.markdown("**Bottom 3 Technical Challenge:**")
                                 bot3_sweep = (pred_bot3 == act_bot3 and len(pred_bot3) == 3)
                                 if bot3_sweep:
                                     st.markdown("✨ **Bottom 3 Flawless Sweep Bonus: <span style='color: green;'>+10 pts</span>**", unsafe_allow_html=True)
@@ -901,12 +914,12 @@ if tab_lead:
                                     r_label = "3rd-to-Last" if b_idx==0 else ("2nd-to-Last" if b_idx==1 else "Last")
                                     pred_b = pred_bot3[b_idx] if b_idx < len(pred_bot3) else "--Select Baker--"
                                     if bot3_sweep:
-                                        st.markdown(f"* {r_label} Place: <span style='color: #1E88E5; font-weight: bold;'>{pred_b}</span> | Actual: <span style='color: #B54E43; font-weight: bold;'>{actual_baker}</span>", unsafe_allow_html=True)
+                                        t_pts = 10 if b_idx == 0 else 0
                                     else:
                                         is_match = (pred_b == actual_baker and pred_b != "--Select Baker--")
-                                        t_color = "green" if is_match else ("orange" if pred_b in act_bot3 else "gray")
-                                        t_pts = "+3" if (is_match and b_idx==2) else ("+2" if is_match else ("+1" if pred_b in act_bot3 else "+0"))
-                                        st.markdown(f"* {r_label} Place: <span style='color: #1E88E5; font-weight: bold;'>{pred_b}</span> | Actual: <span style='color: #B54E43; font-weight: bold;'>{actual_baker}</span> &nbsp;&nbsp;|&nbsp;&nbsp; <span style='color: {t_color}; font-weight: bold;'>{t_pts} pts</span>", unsafe_allow_html=True)
+                                        t_pts = 3 if (is_match and b_idx==2) else (2 if is_match else (1 if pred_b in act_bot3 else 0))
+                                    t_color = "green" if t_pts > 0 else "gray"
+                                    st.markdown(f'* {r_label} Place: <span style="color: #1E88E5; font-weight: bold;">{pred_b}</span> | Actual: <span style="color: #B54E43; font-weight: bold;">{actual_baker}</span> &nbsp;&nbsp;|&nbsp;&nbsp; <span style="color: {t_color}; font-weight: bold;">+{t_pts} pts</span>', unsafe_allow_html=True)
                                 
                             if is_high_scorer:
                                 st.markdown("<span style='color: green; font-weight: bold;'>• Star Member High Scorer Bonus: +5 pts</span>", unsafe_allow_html=True)
@@ -925,19 +938,27 @@ if tab_lead:
                             st.write(f"🚪 **Eliminated:** {elim_str}")
                             st.write(f"⚠️ **In Trouble:** {trb}")
                             
-                            # Display pending technical predictions for Weeks 2-7
                             w_int_num = int(w_num)
                             if w_int_num < 8:
                                 tech_top = w_picks.get("tech_top_3", [])
                                 tech_bot = w_picks.get("tech_bottom_3", [])
                                 if tech_top:
-                                    st.write(f"🥇 **Top 3 Technical:** {', '.join([str(b) for b in tech_top if b])}")
+                                    st.markdown("**Top 3 Technical Predictions:**")
+                                    for t_idx, b_val in enumerate(tech_top):
+                                        r_label = "1st" if t_idx==0 else ("2nd" if t_idx==1 else "3rd")
+                                        st.markdown(f"* {r_label} Place: <span style='color: #1E88E5; font-weight: bold;'>{b_val if b_val else 'None'}</span>", unsafe_allow_html=True)
                                 if tech_bot:
-                                    st.write(f"📉 **Bottom 3 Technical:** {', '.join([str(b) for b in tech_bot if b])}")
+                                    st.markdown("**Bottom 3 Technical Predictions:**")
+                                    for b_idx, b_val in enumerate(tech_bot):
+                                        r_label = "3rd-to-Last" if b_idx==0 else ("2nd-to-Last" if b_idx==1 else "Last")
+                                        st.markdown(f"* {r_label} Place: <span style='color: #1E88E5; font-weight: bold;'>{b_val if b_val else 'None'}</span>", unsafe_allow_html=True)
                             elif w_int_num >= 8:
                                 tech_r = w_picks.get("tech_rank", [])
                                 if tech_r:
-                                    st.write(f"📊 **Technical Rankings:** {', '.join([str(b) for b in tech_r if b])}")
+                                    st.markdown("**Technical Rankings:**")
+                                    for t_idx, b_val in enumerate(tech_r):
+                                        r_label = "1st" if t_idx==0 else ("2nd" if t_idx==1 else ("3rd" if t_idx==2 else f"{t_idx+1}th"))
+                                        st.markdown(f"* {r_label} Place: <span style='color: #1E88E5; font-weight: bold;'>{b_val if b_val else 'None'}</span>", unsafe_allow_html=True)
 
                             st.info("💡 Transparent scoring comparison and actual outcomes will appear here once official broadcast results are published.")
 
@@ -965,7 +986,7 @@ if tab_lead:
                 
             pts_color = "green" if pts_earned > 0 else "gray"
             st.markdown(f"""
-            * **{cat_label}:** <span style="color: #1E88E5; font-weight: bold;">{pred_str}</span> | Actual: <span style="color: #B54E43; font-weight: bold;">{act_str}</span> &nbsp;&nbsp;|&nbsp;&nbsp; <span style="color: {pts_color}; font-weight: bold;">+{pts_earned} / {max_pts} pts</span>
+            * **{cat_label}:** <span style="color: #1E88E5; font-weight: bold;">{pred_str}</span> | Actual: <span style="color: #B54E43; font-weight: bold;">{act_str}</span> &nbsp;&nbsp;|&nbsp;&nbsp; <span style="color: {pts_color}; font-weight: bold;">+{pts_earned} pts</span>
             """, unsafe_allow_html=True)
             
         st.markdown("---")
@@ -1742,12 +1763,12 @@ if tab_admin:
             st.rerun()
 
         if st.session_state.get("admin_deadline_override", False):
-            st.warning("⚠️ **Deadline Override Active:** The weekly voting deadline is currently bypassed. Players can submit or edit their ballots for the active week.")
+            st.warning("⚠️ **Deadline Override Active:** The weekly voting deadline is currently bypassed. players can submit or edit their ballots for the active week.")
 
         st.markdown("---")
         st.subheader("🚨 Emergency Reset & Delete All App Data")
         confirm_erase = st.checkbox("I understand this will permanently erase all player prediction ballots, PINs, and published broadcast results.", key="confirm_erase_check")
-        if st.button("🗑️ Erase All Competition Data", type="primary"):
+        if st.button("🗑️️ Erase All Competition Data", type="primary"):
             if confirm_erase:
                 if os.path.exists(DATA_FILE):
                     try:
