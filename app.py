@@ -933,10 +933,10 @@ if tab_lead:
                                 elim_str = str(elim)
                             trb = w_picks.get("in_trouble", "N/A")
                             
-                            st.write(f"🌟 **Star Baker / Champion:** {sb}")
-                            st.write(f"⭐ **In Line SB:** {inl}")
-                            st.write(f"🚪 **Eliminated:** {elim_str}")
-                            st.write(f"⚠️ **In Trouble:** {trb}")
+                            st.markdown(f'* **Star Baker / Champion:** <span style="color: #1E88E5; font-weight: bold;">{sb}</span>', unsafe_allow_html=True)
+                            st.markdown(f'* **In Line SB:** <span style="color: #1E88E5; font-weight: bold;">{inl}</span>', unsafe_allow_html=True)
+                            st.markdown(f'* **Eliminated:** <span style="color: #1E88E5; font-weight: bold;">{elim_str}</span>', unsafe_allow_html=True)
+                            st.markdown(f'* **In Trouble:** <span style="color: #1E88E5; font-weight: bold;">{trb}</span>', unsafe_allow_html=True)
                             
                             w_int_num = int(w_num)
                             if w_int_num < 8:
@@ -946,19 +946,19 @@ if tab_lead:
                                     st.markdown("**Top 3 Technical Predictions:**")
                                     for t_idx, b_val in enumerate(tech_top):
                                         r_label = "1st" if t_idx==0 else ("2nd" if t_idx==1 else "3rd")
-                                        st.markdown(f"* {r_label} Place: <span style='color: #1E88E5; font-weight: bold;'>{b_val if b_val else 'None'}</span>", unsafe_allow_html=True)
+                                        st.markdown(f'* {r_label} Place: <span style="color: #1E88E5; font-weight: bold;">{b_val if b_val else "None"}</span>', unsafe_allow_html=True)
                                 if tech_bot:
                                     st.markdown("**Bottom 3 Technical Predictions:**")
                                     for b_idx, b_val in enumerate(tech_bot):
                                         r_label = "3rd-to-Last" if b_idx==0 else ("2nd-to-Last" if b_idx==1 else "Last")
-                                        st.markdown(f"* {r_label} Place: <span style='color: #1E88E5; font-weight: bold;'>{b_val if b_val else 'None'}</span>", unsafe_allow_html=True)
+                                        st.markdown(f'* {r_label} Place: <span style="color: #1E88E5; font-weight: bold;">{b_val if b_val else "None"}</span>', unsafe_allow_html=True)
                             elif w_int_num >= 8:
                                 tech_r = w_picks.get("tech_rank", [])
                                 if tech_r:
                                     st.markdown("**Technical Rankings:**")
                                     for t_idx, b_val in enumerate(tech_r):
                                         r_label = "1st" if t_idx==0 else ("2nd" if t_idx==1 else ("3rd" if t_idx==2 else f"{t_idx+1}th"))
-                                        st.markdown(f"* {r_label} Place: <span style='color: #1E88E5; font-weight: bold;'>{b_val if b_val else 'None'}</span>", unsafe_allow_html=True)
+                                        st.markdown(f'* {r_label} Place: <span style="color: #1E88E5; font-weight: bold;">{b_val if b_val else "None"}</span>', unsafe_allow_html=True)
 
                             st.info("💡 Transparent scoring comparison and actual outcomes will appear here once official broadcast results are published.")
 
@@ -1513,7 +1513,7 @@ if tab_admin:
             with col_unpub1:
                 edit_allowed = st.checkbox(f"Unlock Week {admin_selected_week} to edit published results", value=False, key=f"unlock_w{admin_selected_week}")
             with col_unpub2:
-                if st.button(f"🗑️ Unpublish Week {admin_selected_week} Results", key=f"unpub_btn_{admin_selected_week}"):
+                if st.button(f"🗑️️ Unpublish Week {admin_selected_week} Results", key=f"unpub_btn_{admin_selected_week}"):
                     if admin_selected_week in st.session_state.weekly_results:
                         del st.session_state.weekly_results[admin_selected_week]
                     if str(admin_selected_week) in st.session_state.weekly_results:
@@ -1763,12 +1763,12 @@ if tab_admin:
             st.rerun()
 
         if st.session_state.get("admin_deadline_override", False):
-            st.warning("⚠️ **Deadline Override Active:** The weekly voting deadline is currently bypassed. players can submit or edit their ballots for the active week.")
+            st.warning("⚠️ **Deadline Override Active:** The weekly voting deadline is currently bypassed. Players can submit or edit their ballots for the active week.")
 
         st.markdown("---")
         st.subheader("🚨 Emergency Reset & Delete All App Data")
         confirm_erase = st.checkbox("I understand this will permanently erase all player prediction ballots, PINs, and published broadcast results.", key="confirm_erase_check")
-        if st.button("🗑️️ Erase All Competition Data", type="primary"):
+        if st.button("🗑️ Erase All Competition Data", type="primary"):
             if confirm_erase:
                 if os.path.exists(DATA_FILE):
                     try:
