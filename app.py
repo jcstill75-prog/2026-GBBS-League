@@ -103,7 +103,7 @@ def save_league_data():
 
 # --- 3. DEADLINE & SCORING ENGINE ---
 def is_weekly_voting_closed():
-    """Returns True ONLY on Tuesday at or after 2:00 PM Houston time, unless Admin override is active."""
+    """Returns True if past Tuesday at 2:00 PM Houston time (Wed-Sun or Tue >= 14:00), unless Admin override is active."""
     if st.session_state.get("admin_deadline_override", False):
         return False
 
@@ -113,7 +113,7 @@ def is_weekly_voting_closed():
         now = datetime.datetime.now()
         
     weekday = now.weekday()  # 0:Mon, 1:Tue, 2:Wed, 3:Thu, 4:Fri, 5:Sat, 6:Sun
-    if weekday == 1 and now.hour >= 14:
+    if weekday > 1 or (weekday == 1 and now.hour >= 14):
         return True
     return False
 
@@ -1701,7 +1701,7 @@ if tab_admin:
         st.markdown("---")
         st.subheader("🚨 Emergency Reset & Delete All App Data")
         confirm_erase = st.checkbox("I understand this will permanently erase all player prediction ballots, PINs, and published broadcast results.", key="confirm_erase_check")
-        if st.button("🗑️️ Erase All Competition Data", type="primary"):
+        if st.button("🗑️ Erase All Competition Data", type="primary"):
             if confirm_erase:
                 if os.path.exists(DATA_FILE):
                     try:
