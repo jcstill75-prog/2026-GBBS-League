@@ -56,14 +56,23 @@ def load_league_data():
                     data["weekly_results"] = w_res
                     
                     for m_name, m_data in data.get("league_members", {}).items():
-                        if isinstance(m_data, dict) and "weekly_picks" in m_data:
-                            norm_picks = {}
-                            for wk_k, wk_v in m_data["weekly_picks"].items():
-                                try:
-                                    norm_picks[int(wk_k)] = wk_v
-                                except Exception:
-                                    norm_picks[wk_k] = wk_v
-                            m_data["weekly_picks"] = norm_picks
+                        if isinstance(m_data, dict):
+                            # Normalize weekly picks keys to integer weeks
+                            if "weekly_picks" in m_data:
+                                norm_picks = {}
+                                for wk_k, wk_v in m_data["weekly_picks"].items():
+                                    try:
+                                        norm_picks[int(wk_k)] = wk_v
+                                    except Exception:
+                                        norm_picks[wk_k] = wk_v
+                                m_data["weekly_picks"] = norm_picks
+                            else:
+                                m_data["weekly_picks"] = {}
+                            
+                            # Ensure season_picks exists
+                            m_data.setdefault("season_picks", {})
+                            m_data.setdefault("pin", None)
+                            m_data.setdefault("season_score", 0)
                             
                     return data
         except Exception:
@@ -74,14 +83,16 @@ def save_league_data():
     try:
         clean_members = st.session_state.get("league_members", {})
         for m_name, m_data in clean_members.items():
-            if isinstance(m_data, dict) and "weekly_picks" in m_data:
+            if isinstance(m_data, dict):
                 norm_picks = {}
-                for wk_k, wk_v in m_data["weekly_picks"].items():
+                for wk_k, wk_v in m_data.get("weekly_picks", {}).items():
                     try:
                         norm_picks[int(wk_k)] = wk_v
                     except Exception:
                         norm_picks[wk_k] = wk_v
                 m_data["weekly_picks"] = norm_picks
+                m_data.setdefault("season_picks", {})
+                m_data.setdefault("pin", None)
 
         clean_w_res = {}
         for wk_k, wk_v in st.session_state.get("weekly_results", {}).items():
@@ -502,6 +513,8 @@ for m in ROSTER_ALPHABETICAL:
     else:
         st.session_state.league_members[m].setdefault("pin", None)
         st.session_state.league_members[m].setdefault("season_score", 0)
+        st.session_state.league_members[m].setdefault("weekly_picks", {})
+        st.session_state.league_members[m].setdefault("season_picks", {})
 
 if "weekly_results" not in st.session_state:
     st.session_state.weekly_results = saved_state.get("weekly_results", {})
