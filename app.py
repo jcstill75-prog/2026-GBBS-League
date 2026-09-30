@@ -974,28 +974,44 @@ if tab_lead:
 
         st.markdown("---")
         st.markdown(f"### **{selected_card_player}'s Season Projections & Results**")
+        season_published = is_week_published(10, st.session_state.get("weekly_results", {}))
         season_breakdown = get_detailed_season_score_breakdown(p_season, current_season_actuals)
         total_season_earned = sum(item[3] for item in season_breakdown)
         
-        st.markdown("🔍 **Projection vs. Actual Season Outcome & Points:**")
-        for cat_label, pred_val, act_val, pts_earned, max_pts in season_breakdown:
-            if isinstance(pred_val, list):
-                pred_str = ", ".join([str(x) for x in pred_val if x])
-            else:
-                pred_str = str(pred_val)
-                
-            if isinstance(act_val, list):
-                act_str = ", ".join([str(x) for x in act_val if x])
-            else:
-                act_str = str(act_val)
-                
-            pts_color = "green" if pts_earned > 0 else "gray"
-            st.markdown(f"""
-            * **{cat_label}:** <span style="color: #1E88E5; font-weight: bold;">{pred_str}</span> | Actual: <span style="color: #B54E43; font-weight: bold;">{act_str}</span> &nbsp;&nbsp;|&nbsp;&nbsp; <span style="color: {pts_color}; font-weight: bold;">+{pts_earned} pts</span>
-            """, unsafe_allow_html=True)
+        if not season_published:
+            st.markdown("🔍 **Season-Wide Projections:**")
+            w_pred = p_season.get("winner", "None")
+            semis_pred = p_season.get("semifinalists", [])
+            hs_pred = p_season.get("handshakes", 0)
+            cry_pred = p_season.get("crying", 0)
+            inn_pred = p_season.get("innuendos", 0)
             
-        st.markdown("---")
-        st.markdown(f"🏆 **Total Season Projection Points Earned:** <span style='color: green; font-weight: bold; font-size: 1.1rem;'>{total_season_earned} pts</span>", unsafe_allow_html=True)
+            st.markdown(f'* **Season Winner:** <span style="color: #1E88E5; font-weight: bold;">{w_pred}</span>', unsafe_allow_html=True)
+            st.markdown(f'* **Semifinalists:** <span style="color: #1E88E5; font-weight: bold;">{", ".join(semis_pred) if semis_pred else "None"}</span>', unsafe_allow_html=True)
+            st.markdown(f'* **Hollywood Handshakes:** <span style="color: #1E88E5; font-weight: bold;">{hs_pred}</span>', unsafe_allow_html=True)
+            st.markdown(f'* **Crying Incidents:** <span style="color: #1E88E5; font-weight: bold;">{cry_pred}</span>', unsafe_allow_html=True)
+            st.markdown(f'* **Sexual Innuendos:** <span style="color: #1E88E5; font-weight: bold;">{inn_pred}</span>', unsafe_allow_html=True)
+            st.info("💡 Transparent season scoring comparison and actual outcomes will appear here once Week 10 grand finale results are published.")
+        else:
+            st.markdown("🔍 **Projection vs. Actual Season Outcome & Points:**")
+            for cat_label, pred_val, act_val, pts_earned, max_pts in season_breakdown:
+                if isinstance(pred_val, list):
+                    pred_str = ", ".join([str(x) for x in pred_val if x])
+                else:
+                    pred_str = str(pred_val)
+                    
+                if isinstance(act_val, list):
+                    act_str = ", ".join([str(x) for x in act_val if x])
+                else:
+                    act_str = str(act_val)
+                    
+                pts_color = "green" if pts_earned > 0 else "gray"
+                st.markdown(f"""
+                * **{cat_label}:** <span style="color: #1E88E5; font-weight: bold;">{pred_str}</span> | Actual: <span style="color: #B54E43; font-weight: bold;">{act_str}</span> &nbsp;&nbsp;|&nbsp;&nbsp; <span style="color: {pts_color}; font-weight: bold;">+{pts_earned} pts</span>
+                """, unsafe_allow_html=True)
+                
+            st.markdown("---")
+            st.markdown(f"🏆 **Total Season Projection Points Earned:** <span style='color: green; font-weight: bold; font-size: 1.1rem;'>{total_season_earned} pts</span>", unsafe_allow_html=True)
 
 # ==============================================================================
 # TAB 2: SUBMIT PREDICTIONS
@@ -1272,6 +1288,7 @@ if tab_submit:
                             main_picks_flat = []
                             for k in ["star_baker", "eliminated", "in_line_sb", "in_trouble"]:
                                 val = weekly_picks.get(k)
+                                isinstance(val, list)
                                 if isinstance(val, list):
                                     for item in val:
                                         if item and item != "--Select Baker--":
