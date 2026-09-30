@@ -1433,17 +1433,6 @@ if tab_admin:
                 if st.button("Dismiss", key="dismiss_pin_msg_btn"):
                     st.session_state.admin_pin_reset_msg = ""
                     st.rerun()
-
-        st.subheader("🔓 Grant Late Ballot Submission Extension")
-        override_status = st.toggle("Enable Deadline Override (Allow Late Submissions)", value=st.session_state.get("admin_deadline_override", False), key="deadline_override_toggle")
-        if override_status != st.session_state.get("admin_deadline_override", False):
-            st.session_state.admin_deadline_override = override_status
-            st.rerun()
-
-        if st.session_state.get("admin_deadline_override", False):
-            st.warning("⚠️ **Deadline Override Active:** The weekly voting deadline is currently bypassed. Players can submit or edit their ballots for the active week.")
-
-        st.markdown("---")
             
         admin_selected_week = st.selectbox("Select Episode Week:", list(range(1, 11)), key="adm_w_sel")
         
@@ -1700,9 +1689,19 @@ if tab_admin:
                 st.rerun()
 
         st.markdown("---")
+        st.subheader("🔓 Grant Late Ballot Submission Extension")
+        override_status = st.toggle("Enable Deadline Override (Allow Late Submissions)", value=st.session_state.get("admin_deadline_override", False), key="deadline_override_toggle")
+        if override_status != st.session_state.get("admin_deadline_override", False):
+            st.session_state.admin_deadline_override = override_status
+            st.rerun()
+
+        if st.session_state.get("admin_deadline_override", False):
+            st.warning("⚠️ **Deadline Override Active:** The weekly voting deadline is currently bypassed. Players can submit or edit their ballots for the active week.")
+
+        st.markdown("---")
         st.subheader("🚨 Emergency Reset & Delete All App Data")
         confirm_erase = st.checkbox("I understand this will permanently erase all player prediction ballots, PINs, and published broadcast results.", key="confirm_erase_check")
-        if st.button("🗑️ Erase All Competition Data", type="primary"):
+        if st.button("🗑️️ Erase All Competition Data", type="primary"):
             if confirm_erase:
                 if os.path.exists(DATA_FILE):
                     try:
