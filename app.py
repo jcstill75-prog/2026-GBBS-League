@@ -236,7 +236,7 @@ def get_detailed_weekly_score_breakdown(predictions, actuals, week):
         champ_pred = predictions.get("show_champion")
         champ_act = actuals.get("show_champion")
         pts = 15 if (champ_pred and champ_act and champ_pred == champ_act) else 0
-        breakdown.append(("Show Champion", champ_pred, champ_act, pts, 15))
+        breakdown.append(("Champion", champ_pred, champ_act, pts, 15))
     else:
         sb_pred = predictions.get("star_baker")
         sb_act = actuals.get("star_baker")
@@ -818,49 +818,52 @@ if tab_lead:
                             act_w = get_week_results(w_num, weekly_results_map)
                             
                             st.markdown("🔍 **Core Predictions:**")
-                            sb_pred = w_picks.get("star_baker")
-                            sb_act = act_w.get("star_baker")
-                            sb_pts = 5 if (sb_pred and sb_act and sb_pred == sb_act) else 0
+                            w_int_num = int(w_num)
+                            sb_label = "Champion" if w_int_num == 10 else "Star Baker"
+                            
+                            sb_pred = w_picks.get("show_champion") if w_int_num == 10 else w_picks.get("star_baker")
+                            sb_act = act_w.get("show_champion") if w_int_num == 10 else act_w.get("star_baker")
+                            sb_pts = 15 if (w_int_num == 10 and sb_pred and sb_act and sb_pred == sb_act) else (5 if (sb_pred and sb_act and sb_pred == sb_act) else 0)
                             pts_color = "green" if sb_pts > 0 else "gray"
-                            st.markdown(f'* **Star Baker:** <span style="color: #1E88E5; font-weight: bold;">{sb_pred}</span> | Actual: <span style="color: #B54E43; font-weight: bold;">{sb_act}</span> &nbsp;&nbsp;|&nbsp;&nbsp; <span style="color: {pts_color}; font-weight: bold;">+{sb_pts} pts</span>', unsafe_allow_html=True)
+                            st.markdown(f'* **{sb_label}:** <span style="color: #1E88E5; font-weight: bold;">{sb_pred}</span> | Actual: <span style="color: #B54E43; font-weight: bold;">{sb_act}</span> &nbsp;&nbsp;|&nbsp;&nbsp; <span style="color: {pts_color}; font-weight: bold;">+{sb_pts} pts</span>', unsafe_allow_html=True)
                             
-                            act_elim = act_w.get("eliminated")
-                            pred_elim = w_picks.get("eliminated")
-                            elim_pts = 0
-                            if isinstance(act_elim, list):
-                                if isinstance(pred_elim, list):
-                                    for p in pred_elim:
-                                        if p in act_elim: elim_pts += 5
-                            elif act_elim != "None":
-                                if isinstance(pred_elim, list):
-                                    if act_elim in pred_elim: elim_pts += 5
-                                elif pred_elim == act_elim:
-                                    elim_pts += 5
-                            pred_elim_str = ", ".join(pred_elim) if isinstance(pred_elim, list) else str(pred_elim)
-                            act_elim_str = ", ".join(act_elim) if isinstance(act_elim, list) else str(act_elim)
-                            pts_color = "green" if elim_pts > 0 else "gray"
-                            st.markdown(f'* **Eliminated:** <span style="color: #1E88E5; font-weight: bold;">{pred_elim_str}</span> | Actual: <span style="color: #B54E43; font-weight: bold;">{act_elim_str}</span> &nbsp;&nbsp;|&nbsp;&nbsp; <span style="color: {pts_color}; font-weight: bold;">+{elim_pts} pts</span>', unsafe_allow_html=True)
-                            
-                            inl_pred = w_picks.get("in_line_sb")
-                            inl_act = act_w.get("in_line_sb", [])
-                            if not isinstance(inl_act, list): inl_act = [inl_act]
-                            inl_pts = 2 if inl_pred in inl_act else 0
-                            pts_color = "green" if inl_pts > 0 else "gray"
-                            st.markdown(f'* **In Line SB:** <span style="color: #1E88E5; font-weight: bold;">{inl_pred}</span> | Actual: <span style="color: #B54E43; font-weight: bold;">{", ".join(inl_act)}</span> &nbsp;&nbsp;|&nbsp;&nbsp; <span style="color: {pts_color}; font-weight: bold;">+{inl_pts} pts</span>', unsafe_allow_html=True)
-                            
-                            trb_pred = w_picks.get("in_trouble")
-                            trb_act = act_w.get("in_trouble", [])
-                            if not isinstance(trb_act, list): trb_act = [trb_act]
-                            trb_pts = 2 if trb_pred in trb_act else 0
-                            pts_color = "green" if trb_pts > 0 else "gray"
-                            st.markdown(f'* **In Trouble:** <span style="color: #1E88E5; font-weight: bold;">{trb_pred}</span> | Actual: <span style="color: #B54E43; font-weight: bold;">{", ".join(trb_act)}</span> &nbsp;&nbsp;|&nbsp;&nbsp; <span style="color: {pts_color}; font-weight: bold;">+{trb_pts} pts</span>', unsafe_allow_html=True)
+                            if w_int_num < 10:
+                                act_elim = act_w.get("eliminated")
+                                pred_elim = w_picks.get("eliminated")
+                                elim_pts = 0
+                                if isinstance(act_elim, list):
+                                    if isinstance(pred_elim, list):
+                                        for p in pred_elim:
+                                            if p in act_elim: elim_pts += 5
+                                elif act_elim != "None":
+                                    if isinstance(pred_elim, list):
+                                        if act_elim in pred_elim: elim_pts += 5
+                                    elif pred_elim == act_elim:
+                                        elim_pts += 5
+                                pred_elim_str = ", ".join(pred_elim) if isinstance(pred_elim, list) else str(pred_elim)
+                                act_elim_str = ", ".join(act_elim) if isinstance(act_elim, list) else str(act_elim)
+                                pts_color = "green" if elim_pts > 0 else "gray"
+                                st.markdown(f'* **Eliminated:** <span style="color: #1E88E5; font-weight: bold;">{pred_elim_str}</span> | Actual: <span style="color: #B54E43; font-weight: bold;">{act_elim_str}</span> &nbsp;&nbsp;|&nbsp;&nbsp; <span style="color: {pts_color}; font-weight: bold;">+{elim_pts} pts</span>', unsafe_allow_html=True)
+                                
+                                inl_pred = w_picks.get("in_line_sb")
+                                inl_act = act_w.get("in_line_sb", [])
+                                if not isinstance(inl_act, list): inl_act = [inl_act]
+                                inl_pts = 2 if inl_pred in inl_act else 0
+                                pts_color = "green" if inl_pts > 0 else "gray"
+                                st.markdown(f'* **In Line SB:** <span style="color: #1E88E5; font-weight: bold;">{inl_pred}</span> | Actual: <span style="color: #B54E43; font-weight: bold;">{", ".join(inl_act)}</span> &nbsp;&nbsp;|&nbsp;&nbsp; <span style="color: {pts_color}; font-weight: bold;">+{inl_pts} pts</span>', unsafe_allow_html=True)
+                                
+                                trb_pred = w_picks.get("in_trouble")
+                                trb_act = act_w.get("in_trouble", [])
+                                if not isinstance(trb_act, list): trb_act = [trb_act]
+                                trb_pts = 2 if trb_pred in trb_act else 0
+                                pts_color = "green" if trb_pts > 0 else "gray"
+                                st.markdown(f'* **In Trouble:** <span style="color: #1E88E5; font-weight: bold;">{trb_pred}</span> | Actual: <span style="color: #B54E43; font-weight: bold;">{", ".join(trb_act)}</span> &nbsp;&nbsp;|&nbsp;&nbsp; <span style="color: {pts_color}; font-weight: bold;">+{trb_pts} pts</span>', unsafe_allow_html=True)
                             
                             st.markdown("---")
                             st.markdown("📊 **Technical Challenge Breakdown:**")
                             act_tech_rank = act_w.get("tech_rank", [])
                             if not isinstance(act_tech_rank, list): act_tech_rank = []
                             
-                            w_int_num = int(w_num)
                             if w_int_num >= 8:
                                 tech_rank = w_picks.get("tech_rank", [])
                                 if not isinstance(tech_rank, list): tech_rank = []
@@ -878,7 +881,10 @@ if tab_lead:
                                             t_pts = sweep_pts if t_idx == 0 else 0
                                         else:
                                             is_match = (pred_at_pos == actual_baker and pred_at_pos != "--Select Baker--")
-                                            t_pts = 3 if (is_match and t_idx in [0, len(act_tech_rank)-1]) else (2 if is_match else 0)
+                                            if w_int_num == 10:
+                                                t_pts = 3 if (is_match and t_idx == 0) else (2 if is_match else 0)
+                                            else:
+                                                t_pts = 3 if (is_match and t_idx in [0, len(act_tech_rank)-1]) else (2 if is_match else 0)
                                             
                                         t_color = "green" if t_pts > 0 else "gray"
                                         st.markdown(f'* {r_label} Place: <span style="color: #1E88E5; font-weight: bold;">{pred_at_pos}</span> | Actual: <span style="color: #B54E43; font-weight: bold;">{actual_baker}</span> &nbsp;&nbsp;|&nbsp;&nbsp; <span style="color: {t_color}; font-weight: bold;">+{t_pts} pts</span>', unsafe_allow_html=True)
@@ -933,12 +939,12 @@ if tab_lead:
                                 elim_str = str(elim)
                             trb = w_picks.get("in_trouble", "N/A")
                             
-                            st.markdown(f'* **Star Baker / Champion:** <span style="color: #1E88E5; font-weight: bold;">{sb}</span>', unsafe_allow_html=True)
-                            st.markdown(f'* **In Line SB:** <span style="color: #1E88E5; font-weight: bold;">{inl}</span>', unsafe_allow_html=True)
-                            st.markdown(f'* **Eliminated:** <span style="color: #1E88E5; font-weight: bold;">{elim_str}</span>', unsafe_allow_html=True)
-                            st.markdown(f'* **In Trouble:** <span style="color: #1E88E5; font-weight: bold;">{trb}</span>', unsafe_allow_html=True)
+                            st.markdown(f'* **{sb_label}:** <span style="color: #1E88E5; font-weight: bold;">{sb}</span>', unsafe_allow_html=True)
+                            if w_int_num < 10:
+                                st.markdown(f'* **In Line SB:** <span style="color: #1E88E5; font-weight: bold;">{inl}</span>', unsafe_allow_html=True)
+                                st.markdown(f'* **Eliminated:** <span style="color: #1E88E5; font-weight: bold;">{elim_str}</span>', unsafe_allow_html=True)
+                                st.markdown(f'* **In Trouble:** <span style="color: #1E88E5; font-weight: bold;">{trb}</span>', unsafe_allow_html=True)
                             
-                            w_int_num = int(w_num)
                             if w_int_num < 8:
                                 tech_top = w_picks.get("tech_top_3", [])
                                 tech_bot = w_picks.get("tech_bottom_3", [])
@@ -1197,7 +1203,7 @@ if tab_submit:
                     if active_prediction_week == 10:
                         champ_def = saved_weekly.get("show_champion", "--Select Baker--")
                         champ_idx = (["--Select Baker--"] + active_bakers).index(champ_def) if champ_def in (["--Select Baker--"] + active_bakers) else 0
-                        weekly_picks["show_champion"] = st.selectbox("Show Champion (15 pts):", ["--Select Baker--"] + active_bakers, index=champ_idx)
+                        weekly_picks["show_champion"] = st.selectbox("Champion (15 pts):", ["--Select Baker--"] + active_bakers, index=champ_idx)
                     else:
                         col1, col2 = st.columns(2)
                         with col1:
@@ -1368,7 +1374,7 @@ if tab_results:
             col_res1, col_res2 = st.columns(2)
             with col_res1:
                 if sel_res_week == 10:
-                    st.write(f"🏆 **Show Champion:** {w_act.get('show_champion', 'N/A')}")
+                    st.write(f"🏆 **Champion:** {w_act.get('show_champion', 'N/A')}")
                 else:
                     st.write(f"🌟 **Star Baker:** {w_act.get('star_baker', 'N/A')}")
                     
@@ -1513,7 +1519,7 @@ if tab_admin:
             with col_unpub1:
                 edit_allowed = st.checkbox(f"Unlock Week {admin_selected_week} to edit published results", value=False, key=f"unlock_w{admin_selected_week}")
             with col_unpub2:
-                if st.button(f"🗑️️ Unpublish Week {admin_selected_week} Results", key=f"unpub_btn_{admin_selected_week}"):
+                if st.button(f"🗑️ Unpublish Week {admin_selected_week} Results", key=f"unpub_btn_{admin_selected_week}"):
                     if admin_selected_week in st.session_state.weekly_results:
                         del st.session_state.weekly_results[admin_selected_week]
                     if str(admin_selected_week) in st.session_state.weekly_results:
@@ -1590,7 +1596,7 @@ if tab_admin:
             if admin_selected_week == 10:
                 def_champ = saved_w.get("show_champion")
                 def_champ_i = baker_opts.index(def_champ) if def_champ in baker_opts else 0
-                actuals["show_champion"] = st.selectbox("Actual Show Champion", baker_opts, index=def_champ_i)
+                actuals["show_champion"] = st.selectbox("Actual Champion", baker_opts, index=def_champ_i)
             else:
                 st.markdown("#### 🌟 Star Baker & Elimination Group")
                 col_g1, col_g2 = st.columns(2)
