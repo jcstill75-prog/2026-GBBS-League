@@ -504,10 +504,13 @@ with tab_lead:
                     st.write(f"⚠️ **In Trouble Nominee:** {trb}")
                     
                     st.markdown("📊 **Technical Challenge Predictions:**")
-                    if tech_top or tech_bot:
+                    if tech_top:
+                        st.markdown("**Top 3 Technical:**")
                         st.write(f"• **1st Place:** {tech_top[0] if len(tech_top) > 0 else 'N/A'}")
                         st.write(f"• **2nd Place:** {tech_top[1] if len(tech_top) > 1 else 'N/A'}")
                         st.write(f"• **3rd Place:** {tech_top[2] if len(tech_top) > 2 else 'N/A'}")
+                    if tech_bot:
+                        st.markdown("**Bottom 3 Technical:**")
                         st.write(f"• **3rd-to-Last Place:** {tech_bot[0] if len(tech_bot) > 0 else 'N/A'}")
                         st.write(f"• **2nd-to-Last Place:** {tech_bot[1] if len(tech_bot) > 1 else 'N/A'}")
                         st.write(f"• **Last Place:** {tech_bot[2] if len(tech_bot) > 2 else 'N/A'}")
@@ -579,7 +582,7 @@ with tab_submit:
     if auth_success:
         st.markdown("---")
         if not st.session_state.weekly_results:
-            st.warning("🔒 **Week 1 Scouting Phase:** Season-wide projections and Week 2 ballots unlock together once Week 1 results are published by the Admin!")
+            st.warning("🔒 **Week 1 Scouting Phase:** Season-wide predictions and Week 2 ballots unlock together once Week 1 results are published by the Admin!")
         elif is_weekly_voting_closed():
             st.error("⏰ **Weekly Voting Closed:** The weekly voting deadline (Tuesdays at 2:00 PM Houston time) has passed. Ballot submissions and edits are locked.")
         else:
