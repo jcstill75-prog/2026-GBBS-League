@@ -104,7 +104,8 @@ def save_league_data():
             "weekly_results": clean_w_res,
             "season_results": st.session_state.get("season_results", {}),
             "disputes": st.session_state.get("disputes", []),
-            "admin_deadline_override": st.session_state.get("admin_deadline_override", False)
+            "admin_deadline_override": st.session_state.get("admin_deadline_override", False),
+            "week_publication_timestamps": st.session_state.get("week_publication_timestamps", {})
         }
         with open(DATA_FILE, "w") as f:
             json.dump(payload, f, indent=2)
@@ -112,20 +113,45 @@ def save_league_data():
         pass
 
 # --- 3. DEADLINE & SCORING ENGINE ---
-def is_weekly_voting_closed():
-    """Returns True if past Tuesday at 2:00 PM Houston time (Wed-Sun or Tue >= 14:00), unless Admin override is active."""
+def is_weekly_voting_closed(active_week):
+    """
+    Returns True if past Tuesday at 2:00 PM CST following the publication of the previous week's results,
+    unless Admin override is active.
+    """
     if st.session_state.get("admin_deadline_override", False):
+        return False
+
+    # If it's Week 2, voting is open as soon as Week 1 results are published.
+    # Deadline is the upcoming Tuesday at 14:00 CST after publication.
+    pub_timestamps = st.session_state.get("week_publication_timestamps", {})
+    prev_week = int(active_week) - 1
+    
+    if prev_week not in pub_timestamps and str(prev_week) not in pub_timestamps:
+        # If no explicit timestamp is saved, fall back to checking standard weekly schedule or open status
+        return False
+
+    try:
+        pub_str = pub_timestamps.get(prev_week, pub_timestamps.get(str(prev_week)))
+        pub_time = datetime.datetime.fromisoformat(pub_str)
+    except Exception:
         return False
 
     try:
         now = datetime.datetime.now(ZoneInfo("America/Chicago"))
+        if pub_time.tzinfo is not None and now.tzinfo is None:
+            now = now.replace(tzinfo=ZoneInfo("America/Chicago"))
     except Exception:
         now = datetime.datetime.now()
-        
-    weekday = now.weekday()  # 0:Mon, 1:Tue, 2:Wed, 3:Thu, 4:Fri, 5:Sat, 6:Sun
-    if weekday > 1 or (weekday == 1 and now.hour >= 14):
-        return True
-    return False
+
+    # Calculate deadline: Next Tuesday at 14:00 CST following publication
+    days_until_tuesday = (1 - pub_time.weekday()) % 7
+    if days_until_tuesday == 0 and now > pub_time:
+        days_until_tuesday = 7
+    
+    next_tuesday = pub_time + datetime.timedelta(days=days_until_tuesday)
+    next_tuesday = next_tuesday.replace(hour=14, minute=0, second=0, microsecond=0)
+
+    return now >= next_tuesday
 
 def format_baker_list_display(val):
     if isinstance(val, list):
@@ -478,6 +504,8 @@ if "admin_pin_reset_msg" not in st.session_state:
     st.session_state.admin_pin_reset_msg = ""
 if "admin_deadline_override" not in st.session_state:
     st.session_state.admin_deadline_override = saved_state.get("admin_deadline_override", False)
+if "week_publication_timestamps" not in st.session_state:
+    st.session_state.week_publication_timestamps = saved_state.get("week_publication_timestamps", {})
 
 def get_eliminated_bakers_by_week():
     elim_map = {}
@@ -746,7 +774,7 @@ if tab_lead:
         
         st.markdown(f"### **{selected_card_player}'s Weekly Predictions Log & Results**")
         if p_weekly:
-            voting_closed = is_weekly_voting_closed()
+            voting_closed = is_weekly_voting_closed(active_prediction_week)
             weekly_results_map = st.session_state.get("weekly_results", {})
             season_finished = is_week_published(10, weekly_results_map)
             admin_unlocked = st.session_state.get("admin_authenticated", False)
@@ -1035,7 +1063,7 @@ if tab_submit:
         st.markdown("---")
         if not st.session_state.weekly_results:
             st.warning("🔒 **Week 1 Scouting Phase:** Season-wide predictions & Week 2 ballots unlock together once Week 1 results are published by the Admin!")
-        elif is_weekly_voting_closed():
+        elif is_weekly_voting_closed(active_prediction_week):
             st.error("⏰ **Weekly Voting Closed:** The weekly voting deadline (Tuesdays at 2:00 PM Houston time) has passed. Ballot submissions and edits are locked. *(Note: The Administrator can grant an extension from the Admin Panel if needed.)*")
         else:
             if st.session_state.get("admin_deadline_override", False):
@@ -1486,6 +1514,10 @@ if tab_admin:
                         del st.session_state.weekly_results[admin_selected_week]
                     if str(admin_selected_week) in st.session_state.weekly_results:
                         del st.session_state.weekly_results[str(admin_selected_week)]
+                    if admin_selected_week in st.session_state.week_publication_timestamps:
+                        del st.session_state.week_publication_timestamps[admin_selected_week]
+                    if str(admin_selected_week) in st.session_state.week_publication_timestamps:
+                        del st.session_state.week_publication_timestamps[str(admin_selected_week)]
                     if admin_selected_week == 10:
                         st.session_state.season_results = {}
                     
@@ -1621,6 +1653,10 @@ if tab_admin:
                     st.error("❌ Week results are locked. Please check the 'Unlock to Edit' box above before publishing changes.")
                 else:
                     st.session_state.weekly_results[admin_selected_week] = actuals
+                    
+                    # Record publication timestamp for dynamic voting window calculation
+                    now_iso = datetime.datetime.now().isoformat()
+                    st.session_state.week_publication_timestamps[admin_selected_week] = now_iso
 
                     for member_name in st.session_state.league_members:
                         st.session_state.league_members[member_name]["total_score"] = 0
