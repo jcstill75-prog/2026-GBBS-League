@@ -114,6 +114,9 @@ def calculate_weekly_score(predictions, actuals, week=2):
     else:
         if predictions.get("star_baker") and predictions.get("star_baker") == actuals.get("star_baker"):
             score += 5
+            
+        if predictions.get("in_line_sb") and predictions.get("in_line_sb") == actuals.get("in_line_sb"):
+            score += 2
         
         act_elim = actuals.get("eliminated")
         pred_elim = predictions.get("eliminated")
@@ -131,14 +134,20 @@ def calculate_weekly_score(predictions, actuals, week=2):
             elif pred_elim == act_elim:
                 score += 5
 
+        if predictions.get("in_trouble") and predictions.get("in_trouble") == actuals.get("in_trouble"):
+            score += 2
+
         # Technical challenge scoring
         act_tech_rank = actuals.get("tech_rank", [])
         if week >= 8:
             pred_rank = predictions.get("tech_rank", [])
             if pred_rank and act_tech_rank:
-                for idx, b in enumerate(pred_rank):
-                    if idx < len(act_tech_rank) and act_tech_rank[idx] == b and b != "--Select Baker--":
-                        score += 3 if idx in [0, len(act_tech_rank)-1] else 2
+                if pred_rank == act_tech_rank:
+                    score += 25 if week == 8 else (20 if week == 9 else 15)
+                else:
+                    for idx, b in enumerate(pred_rank):
+                        if idx < len(act_tech_rank) and act_tech_rank[idx] == b and b != "--Select Baker--":
+                            score += 3 if idx in [0, len(act_tech_rank)-1] else 2
         else:
             act_top3 = act_tech_rank[:3] if len(act_tech_rank) >= 3 else act_tech_rank
             act_bot3 = act_tech_rank[-3:] if len(act_tech_rank) >= 3 else act_tech_rank
@@ -146,9 +155,11 @@ def calculate_weekly_score(predictions, actuals, week=2):
             pred_top3 = predictions.get("tech_top_3", [])
             if len(pred_top3) == 3 and len(act_top3) == 3:
                 if pred_top3 == act_top3:
-                    score += 6
+                    score += 10
                 else:
                     if pred_top3[0] == act_top3[0] and pred_top3[0] != "--Select Baker--": score += 3
+                    if pred_top3[1] == act_top3[1] and pred_top3[1] != "--Select Baker--": score += 2
+                    if pred_top3[2] == act_top3[2] and pred_top3[2] != "--Select Baker--": score += 2
                     for idx, baker in enumerate(pred_top3):
                         if baker in act_top3 and baker != "--Select Baker--" and baker != act_top3[idx]:
                             score += 1
@@ -156,9 +167,11 @@ def calculate_weekly_score(predictions, actuals, week=2):
             pred_bot3 = predictions.get("tech_bottom_3", [])
             if len(pred_bot3) == 3 and len(act_bot3) == 3:
                 if pred_bot3 == act_bot3:
-                    score += 6
+                    score += 10
                 else:
                     if pred_bot3[2] == act_bot3[2] and pred_bot3[2] != "--Select Baker--": score += 3
+                    if pred_bot3[1] == act_bot3[1] and pred_bot3[1] != "--Select Baker--": score += 2
+                    if pred_bot3[0] == act_bot3[0] and pred_bot3[0] != "--Select Baker--": score += 2
                     for idx, baker in enumerate(pred_bot3):
                         if baker in act_bot3 and baker != "--Select Baker--" and baker != act_bot3[idx]:
                             score += 1
@@ -327,7 +340,7 @@ all_scored_weeks = sorted(list(st.session_state.weekly_results.keys()))
 active_prediction_week = max(all_scored_weeks) + 1 if all_scored_weeks else 1
 if active_prediction_week > 10: active_prediction_week = 10
 
-# --- 5. SIDEBAR (Branding Header, No Sliders) ---
+# --- 5. SIDEBAR (Branding Header & Expanded Three-Section Scoring Guide) ---
 with st.sidebar:
     st.title("🧁 GBBS League")
     st.markdown("---")
@@ -360,7 +373,9 @@ with st.sidebar:
         * **Technical Challenge (Top 3 & Bottom 3):**
           * Top 3 / Bottom 3 Sweep: 10 pts each
           * Exact 1st / Last Place: 3 pts
+          * Exact 2nd & 3rd / 2nd-to-Last & 3rd-to-Last: 2 pts each
           * Correct Baker in Wrong Slot: 1 pt
+        * **Star Member Weekly Bonus:** +5 pts
         """)
         
     # Section 3: Weeks 8-10 Scoring
@@ -458,6 +473,9 @@ with tab_lead:
                     st.write(f"🚪 **Eliminated:** {elim_str}")
                     st.write(f"⚠️ **In Trouble Nominee:** {trb}")
                     st.write(f"📊 **Technical Challenge:** {tech_str}")
+                    
+                    st.markdown("---")
+                    st.markdown(f"**🎯 Total Points Earned for Week {w_num}: {w_pts} pts**")
         else:
             st.info("No weekly prediction ballots submitted yet.")
 
@@ -522,7 +540,6 @@ with tab_submit:
     if auth_success:
         st.markdown("---")
         
-        # Baseball Card Style Visual Baker Gallery (Active bakers only)
         curr_elim_all = eliminated_bakers_by_week.get(active_prediction_week, [])
         remaining_gallery_bakers = [b for b in ALL_BAKERS if b not in curr_elim_all]
         
