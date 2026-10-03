@@ -146,7 +146,7 @@ if "admin_deadline_override" not in st.session_state:
 
 # --- 4. DEADLINE & SCORING ENGINE ---
 def is_weekly_voting_closed():
-    """Returns True if current time is past Tuesday at 2:00 PM, unless global admin override is active."""
+    """Returns True if voting deadline has passed, UNLESS global admin override is active."""
     if st.session_state.get("admin_deadline_override", False):
         return False
     try:
@@ -1013,6 +1013,11 @@ if tab_lead:
 # ==============================================================================
 if tab_submit:
     st.header("📝 Submit Predictions")
+    
+    # Display prominent extension banner right at the top if admin override is active
+    if st.session_state.get("admin_deadline_override", False):
+        st.warning("🔓 **Admin Extension Active:** Deadline restrictions are temporarily lifted for late submissions. You may submit or edit your ballot now!")
+
     pred_player = st.selectbox("Select Your Player Profile:", ROSTER_HUMANS, key="pred_player_login_sel")
     p_info = st.session_state.league_members[pred_player]
     
@@ -1071,9 +1076,6 @@ if tab_submit:
         elif is_weekly_voting_closed():
             st.error("⏰ **Weekly Voting Closed:** The weekly voting deadline (Tuesdays at 2:00 PM Houston time) has passed. Ballot submissions and edits are locked. (The administrator can grant an extension in the Admin Panel if needed).")
         else:
-            if st.session_state.get("admin_deadline_override", False):
-                st.warning("🔓 **Admin Extension Active:** Deadline restrictions are temporarily lifted for late submissions.")
-
             curr_elim = eliminated_bakers_by_week.get(active_prediction_week, [])
             active_bakers = [b for b in ALL_BAKERS if b not in curr_elim]
             
@@ -1149,7 +1151,7 @@ if tab_submit:
                     
                     edit_conf = True
                     if has_submitted:
-                        edit_conf = st.checkbox(f"⚠️ Check this box to confirm you want to edit your previously submitted Week 2 Ballot & Season Projections.")
+                        edit_conf = st.checkbox(f"⚠️ Check this box to confirm you want to edit your previously submitted ballot.")
 
                     sub_w2 = st.form_submit_button("Submit Week 2 Ballot & Season Projections")
                     if sub_w2:
@@ -1713,8 +1715,6 @@ if tab_admin:
         if uploaded_backup is not None:
             if st.button("📥 Confirm & Restore Uploaded Data", type="primary"):
                 try:
-                    imported_data = json.load(imported_backup) if 'json' in globals() else None
-                    # Wait, using uploaded_backup directly:
                     imported_data = json.load(uploaded_backup)
                     
                     if isinstance(imported_data, dict):
