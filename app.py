@@ -111,9 +111,15 @@ def calculate_weekly_score(predictions, actuals, week=2):
         if predictions.get("show_champion") and predictions.get("show_champion") == actuals.get("show_champion"):
             score += 15
     else:
+        # Star Baker
         if predictions.get("star_baker") and predictions.get("star_baker") == actuals.get("star_baker"):
             score += 5
+            
+        # In Line Nominee (+2 pts)
+        if predictions.get("in_line_sb") and predictions.get("in_line_sb") == actuals.get("in_line_sb"):
+            score += 2
         
+        # Eliminated Baker
         act_elim = actuals.get("eliminated")
         pred_elim = predictions.get("eliminated")
         if isinstance(act_elim, list):
@@ -130,14 +136,21 @@ def calculate_weekly_score(predictions, actuals, week=2):
             elif pred_elim == act_elim:
                 score += 5
 
+        # In Trouble Nominee (+2 pts)
+        if predictions.get("in_trouble") and predictions.get("in_trouble") == actuals.get("in_trouble"):
+            score += 2
+
         # Technical challenge scoring
         act_tech_rank = actuals.get("tech_rank", [])
         if week >= 8:
             pred_rank = predictions.get("tech_rank", [])
             if pred_rank and act_tech_rank:
-                for idx, b in enumerate(pred_rank):
-                    if idx < len(act_tech_rank) and act_tech_rank[idx] == b and b != "--Select Baker--":
-                        score += 3 if idx in [0, len(act_tech_rank)-1] else 2
+                if pred_rank == act_tech_rank:
+                    score += 25 if week == 8 else (20 if week == 9 else 15)
+                else:
+                    for idx, b in enumerate(pred_rank):
+                        if idx < len(act_tech_rank) and act_tech_rank[idx] == b and b != "--Select Baker--":
+                            score += 3 if idx in [0, len(act_tech_rank)-1] else 2
         else:
             act_top3 = act_tech_rank[:3] if len(act_tech_rank) >= 3 else act_tech_rank
             act_bot3 = act_tech_rank[-3:] if len(act_tech_rank) >= 3 else act_tech_rank
@@ -145,7 +158,7 @@ def calculate_weekly_score(predictions, actuals, week=2):
             pred_top3 = predictions.get("tech_top_3", [])
             if len(pred_top3) == 3 and len(act_top3) == 3:
                 if pred_top3 == act_top3:
-                    score += 6
+                    score += 10
                 else:
                     if pred_top3[0] == act_top3[0] and pred_top3[0] != "--Select Baker--": score += 3
                     for idx, baker in enumerate(pred_top3):
@@ -155,7 +168,7 @@ def calculate_weekly_score(predictions, actuals, week=2):
             pred_bot3 = predictions.get("tech_bottom_3", [])
             if len(pred_bot3) == 3 and len(act_bot3) == 3:
                 if pred_bot3 == act_bot3:
-                    score += 6
+                    score += 10
                 else:
                     if pred_bot3[2] == act_bot3[2] and pred_bot3[2] != "--Select Baker--": score += 3
                     for idx, baker in enumerate(pred_bot3):
