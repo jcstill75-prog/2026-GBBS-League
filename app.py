@@ -126,15 +126,15 @@ def is_weekly_voting_closed(active_week):
     try:
         pub_str = pub_timestamps.get(prev_week, pub_timestamps.get(str(prev_week)))
         pub_time = datetime.datetime.fromisoformat(pub_str)
+        if pub_time.tzinfo is None:
+            pub_time = pub_time.replace(tzinfo=ZoneInfo("America/Chicago"))
     except Exception:
         return False
 
     try:
         now = datetime.datetime.now(ZoneInfo("America/Chicago"))
-        if pub_time.tzinfo is not None and now.tzinfo is None:
-            now = now.replace(tzinfo=ZoneInfo("America/Chicago"))
     except Exception:
-        now = datetime.datetime.now()
+        now = datetime.datetime.now().replace(tzinfo=ZoneInfo("America/Chicago"))
 
     days_until_tuesday = (1 - pub_time.weekday()) % 7
     if days_until_tuesday == 0 and now > pub_time:
@@ -142,6 +142,9 @@ def is_weekly_voting_closed(active_week):
     
     next_tuesday = pub_time + datetime.timedelta(days=days_until_tuesday)
     next_tuesday = next_tuesday.replace(hour=14, minute=0, second=0, microsecond=0)
+
+    if next_tuesday.tzinfo is None:
+        next_tuesday = next_tuesday.replace(tzinfo=ZoneInfo("America/Chicago"))
 
     return now >= next_tuesday
 
@@ -484,7 +487,7 @@ if "weekly_results" not in st.session_state:
 if "season_results" not in st.session_state:
     st.session_state.season_results = saved_state.get("season_results", {}) if saved_state else {}
 if "disputes" not in st.session_state:
-    st.session_state.disputes = saved_state.get("disputes", []) if saved_state else []
+    st.session_state.disputes = saved_state.get("disputes", []) if saved_state else {}
 if "admin_authenticated" not in st.session_state:
     st.session_state.admin_authenticated = False
 if "admin_verification_msg" not in st.session_state:
@@ -1686,7 +1689,6 @@ if tab_admin:
         if st.session_state.get("admin_deadline_override", False):
             st.warning("⚠️ **Deadline Override Active:** The weekly voting deadline is currently bypassed. Players can submit or edit their ballots for the active week.")
 
-        # --- NEW BACKUP & RESTORE SECTION ---
         st.markdown("---")
         st.subheader("📥 Download League Data Backup")
         st.write("Download a complete JSON file containing all league members, weekly results, season picks, and disputes.")
@@ -1709,7 +1711,7 @@ if tab_admin:
 
         st.markdown("---")
         st.subheader("📤 Upload & Restore League JSON Backup")
-        st.write("Upload a previously saved `gbbs_league_backup.json` file to restore all player predictions and league results. *(Note: Processing only occurs when you click the confirmation button below to prevent refresh loops.)*")
+        st.write("Upload a previously saved `gbbs_league_backup.json` file to restore all player predictions and league results.")
         
         uploaded_backup = st.file_uploader("Choose a JSON backup file to restore", type=["json"], key="json_restore_uploader")
 
@@ -1746,7 +1748,6 @@ if tab_admin:
                 except Exception as e:
                     st.error(f"❌ Failed to parse JSON file: {e}")
 
-        # --- EMERGENCY RESET SECTION ---
         st.markdown("---")
         st.subheader("🚨 Emergency Reset & Delete All App Data")
         confirm_erase = st.checkbox("I understand this will permanently erase all player prediction ballots, PINs, and published broadcast results.", key="confirm_erase_check")
