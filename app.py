@@ -114,20 +114,13 @@ def save_league_data():
 
 # --- 3. DEADLINE & SCORING ENGINE ---
 def is_weekly_voting_closed(active_week):
-    """
-    Returns True if past Tuesday at 2:00 PM CST following the publication of the previous week's results,
-    unless Admin override is active.
-    """
     if st.session_state.get("admin_deadline_override", False):
         return False
 
-    # If it's Week 2, voting is open as soon as Week 1 results are published.
-    # Deadline is the upcoming Tuesday at 14:00 CST after publication.
     pub_timestamps = st.session_state.get("week_publication_timestamps", {})
     prev_week = int(active_week) - 1
     
     if prev_week not in pub_timestamps and str(prev_week) not in pub_timestamps:
-        # If no explicit timestamp is saved, fall back to checking standard weekly schedule or open status
         return False
 
     try:
@@ -143,7 +136,6 @@ def is_weekly_voting_closed(active_week):
     except Exception:
         now = datetime.datetime.now()
 
-    # Calculate deadline: Next Tuesday at 14:00 CST following publication
     days_until_tuesday = (1 - pub_time.weekday()) % 7
     if days_until_tuesday == 0 and now > pub_time:
         days_until_tuesday = 7
@@ -175,7 +167,7 @@ def calculate_weekly_score(predictions, actuals, week=2):
         act_tech_rank = actuals.get("tech_rank", [])
         if isinstance(pred_rank, list) and isinstance(act_tech_rank, list) and pred_rank and act_tech_rank:
             if pred_rank == act_tech_rank:
-                score += 15  # Flawless 3-for-3 sweep bonus
+                score += 15
             else:
                 for idx, b in enumerate(pred_rank):
                     if idx < len(act_tech_rank) and act_tech_rank[idx] == b and b != "--Select Baker--":
@@ -200,21 +192,18 @@ def calculate_weekly_score(predictions, actuals, week=2):
             elif pred_elim == act_elim:
                 score += 5
 
-        # In Line SB (2 pts)
         inl_pred = predictions.get("in_line_sb")
         inl_act = actuals.get("in_line_sb", [])
         if not isinstance(inl_act, list): inl_act = [inl_act]
         if inl_pred and inl_pred in inl_act:
             score += 2
 
-        # In Trouble (2 pts)
         trb_pred = predictions.get("in_trouble")
         trb_act = actuals.get("in_trouble", [])
         if not isinstance(trb_act, list): trb_act = [trb_act]
         if trb_pred and trb_pred in trb_act:
             score += 2
 
-        # Technical challenge scoring
         act_tech_rank = actuals.get("tech_rank", [])
         if not isinstance(act_tech_rank, list): act_tech_rank = []
 
@@ -223,7 +212,7 @@ def calculate_weekly_score(predictions, actuals, week=2):
             if not isinstance(pred_rank, list): pred_rank = []
             if pred_rank and act_tech_rank:
                 if pred_rank == act_tech_rank:
-                    score += 25 if week == 8 else 20  # Flawless sweep bonus (25 pts for W8, 20 pts for W9)
+                    score += 25 if week == 8 else 20
                 else:
                     for idx, b in enumerate(pred_rank):
                         if idx < len(act_tech_rank) and act_tech_rank[idx] == b and b != "--Select Baker--":
@@ -239,7 +228,7 @@ def calculate_weekly_score(predictions, actuals, week=2):
             if not isinstance(pred_top3, list): pred_top3 = []
             if len(pred_top3) == 3 and len(act_top3) == 3:
                 if pred_top3 == act_top3:
-                    score += 10  # Perfect Top 3 Sweep flat bonus
+                    score += 10
                 else:
                     for t_idx, actual_baker in enumerate(act_top3):
                         pred_at_pos = pred_top3[t_idx] if t_idx < len(pred_top3) else "--Select Baker--"
@@ -252,7 +241,7 @@ def calculate_weekly_score(predictions, actuals, week=2):
             if not isinstance(pred_bot3, list): pred_bot3 = []
             if len(pred_bot3) == 3 and len(act_bot3) == 3:
                 if pred_bot3 == act_bot3:
-                    score += 10  # Perfect Bottom 3 Sweep flat bonus
+                    score += 10
                 else:
                     for b_idx, actual_baker in enumerate(act_bot3):
                         pred_at_pos = pred_bot3[b_idx] if b_idx < len(pred_bot3) else "--Select Baker--"
@@ -476,7 +465,7 @@ ROSTER_ALPHABETICAL = sorted(["AI Brian"] + ROSTER_HUMANS)
 saved_state = load_league_data()
 
 if "league_members" not in st.session_state:
-    st.session_state.league_members = saved_state.get("league_members", {})
+    st.session_state.league_members = saved_state.get("league_members", {}) if saved_state else {}
 
 for m in ROSTER_ALPHABETICAL:
     if m not in st.session_state.league_members:
@@ -491,11 +480,11 @@ for m in ROSTER_ALPHABETICAL:
         st.session_state.league_members[m].setdefault("season_picks", {})
 
 if "weekly_results" not in st.session_state:
-    st.session_state.weekly_results = saved_state.get("weekly_results", {})
+    st.session_state.weekly_results = saved_state.get("weekly_results", {}) if saved_state else {}
 if "season_results" not in st.session_state:
-    st.session_state.season_results = saved_state.get("season_results", {})
+    st.session_state.season_results = saved_state.get("season_results", {}) if saved_state else {}
 if "disputes" not in st.session_state:
-    st.session_state.disputes = saved_state.get("disputes", [])
+    st.session_state.disputes = saved_state.get("disputes", []) if saved_state else []
 if "admin_authenticated" not in st.session_state:
     st.session_state.admin_authenticated = False
 if "admin_verification_msg" not in st.session_state:
@@ -503,9 +492,9 @@ if "admin_verification_msg" not in st.session_state:
 if "admin_pin_reset_msg" not in st.session_state:
     st.session_state.admin_pin_reset_msg = ""
 if "admin_deadline_override" not in st.session_state:
-    st.session_state.admin_deadline_override = saved_state.get("admin_deadline_override", False)
+    st.session_state.admin_deadline_override = saved_state.get("admin_deadline_override", False) if saved_state else False
 if "week_publication_timestamps" not in st.session_state:
-    st.session_state.week_publication_timestamps = saved_state.get("week_publication_timestamps", {})
+    st.session_state.week_publication_timestamps = saved_state.get("week_publication_timestamps", {}) if saved_state else {}
 
 def get_eliminated_bakers_by_week():
     elim_map = {}
@@ -526,7 +515,6 @@ all_scored_weeks = sorted([int(k) for k in st.session_state.weekly_results.keys(
 active_prediction_week = max(all_scored_weeks) + 1 if all_scored_weeks else 1
 if active_prediction_week > 10: active_prediction_week = 10
 
-# Force dynamic recalculation of scores on load to prevent stale legacy test scores
 def recalculate_all_scores():
     all_w_res = st.session_state.get("weekly_results", {})
     total_hs_all = sum(len(w_dat.get("handshake_bakers", [])) for w_dat in all_w_res.values())
@@ -558,7 +546,6 @@ def recalculate_all_scores():
             raw_score = calculate_weekly_score(pred_w, act_w, w)
             m_data["weekly_breakdown"][w] = raw_score
 
-        # High scorer bonus calculation per week
         for w in all_weeks_scored:
             w_scores = [calculate_weekly_score(m_dat["weekly_picks"].get(w, m_dat["weekly_picks"].get(str(w), {})), get_week_results(w, all_w_res), w) for m_dat in st.session_state.league_members.values()]
             max_w_score = max(w_scores) if w_scores else 0
@@ -633,7 +620,7 @@ def generate_ai_brian_weekly_picks(active_bakers, is_grace_week_catchup, week):
         
     return picks
 
-# --- 5. SIDEBAR (Fully Synchronized Points Reference Guide) ---
+# --- 5. SIDEBAR ---
 with st.sidebar:
     st.title("🧁 GBBS League")
     st.markdown("---")
@@ -914,7 +901,7 @@ if tab_lead:
                                         t_pts = 3 if (is_match and b_idx==2) else (2 if is_match else (1 if pred_b in act_bot3 else 0))
                                         t_color = "green" if t_pts > 0 else "gray"
                                         st.markdown(f'* {r_label} Place: <span style="color: #1E88E5; font-weight: bold;">{pred_b}</span> | Actual: <span style="color: #B54E43; font-weight: bold;">{actual_baker}</span> &nbsp;&nbsp;|&nbsp;&nbsp; <span style="color: {t_color}; font-weight: bold;">+{t_pts} pts</span>', unsafe_allow_html=True)
-                                
+                            
                             if is_high_scorer:
                                 st.markdown("<span style='color: green; font-weight: bold;'>• Star Member High Scorer Bonus: +5 pts</span>", unsafe_allow_html=True)
                         else:
@@ -982,7 +969,7 @@ if tab_lead:
             for cat_label, pred_val, act_val, pts_earned, max_pts in season_breakdown:
                 pred_str = format_baker_list_display(pred_val)
                 act_str = format_baker_list_display(act_val)
-                    
+                
                 pts_color = "green" if pts_earned > 0 else "gray"
                 st.markdown(f"""
                 * **{cat_label}:** <span style="color: #1E88E5; font-weight: bold;">{pred_str}</span> | Actual: <span style="color: #B54E43; font-weight: bold;">{act_str}</span> &nbsp;&nbsp;|&nbsp;&nbsp; <span style="color: {pts_color}; font-weight: bold;">+{pts_earned} pts</span>
@@ -1276,19 +1263,19 @@ if tab_submit:
                             if len(main_picks_flat) != len(set(main_picks_flat)):
                                 errors.append("❌ Duplicate Selection Error: You may not select the same baker more than once across Star Baker, In Line, In Trouble, and Eliminated!")
                                 
-                        if active_prediction_week >= 8:
-                            valid_tech = [t for t in weekly_picks.get("tech_rank", []) if t and t != "--Select Baker--"]
-                            if len(valid_tech) != len(set(valid_tech)):
-                                errors.append("❌ Duplicate Selection Error: A baker may not be selected more than once across your Technical Challenge predictions!")
-                        else:
-                            valid_top = [t for t in weekly_picks.get("tech_top_3", []) if t and t != "--Select Baker--"]
-                            valid_bot = [t for t in weekly_picks.get("tech_bottom_3", []) if t and t != "--Select Baker--"]
-                            if len(valid_top) != len(set(valid_top)):
-                                errors.append("❌ Duplicate Selection Error: A baker may not be duplicated within your Top 3 Technical picks!")
-                            if len(valid_bot) != len(set(valid_bot)):
-                                errors.append("❌ Duplicate Selection Error: A baker may not be duplicated within your Bottom 3 Technical picks!")
-                            if any(b in valid_bot for b in valid_top):
-                                errors.append("❌ Duplicate Selection Error: A baker cannot appear in both Top 3 and Bottom 3 technical predictions!")
+                            if active_prediction_week >= 8:
+                                valid_tech = [t for t in weekly_picks.get("tech_rank", []) if t and t != "--Select Baker--"]
+                                if len(valid_tech) != len(set(valid_tech)):
+                                    errors.append("❌ Duplicate Selection Error: A baker may not be selected more than once across your Technical Challenge predictions!")
+                            else:
+                                valid_top = [t for t in weekly_picks.get("tech_top_3", []) if t and t != "--Select Baker--"]
+                                valid_bot = [t for t in weekly_picks.get("tech_bottom_3", []) if t and t != "--Select Baker--"]
+                                if len(valid_top) != len(set(valid_top)):
+                                    errors.append("❌ Duplicate Selection Error: A baker may not be duplicated within your Top 3 Technical picks!")
+                                if len(valid_bot) != len(set(valid_bot)):
+                                    errors.append("❌ Duplicate Selection Error: A baker may not be duplicated within your Bottom 3 Technical picks!")
+                                if any(b in valid_bot for b in valid_top):
+                                    errors.append("❌ Duplicate Selection Error: A baker cannot appear in both Top 3 and Bottom 3 technical predictions!")
                             
                         if errors:
                             for err in errors:
@@ -1541,30 +1528,7 @@ if tab_admin:
                                 if raw_s == max_raw and raw_s > 0:
                                     st.session_state.league_members[m_name]["weekly_breakdown"][w] += 5
 
-                    all_w_res_pub2 = st.session_state.get("weekly_results", {})
-                    total_hs_all2 = sum(len(w_dat.get("handshake_bakers", [])) for w_dat in all_w_res_pub2.values())
-                    total_cry_all2 = sum(int(w_dat.get("crying_count", 0)) for w_dat in all_w_res_pub2.values())
-                    total_inn_all2 = sum(int(w_dat.get("innuendo_count", 0)) for w_dat in all_w_res_pub2.values())
-                    w10_pub2 = get_week_results(10, all_w_res_pub2)
-                    act_winner_pub2 = w10_pub2.get("show_champion") if w10_pub2 else None
-                    w8_elim_c2 = eliminated_bakers_by_week.get(9, [])
-                    act_semis_c2 = [b for b in ALL_BAKERS if b not in w8_elim_c2]
-
-                    comp_season_act2 = {
-                        "winner": act_winner_pub2,
-                        "semifinalists": act_semis_c2,
-                        "handshakes": total_hs_all2,
-                        "crying": total_cry_all2,
-                        "innuendos": total_inn_all2
-                    }
-
-                    for m_name, m_data in st.session_state.league_members.items():
-                        season_pred = m_data["season_picks"]
-                        season_score = calculate_season_score(season_pred, comp_season_act2)
-                        m_data["season_score"] = season_score
-                        weekly_total = sum(m_data["weekly_breakdown"].values())
-                        m_data["total_score"] = weekly_total + season_score
-
+                    recalculate_all_scores()
                     save_league_data()
                     st.session_state.admin_verification_msg = f"✅ Week {admin_selected_week} successfully unpublished! All standings and active weeks recalculated."
                     st.rerun()
@@ -1654,58 +1618,10 @@ if tab_admin:
                 else:
                     st.session_state.weekly_results[admin_selected_week] = actuals
                     
-                    # Record publication timestamp for dynamic voting window calculation
                     now_iso = datetime.datetime.now().isoformat()
                     st.session_state.week_publication_timestamps[admin_selected_week] = now_iso
 
-                    for member_name in st.session_state.league_members:
-                        st.session_state.league_members[member_name]["total_score"] = 0
-                        st.session_state.league_members[member_name]["weekly_breakdown"] = {}
-
-                    all_weeks_scored = sorted([int(k) for k in st.session_state.weekly_results.keys()])
-
-                    for w in all_weeks_scored:
-                        act_w = get_week_results(w, st.session_state.weekly_results)
-                        weekly_raw = {}
-                        for m_name, m_data in st.session_state.league_members.items():
-                            pred_w = m_data["weekly_picks"].get(w, m_data["weekly_picks"].get(str(w), {}))
-                            raw_score = calculate_weekly_score(pred_w, act_w, w)
-                            weekly_raw[m_name] = raw_score
-                            m_data["weekly_breakdown"][w] = raw_score
-
-                        if weekly_raw:
-                            max_raw = max(weekly_raw.values())
-                            for m_name, raw_s in weekly_raw.items():
-                                if raw_s == max_raw and raw_s > 0:
-                                    st.session_state.league_members[m_name]["weekly_breakdown"][w] += 5
-
-                    all_w_res_pub = st.session_state.get("weekly_results", {})
-                    total_hs_all = sum(len(w_dat.get("handshake_bakers", [])) for w_dat in all_w_res_pub.values())
-                    total_cry_all = sum(int(w_dat.get("crying_count", 0)) for w_dat in all_w_res_pub.values())
-                    total_inn_all = sum(int(w_dat.get("innuendo_count", 0)) for w_dat in all_w_res_pub.values())
-                    w10_pub = get_week_results(10, all_w_res_pub)
-                    act_winner_pub = w10_pub.get("show_champion") if w10_pub else None
-                    w8_elim_pub = eliminated_bakers_by_week.get(9, [])
-                    act_semis_pub = [b for b in ALL_BAKERS if b not in w8_elim_pub]
-
-                    computed_season_actuals = {
-                        "winner": act_winner_pub,
-                        "semifinalists": act_semis_pub,
-                        "handshakes": total_hs_all,
-                        "crying": total_cry_all,
-                        "innuendos": total_inn_all
-                    }
-
-                    for m_name, m_data in st.session_state.league_members.items():
-                        season_pred = m_data["season_picks"]
-                        season_score = calculate_season_score(season_pred, computed_season_actuals)
-                        m_data["season_score"] = season_score
-
-                    for m_name, m_data in st.session_state.league_members.items():
-                        weekly_total = sum(m_data["weekly_breakdown"].values())
-                        season_total = m_data.get("season_score", 0)
-                        m_data["total_score"] = weekly_total + season_total
-
+                    recalculate_all_scores()
                     save_league_data()
                     
                     action_type = "republished and updated" if is_published else "published"
@@ -1770,6 +1686,67 @@ if tab_admin:
         if st.session_state.get("admin_deadline_override", False):
             st.warning("⚠️ **Deadline Override Active:** The weekly voting deadline is currently bypassed. Players can submit or edit their ballots for the active week.")
 
+        # --- NEW BACKUP & RESTORE SECTION ---
+        st.markdown("---")
+        st.subheader("📥 Download League Data Backup")
+        st.write("Download a complete JSON file containing all league members, weekly results, season picks, and disputes.")
+        
+        data_payload = {
+            "league_members": st.session_state.get("league_members", {}),
+            "weekly_results": st.session_state.get("weekly_results", {}),
+            "season_results": st.session_state.get("season_results", {}),
+            "disputes": st.session_state.get("disputes", []),
+            "admin_deadline_override": st.session_state.get("admin_deadline_override", False),
+            "week_publication_timestamps": st.session_state.get("week_publication_timestamps", {})
+        }
+        json_backup_str = json.dumps(data_payload, indent=2)
+        st.download_button(
+            label="📥 Download Full League JSON Backup",
+            data=json_backup_str,
+            file_name="gbbs_league_backup.json",
+            mime="application/json",
+        )
+
+        st.markdown("---")
+        st.subheader("📤 Upload & Restore League JSON Backup")
+        st.write("Upload a previously saved `gbbs_league_backup.json` file to restore all player predictions and league results. *(Note: Processing only occurs when you click the confirmation button below to prevent refresh loops.)*")
+        
+        uploaded_backup = st.file_uploader("Choose a JSON backup file to restore", type=["json"], key="json_restore_uploader")
+
+        if uploaded_backup is not None:
+            if st.button("📥 Confirm & Restore Uploaded Data", type="primary", key="confirm_restore_btn"):
+                try:
+                    imported_data = json.load(uploaded_backup)
+                    if isinstance(imported_data, dict):
+                        if "league_members" in imported_data:
+                            st.session_state.league_members = imported_data["league_members"]
+                        if "weekly_results" in imported_data:
+                            w_res = {}
+                            for k, v in imported_data["weekly_results"].items():
+                                try:
+                                    w_res[int(k)] = v
+                                except Exception:
+                                    w_res[k] = v
+                            st.session_state.weekly_results = w_res
+                        if "season_results" in imported_data:
+                            st.session_state.season_results = imported_data["season_results"]
+                        if "disputes" in imported_data:
+                            st.session_state.disputes = imported_data["disputes"]
+                        if "admin_deadline_override" in imported_data:
+                            st.session_state.admin_deadline_override = imported_data["admin_deadline_override"]
+                        if "week_publication_timestamps" in imported_data:
+                            st.session_state.week_publication_timestamps = imported_data["week_publication_timestamps"]
+                        
+                        save_league_data()
+                        recalculate_all_scores()
+                        st.success("✅ League data successfully restored from uploaded JSON backup!")
+                        st.rerun()
+                    else:
+                        st.error("❌ Invalid JSON format: Root element must be a dictionary.")
+                except Exception as e:
+                    st.error(f"❌ Failed to parse JSON file: {e}")
+
+        # --- EMERGENCY RESET SECTION ---
         st.markdown("---")
         st.subheader("🚨 Emergency Reset & Delete All App Data")
         confirm_erase = st.checkbox("I understand this will permanently erase all player prediction ballots, PINs, and published broadcast results.", key="confirm_erase_check")
