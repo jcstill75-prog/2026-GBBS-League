@@ -17,7 +17,6 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-### Custom Styling for cozy baking theme & uniform card typography
 st.markdown("""
 <style>
 .stButton>button {
@@ -294,15 +293,6 @@ def load_baker_image(baker_name):
         pass
     return None
 
-def load_ai_brian_avatar():
-    path = "assets/aibrian.jpg"
-    if os.path.exists(path):
-        try:
-            return Image.open(path)
-        except Exception:
-            pass
-    return None
-
 def get_eliminated_bakers_by_week():
     elim_map = {}
     elim_list = []
@@ -317,7 +307,6 @@ def get_eliminated_bakers_by_week():
         elim_map[int(w) + 1] = list(elim_list)
     return elim_map
 
-# UPDATED: Added handshake_count to get_baker_stats return tuple
 def get_baker_stats(baker_name, current_week=1):
     sb_count = 0
     inline_count = 0
