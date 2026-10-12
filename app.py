@@ -1,13 +1,13 @@
-import os
-import io
-import base64
+import streamlit as st
+import pandas as pd
 import random
+import os
 import json
+import base64
 import datetime
 from zoneinfo import ZoneInfo
-import pandas as pd
-import streamlit as st
 from PIL import Image
+import io
 
 ### --- 1. SETUP & PAGE CONFIG ---
 st.set_page_config(
@@ -17,6 +17,7 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
+### Custom Styling for cozy baking theme & uniform card typography
 st.markdown("""
 <style>
 .stButton>button {
@@ -117,23 +118,6 @@ def save_league_data():
             json.dump(payload, f, indent=2)
     except Exception:
         pass
-
-saved_state = load_league_data()
-
-if "league_members" not in st.session_state:
-    st.session_state.league_members = saved_state.get("league_members", {})
-if "weekly_results" not in st.session_state:
-    st.session_state.weekly_results = saved_state.get("weekly_results", {})
-if "season_results" not in st.session_state:
-    st.session_state.season_results = saved_state.get("season_results", {})
-if "disputes" not in st.session_state:
-    st.session_state.disputes = saved_state.get("disputes", [])
-if "admin_authenticated" not in st.session_state:
-    st.session_state.admin_authenticated = False
-if "admin_deadline_override" not in st.session_state:
-    st.session_state.admin_deadline_override = saved_state.get("admin_deadline_override", False)
-if "week_publication_timestamps" not in st.session_state:
-    st.session_state.week_publication_timestamps = saved_state.get("week_publication_timestamps", {})
 
 ### --- 3. DEADLINE & SCORING ENGINE ---
 def is_weekly_voting_closed(active_week):
@@ -458,6 +442,7 @@ ROSTER_HUMANS = [
 ]
 ROSTER_ALPHABETICAL = sorted(["AI Brian"] + ROSTER_HUMANS)
 
+saved_state = load_league_data()
 if "league_members" not in st.session_state:
     st.session_state.league_members = saved_state.get("league_members", {})
 
@@ -473,84 +458,18 @@ for m in ROSTER_ALPHABETICAL:
         st.session_state.league_members[m].setdefault("weekly_picks", {})
         st.session_state.league_members[m].setdefault("season_picks", {})
 
-eliminated_bakers_by_week = get_eliminated_bakers_by_week()
-all_scored_weeks = sorted([int(k) for k in st.session_state.weekly_results.keys()])
-active_prediction_week = max(all_scored_weeks) + 1 if all_scored_weeks else 1
-if active_prediction_week > 10: active_prediction_week = 10
+if "weekly_results" not in st.session_state:
+    st.session_state.weekly_results = saved_state.get("weekly_results", {})
+if "season_results" not in st.session_state:
+    st.session_state.season_results = saved_state.get("season_results", {})
+if "disputes" not in st.session_state:
+    st.session_state.disputes = saved_state.get("disputes", [])
+if "admin_authenticated" not in st.session_state:
+    st.session_state.admin_authenticated = False
+if "admin_deadline_override" not in st.session_state:
+    st.session_state.admin_deadline_override = saved_state.get("admin_deadline_override", False)
+if "week_publication_timestamps" not in st.session_state:
+    st.session_state.week_publication_timestamps = saved_state.get("week_publication_timestamps", {})
 
-recalculate_all_scores()
-
-### --- NAVIGATION TABS ---
-st.title("🧁 Great British Baking Show Fantasy League 2026")
-tab_lead, tab_submit, tab_results, tab_admin = st.tabs([
-    "📊 Leaderboard & Standings",
-    "📝 Submit Predictions",
-    "📺 Show Results",
-    "👑 Admin Panel"
-])
-
-if tab_lead:
-    st.header("🏆 Live Leaderboard & Standings")
-    lb_data = [{"member": name, "points": data.get("total_score", 0)} for name, data in st.session_state.league_members.items()]
-    df_lb = pd.DataFrame(lb_data)
-    if not df_lb.empty:
-        df_lb = df_lb.sort_values(by="points", ascending=False).reset_index(drop=True)
-        df_lb.index = df_lb.index + 1
-        html_rows = []
-        for idx, row in df_lb.iterrows():
-            badge = "🥇" if idx == 1 else ("🥈" if idx == 2 else ("🥉" if idx == 3 else f"#{idx}"))
-            html_rows.append(f"<tr><td><b>{badge}</b></td><td>{row['member']}</td><td style='text-align: right;'><b>{row['points']} pts</b></td></tr>")
-        st.markdown(f"""
-        <table style="width: 100%; border-collapse: collapse;">
-            <thead><tr><th style="width: 100px;">Rank</th><th>League Member</th><th style="text-align: right;">Total Points</th></tr></thead>
-            <tbody>{''.join(html_rows)}</tbody>
-        </table>
-        """, unsafe_allow_html=True)
-
-if tab_results:
-    st.header("📺 Official Broadcast Results & Visual Baker Gallery")
-    curr_elim_all_res = eliminated_bakers_by_week.get(active_prediction_week, [])
-    remaining_gallery_bakers_res = [b for b in ALL_BAKERS if b not in curr_elim_all_res]
-    
-    with st.expander(f"📸 Visual Baker Profiles & Season Statistics (Active Bakers - Week {active_prediction_week})", expanded=True):
-        card_cols = st.columns(2)
-        for idx, baker in enumerate(remaining_gallery_bakers_res):
-            sb_c, inl_c, trb_c, hs_c, tech_stat = get_baker_stats(baker, active_prediction_week)
-            b_img = load_baker_image(baker)
-            img_b64 = image_to_base64(b_img) if b_img else ""
-            img_tag = f'<img src="data:image/jpeg;base64,{img_b64}" style="width: 100%; max-width: 95px; height: 110px; object-fit: cover; border-radius: 6px; border: 1px solid #8D6E63;">' if img_b64 else '<div style="width: 100%; max-width: 95px; height: 110px; background-color: #EFEBE9; border-radius: 6px; display: flex; align-items: center; justify-content: center; font-size: 0.75rem; color: #5D4037;">[Photo]</div>'
-            
-            card_html = f"""
-            <div style="border: 2px solid #5D4037; border-radius: 10px; padding: 12px; background-color: #FFF9F5; color: #2D1B18; box-shadow: 0 3px 6px rgba(0,0,0,0.1); margin-bottom: 15px;">
-                <div style="background-color: #5D4037; color: #FFFFFF; padding: 6px 10px; border-radius: 6px; font-weight: bold; text-align: center; margin-bottom: 10px; font-size: 1.05rem;">
-                    {baker}
-                </div>
-                <div style="display: flex; gap: 12px; align-items: center;">
-                    <div style="flex: 0 0 95px; text-align: center;">{img_tag}</div>
-                    <div style="flex: 1; font-size: 0.85rem; color: #2D1B18; line-height: 1.5; background-color: #FFFFFF; padding: 8px; border-radius: 6px; border: 1px solid #D7CCC8;">
-                        <div>Star Baker: <b>{sb_c}</b></div>
-                        <div>In Line SB: <b>{inl_c}</b></div>
-                        <div>In Trouble: <b>{trb_c}</b></div>
-                        <div>Handshakes: <b>{hs_c}</b></div>
-                    </div>
-                </div>
-            </div>
-            """
-            with card_cols[idx % 2]:
-                st.markdown(card_html, unsafe_allow_html=True)
-
-if tab_admin:
-    st.header("👑 League Administrator Console")
-    if not st.session_state.admin_authenticated:
-        admin_pin = st.text_input("Enter Administrator PIN:", type="password")
-        if st.button("Unlock Admin Panel"):
-            if admin_pin == "6284":
-                st.session_state.admin_authenticated = True
-                st.rerun()
-            else:
-                st.error("Incorrect Admin PIN.")
-    else:
-        st.success("🔓 Admin Unlocked")
-        if st.button("Lock Console"):
-            st.session_state.admin_authenticated = False
-            st.rerun()
+def generate_ai_brian_season_picks():
+    winner =
