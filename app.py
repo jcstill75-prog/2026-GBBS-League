@@ -270,4 +270,287 @@ def calculate_season_score(predictions, actuals):
     cry_act = actuals.get("crying")
     if cry_pred is not None and cry_act is not None:
         if cry_pred == cry_act: score += 20
-        elif abs(cry_pred - cry_act) <= 5: score
+        elif abs(cry_pred - cry_act) <= 5: score += 10
+
+    inn_pred = predictions.get("innuendos")
+    inn_act = actuals.get("innuendos")
+    if inn_pred is not None and inn_act is not None:
+        if inn_pred == inn_act: score += 20
+        elif abs(inn_pred - inn_act) <= 5: score += 10
+
+    return score
+
+def is_week_published(w_num, weekly_res_map):
+    return w_num in weekly_res_map or str(w_num) in weekly_res_map or int(w_num) in weekly_res_map
+
+def get_week_results(w_num, weekly_res_map):
+    return weekly_res_map.get(w_num, weekly_res_map.get(str(w_num), weekly_res_map.get(int(w_num) if isinstance(w_num, int) else str(w_num), {})))
+
+def image_to_base64(img):
+    if img is None:
+        return ""
+    buffered = io.BytesIO()
+    img.save(buffered, format="JPEG")
+    return base64.b64encode(buffered.getvalue()).decode()
+
+def load_baker_image(baker_name):
+    if not os.path.exists("assets"):
+        return None
+    target = baker_name.lower().strip()
+    try:
+        for filename in os.listdir("assets"):
+            stem, ext = os.path.splitext(filename)
+            if stem.lower().strip() == target and ext.lower() in ['.jpg', '.jpeg', '.png', '.webp']:
+                full_path = os.path.join("assets", filename)
+                try:
+                    return Image.open(full_path)
+                except Exception:
+                    pass
+    except Exception:
+        pass
+    return None
+
+def get_eliminated_bakers_by_week():
+    elim_map = {}
+    elim_list = []
+    for w in sorted(st.session_state.get("weekly_results", {}).keys(), key=lambda x: int(x)):
+        res = st.session_state.weekly_results[w]
+        act_el = res.get("eliminated")
+        if isinstance(act_el, list):
+            for b in act_el:
+                if b and b != "None" and b not in elim_list: elim_list.append(b)
+        elif isinstance(act_el, str) and act_el and act_el != "None":
+            if act_el not in elim_list: elim_list.append(act_el)
+        elim_map[int(w) + 1] = list(elim_list)
+    return elim_map
+
+def get_baker_stats(baker_name, current_week=1):
+    sb_count = 0
+    inline_count = 0
+    trouble_count = 0
+    handshake_count = 0
+    tech_placements = {}
+    tech_ranks_list = []
+    
+    weekly_res = st.session_state.get("weekly_results", {})
+    for w_num, w_res in weekly_res.items():
+        if w_res.get("star_baker") == baker_name:
+            sb_count += 1
+            
+        inl = w_res.get("in_line_sb", [])
+        if isinstance(inl, list) and baker_name in inl:
+            inline_count += 1
+        elif isinstance(inl, str) and inl == baker_name:
+            inline_count += 1
+            
+        trb = w_res.get("in_trouble", [])
+        if isinstance(trb, list) and baker_name in trb:
+            trouble_count += 1
+        elif isinstance(trb, str) and trb == baker_name:
+            trouble_count += 1
+
+        hs_list = w_res.get("handshake_bakers", [])
+        if isinstance(hs_list, list) and baker_name in hs_list:
+            handshake_count += 1
+            
+        tech_r = w_res.get("tech_rank", [])
+        if isinstance(tech_r, list) and baker_name in tech_r:
+            rank = tech_r.index(baker_name) + 1
+            tech_placements[w_num] = rank
+            tech_ranks_list.append(rank)
+        else:
+            t_top = w_res.get("tech_top_3", [])
+            t_bot = w_res.get("tech_bottom_3", [])
+            if baker_name in t_top:
+                rank = t_top.index(baker_name) + 1
+                tech_placements[w_num] = rank
+                tech_ranks_list.append(rank)
+                
+    if current_week <= 5:
+        tech_display = tech_placements if tech_placements else "None yet"
+    else:
+        tech_display = round(sum(tech_ranks_list) / len(tech_ranks_list), 1) if tech_ranks_list else "N/A"
+        
+    return sb_count, inline_count, trouble_count, handshake_count, tech_display
+
+def get_star_member_wins_count(member_name):
+    count = 0
+    weekly_res_map = st.session_state.get("weekly_results", {})
+    if not weekly_res_map:
+        return count
+        
+    all_weeks = sorted([int(k) for k in weekly_res_map.keys()])
+    for w in all_weeks:
+        act_w = get_week_results(w, weekly_res_map)
+        if not act_w:
+            continue
+            
+        scores = {}
+        for m_name, m_data in st.session_state.league_members.items():
+            pred = m_data["weekly_picks"].get(w, m_data["weekly_picks"].get(str(w), {}))
+            scores[m_name] = calculate_weekly_score(pred, act_w, w)
+            
+        if not scores:
+            continue
+            
+        max_score = max(scores.values())
+        if max_score > 0 and scores.get(member_name, 0) == max_score:
+            count += 1
+            
+    return count
+
+def recalculate_all_scores():
+    all_w_res = st.session_state.get("weekly_results", {})
+    total_hs_all = sum(len(w_dat.get("handshake_bakers", [])) for w_dat in all_w_res.values())
+    total_cry_all = sum(int(w_dat.get("crying_count", 0)) for w_dat in all_w_res.values())
+    total_inn_all = sum(int(w_dat.get("innuendo_count", 0)) for w_dat in all_w_res.values())
+    w10_res = get_week_results(10, all_w_res)
+    act_winner = w10_res.get("show_champion") if w10_res else None
+    
+    elim_by_week = get_eliminated_bakers_by_week()
+    w8_elim = elim_by_week.get(9, [])
+    act_semis = [b for b in ALL_BAKERS if b not in w8_elim]
+
+    computed_season_actuals = {
+        "winner": act_winner,
+        "semifinalists": act_semis,
+        "handshakes": total_hs_all,
+        "crying": total_cry_all,
+        "innuendos": total_inn_all
+    }
+
+    all_weeks_scored = sorted([int(k) for k in all_w_res.keys()])
+    for m_name, m_data in st.session_state.league_members.items():
+        m_data["total_score"] = 0
+        m_data["weekly_breakdown"] = {}
+        
+        for w in all_weeks_scored:
+            act_w = get_week_results(w, all_w_res)
+            pred_w = m_data["weekly_picks"].get(w, m_data["weekly_picks"].get(str(w), {}))
+            raw_score = calculate_weekly_score(pred_w, act_w, w)
+            m_data["weekly_breakdown"][w] = raw_score
+
+        for w in all_weeks_scored:
+            w_scores = [calculate_weekly_score(m_dat["weekly_picks"].get(w, m_dat["weekly_picks"].get(str(w), {})), get_week_results(w, all_w_res), w) for m_dat in st.session_state.league_members.values()]
+            max_w_score = max(w_scores) if w_scores else 0
+            base_score = m_data["weekly_breakdown"].get(w, 0)
+            if w_scores and base_score == max_w_score and base_score > 0:
+                m_data["weekly_breakdown"][w] = base_score + 5
+
+        if is_week_published(10, all_w_res):
+            season_score = calculate_season_score(m_data.get("season_picks", {}), computed_season_actuals)
+            m_data["season_score"] = season_score
+        else:
+            m_data["season_score"] = 0
+            
+        weekly_total = sum(m_data["weekly_breakdown"].values())
+        m_data["total_score"] = weekly_total + m_data["season_score"]
+
+### --- 4. ROSTER & STATE INITIALIZATION ---
+ALL_BAKERS = [
+    "Clara", "Connie", "Dinn", "Gabe", "Gary", "Mo", 
+    "Molly", "Moyin", "Nikki", "Shannon", "Tom", "Yannis"
+]
+ROSTER_HUMANS = [
+    "Ana", "Becca", "Brian", "Cassie", "Emma", "Gisselle", 
+    "Jasmine", "Jennifer", "Mark", "Sam", "Stacie W.", 
+    "Stacy C.", "Taliah", "Tressa"
+]
+ROSTER_ALPHABETICAL = sorted(["AI Brian"] + ROSTER_HUMANS)
+
+if "league_members" not in st.session_state:
+    st.session_state.league_members = saved_state.get("league_members", {})
+
+for m in ROSTER_ALPHABETICAL:
+    if m not in st.session_state.league_members:
+        st.session_state.league_members[m] = {
+            "weekly_picks": {}, "season_picks": {}, "total_score": 0,
+            "weekly_breakdown": {}, "pin": None, "season_score": 0
+        }
+    else:
+        st.session_state.league_members[m].setdefault("pin", None)
+        st.session_state.league_members[m].setdefault("season_score", 0)
+        st.session_state.league_members[m].setdefault("weekly_picks", {})
+        st.session_state.league_members[m].setdefault("season_picks", {})
+
+eliminated_bakers_by_week = get_eliminated_bakers_by_week()
+all_scored_weeks = sorted([int(k) for k in st.session_state.weekly_results.keys()])
+active_prediction_week = max(all_scored_weeks) + 1 if all_scored_weeks else 1
+if active_prediction_week > 10: active_prediction_week = 10
+
+recalculate_all_scores()
+
+### --- NAVIGATION TABS ---
+st.title("🧁 Great British Baking Show Fantasy League 2026")
+tab_lead, tab_submit, tab_results, tab_admin = st.tabs([
+    "📊 Leaderboard & Standings",
+    "📝 Submit Predictions",
+    "📺 Show Results",
+    "👑 Admin Panel"
+])
+
+if tab_lead:
+    st.header("🏆 Live Leaderboard & Standings")
+    lb_data = [{"member": name, "points": data.get("total_score", 0)} for name, data in st.session_state.league_members.items()]
+    df_lb = pd.DataFrame(lb_data)
+    if not df_lb.empty:
+        df_lb = df_lb.sort_values(by="points", ascending=False).reset_index(drop=True)
+        df_lb.index = df_lb.index + 1
+        html_rows = []
+        for idx, row in df_lb.iterrows():
+            badge = "🥇" if idx == 1 else ("🥈" if idx == 2 else ("🥉" if idx == 3 else f"#{idx}"))
+            html_rows.append(f"<tr><td><b>{badge}</b></td><td>{row['member']}</td><td style='text-align: right;'><b>{row['points']} pts</b></td></tr>")
+        st.markdown(f"""
+        <table style="width: 100%; border-collapse: collapse;">
+            <thead><tr><th style="width: 100px;">Rank</th><th>League Member</th><th style="text-align: right;">Total Points</th></tr></thead>
+            <tbody>{''.join(html_rows)}</tbody>
+        </table>
+        """, unsafe_allow_html=True)
+
+if tab_results:
+    st.header("📺 Official Broadcast Results & Visual Baker Gallery")
+    curr_elim_all_res = eliminated_bakers_by_week.get(active_prediction_week, [])
+    remaining_gallery_bakers_res = [b for b in ALL_BAKERS if b not in curr_elim_all_res]
+    
+    with st.expander(f"📸 Visual Baker Profiles & Season Statistics (Active Bakers - Week {active_prediction_week})", expanded=True):
+        card_cols = st.columns(2)
+        for idx, baker in enumerate(remaining_gallery_bakers_res):
+            sb_c, inl_c, trb_c, hs_c, tech_stat = get_baker_stats(baker, active_prediction_week)
+            b_img = load_baker_image(baker)
+            img_b64 = image_to_base64(b_img) if b_img else ""
+            img_tag = f'<img src="data:image/jpeg;base64,{img_b64}" style="width: 100%; max-width: 95px; height: 110px; object-fit: cover; border-radius: 6px; border: 1px solid #8D6E63;">' if img_b64 else '<div style="width: 100%; max-width: 95px; height: 110px; background-color: #EFEBE9; border-radius: 6px; display: flex; align-items: center; justify-content: center; font-size: 0.75rem; color: #5D4037;">[Photo]</div>'
+            
+            card_html = f"""
+            <div style="border: 2px solid #5D4037; border-radius: 10px; padding: 12px; background-color: #FFF9F5; color: #2D1B18; box-shadow: 0 3px 6px rgba(0,0,0,0.1); margin-bottom: 15px;">
+                <div style="background-color: #5D4037; color: #FFFFFF; padding: 6px 10px; border-radius: 6px; font-weight: bold; text-align: center; margin-bottom: 10px; font-size: 1.05rem;">
+                    {baker}
+                </div>
+                <div style="display: flex; gap: 12px; align-items: center;">
+                    <div style="flex: 0 0 95px; text-align: center;">{img_tag}</div>
+                    <div style="flex: 1; font-size: 0.85rem; color: #2D1B18; line-height: 1.5; background-color: #FFFFFF; padding: 8px; border-radius: 6px; border: 1px solid #D7CCC8;">
+                        <div>Star Baker: <b>{sb_c}</b></div>
+                        <div>In Line SB: <b>{inl_c}</b></div>
+                        <div>In Trouble: <b>{trb_c}</b></div>
+                        <div>Handshakes: <b>{hs_c}</b></div>
+                    </div>
+                </div>
+            </div>
+            """
+            with card_cols[idx % 2]:
+                st.markdown(card_html, unsafe_allow_html=True)
+
+if tab_admin:
+    st.header("👑 League Administrator Console")
+    if not st.session_state.admin_authenticated:
+        admin_pin = st.text_input("Enter Administrator PIN:", type="password")
+        if st.button("Unlock Admin Panel"):
+            if admin_pin == "6284":
+                st.session_state.admin_authenticated = True
+                st.rerun()
+            else:
+                st.error("Incorrect Admin PIN.")
+    else:
+        st.success("🔓 Admin Unlocked")
+        if st.button("Lock Console"):
+            st.session_state.admin_authenticated = False
+            st.rerun()
