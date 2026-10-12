@@ -336,4 +336,18 @@ def get_baker_stats(baker_name, current_week=1):
             inline_count += 1
             
         trb = w_res.get("in_trouble", [])
-        if isinstance(trb, list)
+        if isinstance(trb, list) and baker_name in trb:
+            trouble_count += 1
+        elif isinstance(trb, str) and trb == baker_name:
+            trouble_count += 1
+
+        hs_list = w_res.get("handshake_bakers", [])
+        if isinstance(hs_list, list) and baker_name in hs_list:
+            handshake_count += 1
+            
+        tech_r = w_res.get("tech_rank", [])
+        if isinstance(tech_r, list) and baker_name in tech_r:
+            rank = tech_r.index(baker_name) + 1
+            tech_placements[w_num] = rank
+            tech_ranks_list.append(rank)
+        else:
