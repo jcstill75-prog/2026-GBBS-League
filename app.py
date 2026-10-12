@@ -350,4 +350,4 @@ def get_baker_stats(baker_name, current_week=1):
             rank = tech_r.index(baker_name) + 1
             tech_placements[w_num] = rank
             tech_ranks_list.append(rank)
-        else:
+            else:
