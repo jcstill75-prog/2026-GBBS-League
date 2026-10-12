@@ -1,13 +1,13 @@
-import streamlit as st
-import pandas as pd
-import random
 import os
-import json
+import io
 import base64
+import random
+import json
 import datetime
 from zoneinfo import ZoneInfo
-from PIL import Image
-import io
+import pandas as pd
+import streamlit as st
+from PIL import Image, ImageDraw
 
 ### --- 1. SETUP & PAGE CONFIG ---
 st.set_page_config(
@@ -280,27 +280,3 @@ def load_baker_image(baker_name):
     if not os.path.exists("assets"):
         return None
     target = baker_name.lower().strip()
-    try:
-        for filename in os.listdir("assets"):
-            stem, ext = os.path.splitext(filename)
-            if stem.lower().strip() == target and ext.lower() in ['.jpg', '.jpeg', '.png', '.webp']:
-                full_path = os.path.join("assets", filename)
-                try:
-                    return Image.open(full_path)
-                except Exception:
-                    pass
-    except Exception:
-        pass
-    return None
-
-def load_ai_brian_avatar():
-    path = "assets/aibrian.jpg"
-    if os.path.exists(path):
-        try:
-            return Image.open(path)
-        except Exception:
-            pass
-    return None
-
-def get_eliminated_bakers_by_week():
-    elim_map = {}
