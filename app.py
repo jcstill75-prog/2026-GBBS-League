@@ -17,7 +17,6 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-### Custom Styling for cozy baking theme & uniform card typography
 st.markdown("""
 <style>
 .stButton>button {
@@ -25,15 +24,28 @@ st.markdown("""
     color: white;
     border-radius: 8px;
     border: none;
+    padding: 8px 16px;
+    font-weight: bold;
 }
 .stButton>button:hover {
     background-color: #B25346;
     color: white;
 }
+h1, h2, h3 {
+    color: #5D4037;
+}
+[data-theme="dark"] .lb-name,
+[data-theme="dark"] .lb-rank {
+    color: #FFFFFF !important;
+}
+[data-theme="light"] .lb-name,
+[data-theme="light"] .lb-rank {
+    color: #2C1810 !important;
+}
 </style>
 """, unsafe_allow_html=True)
 
-### --- 2. PERSISTENCE & NORMALIZATION ENGINE ---
+### --- 2. PERSISTENCE ENGINE ---
 DATA_FILE = "league_data.json"
 
 def load_league_data():
@@ -108,10 +120,6 @@ def save_league_data():
 
 ### --- 3. DEADLINE & SCORING ENGINE ---
 def is_weekly_voting_closed(active_week):
-    """
-    Returns True if past Tuesday at 2:00 PM CST following the publication of the previous week's results,
-    unless Admin override is active.
-    """
     if st.session_state.get("admin_deadline_override", False):
         return False
 
@@ -131,6 +139,8 @@ def is_weekly_voting_closed(active_week):
         now = datetime.datetime.now(ZoneInfo("America/Chicago"))
         if pub_time.tzinfo is not None and now.tzinfo is None:
             now = now.replace(tzinfo=ZoneInfo("America/Chicago"))
+        elif pub_time.tzinfo is None and now.tzinfo is not None:
+            pub_time = pub_time.replace(tzinfo=ZoneInfo("America/Chicago"))
     except Exception:
         now = datetime.datetime.now()
 
@@ -142,11 +152,6 @@ def is_weekly_voting_closed(active_week):
     next_tuesday = next_tuesday.replace(hour=14, minute=0, second=0, microsecond=0)
 
     return now >= next_tuesday
-
-def format_baker_list_display(val):
-    if isinstance(val, list):
-        return ", ".join([str(b) for b in val if b and b != "--Select Baker--"])
-    return str(val) if val and val != "--Select Baker--" else "None"
 
 def calculate_weekly_score(predictions, actuals, week=2):
     try:
@@ -165,7 +170,7 @@ def calculate_weekly_score(predictions, actuals, week=2):
         act_tech_rank = actuals.get("tech_rank", [])
         if isinstance(pred_rank, list) and isinstance(act_tech_rank, list) and pred_rank and act_tech_rank:
             if pred_rank == act_tech_rank:
-                score += 15  # Flawless 3-for-3 sweep bonus
+                score += 15
             else:
                 for idx, b in enumerate(pred_rank):
                     if idx < len(act_tech_rank) and act_tech_rank[idx] == b and b != "--Select Baker--":
@@ -173,6 +178,9 @@ def calculate_weekly_score(predictions, actuals, week=2):
     else:
         if predictions.get("star_baker") and predictions.get("star_baker") == actuals.get("star_baker"):
             score += 5
+            
+        if predictions.get("in_line_sb") and predictions.get("in_line_sb") == actuals.get("in_line_sb"):
+            score += 2
             
         act_elim = actuals.get("eliminated")
         pred_elim = predictions.get("eliminated")
@@ -189,6 +197,46 @@ def calculate_weekly_score(predictions, actuals, week=2):
                 if act_elim in pred_elim: score += 5
             elif pred_elim == act_elim:
                 score += 5
+
+        if predictions.get("in_trouble") and predictions.get("in_trouble") == actuals.get("in_trouble"):
+            score += 2
+
+        if week >= 8:
+            pred_rank = predictions.get("tech_rank", [])
+            act_rank = actuals.get("tech_rank", [])
+            if pred_rank and act_rank:
+                if pred_rank == act_rank:
+                    score += 25 if week == 8 else (20 if week == 9 else 15)
+                else:
+                    for idx, b in enumerate(pred_rank):
+                        if idx < len(act_rank) and act_rank[idx] == b and b != "--Select Baker--":
+                            score += 3 if idx in [0, len(act_rank)-1] else 2
+        else:
+            pred_top3 = predictions.get("tech_top_3", [])
+            act_top3 = actuals.get("tech_top_3", [])
+            if len(pred_top3) == 3 and len(act_top3) == 3:
+                if pred_top3 == act_top3:
+                    score += 10
+                else:
+                    if pred_top3[0] == act_top3[0] and pred_top3[0] != "--Select Baker--": score += 3
+                    if len(pred_top3) > 1 and len(act_top3) > 1 and pred_top3[1] == act_top3[1] and pred_top3[1] != "--Select Baker--": score += 2
+                    if len(pred_top3) > 2 and len(act_top3) > 2 and pred_top3[2] == act_top3[2] and pred_top3[2] != "--Select Baker--": score += 2
+                    for idx, baker in enumerate(pred_top3):
+                        if baker in act_top3 and baker != "--Select Baker--" and baker != act_top3[idx]:
+                            score += 1
+                            
+            pred_bot3 = predictions.get("tech_bottom_3", [])
+            act_bot3 = actuals.get("tech_bottom_3", [])
+            if len(pred_bot3) == 3 and len(act_bot3) == 3:
+                if pred_bot3 == act_bot3:
+                    score += 10
+                else:
+                    if pred_bot3[2] == act_bot3[2] and pred_bot3[2] != "--Select Baker--": score += 3
+                    if len(pred_bot3) > 1 and len(act_bot3) > 1 and pred_bot3[1] == act_bot3[1] and pred_bot3[1] != "--Select Baker--": score += 2
+                    if len(pred_bot3) > 0 and len(act_bot3) > 0 and pred_bot3[0] == act_bot3[0] and pred_bot3[0] != "--Select Baker--": score += 2
+                    for idx, baker in enumerate(pred_bot3):
+                        if baker in act_bot3 and baker != "--Select Baker--" and baker != act_bot3[idx]:
+                            score += 1
     return score
 
 def calculate_season_score(predictions, actuals):
@@ -212,4 +260,59 @@ def calculate_season_score(predictions, actuals):
     hs_act = actuals.get("handshakes")
     if hs_pred is not None and hs_act is not None:
         if hs_pred == hs_act: score += 20
-        elif abs(hs
+        elif abs(hs_pred - hs_act) <= 1: score += 10
+
+    cry_pred = predictions.get("crying")
+    cry_act = actuals.get("crying")
+    if cry_pred is not None and cry_act is not None:
+        if cry_pred == cry_act: score += 20
+        elif abs(cry_pred - cry_act) <= 5: score += 10
+
+    inn_pred = predictions.get("innuendos")
+    inn_act = actuals.get("innuendos")
+    if inn_pred is not None and inn_act is not None:
+        if inn_pred == inn_act: score += 20
+        elif abs(inn_pred - inn_act) <= 5: score += 10
+
+    return score
+
+def is_week_published(w_num, weekly_res_map):
+    return w_num in weekly_res_map or str(w_num) in weekly_res_map or int(w_num) in weekly_res_map
+
+def get_week_results(w_num, weekly_res_map):
+    return weekly_res_map.get(w_num, weekly_res_map.get(str(w_num), weekly_res_map.get(int(w_num) if isinstance(w_num, int) else str(w_num), {})))
+
+def image_to_base64(img):
+    if img is None:
+        return ""
+    buffered = io.BytesIO()
+    img.save(buffered, format="JPEG")
+    return base64.b64encode(buffered.getvalue()).decode()
+
+def load_baker_image(baker_name):
+    if not os.path.exists("assets"):
+        return None
+    target = baker_name.lower().strip()
+    try:
+        for filename in os.listdir("assets"):
+            stem, ext = os.path.splitext(filename)
+            if stem.lower().strip() == target and ext.lower() in ['.jpg', '.jpeg', '.png', '.webp']:
+                full_path = os.path.join("assets", filename)
+                try:
+                    return Image.open(full_path)
+                except Exception:
+                    pass
+    except Exception:
+        pass
+    return None
+
+def load_ai_brian_avatar():
+    path = "assets/aibrian.jpg"
+    if os.path.exists(path):
+        try:
+            return Image.open(path)
+        except Exception:
+            pass
+    return None
+
+def get_eliminated_bakers_by_week():
