@@ -162,26 +162,17 @@ def calculate_weekly_score(predictions, actuals, week=2):
     score = 0
     if not predictions or not actuals:
         return score
-        
+    
     if week == 10:
         if predictions.get("show_champion") and predictions.get("show_champion") == actuals.get("show_champion"):
             score += 15
-        pred_rank = predictions.get("tech_rank", [])
-        act_tech_rank = actuals.get("tech_rank", [])
-        if isinstance(pred_rank, list) and isinstance(act_tech_rank, list) and pred_rank and act_tech_rank:
-            if pred_rank == act_tech_rank:
-                score += 15
-            else:
-                for idx, b in enumerate(pred_rank):
-                    if idx < len(act_tech_rank) and act_tech_rank[idx] == b and b != "--Select Baker--":
-                        score += 3 if idx == 0 else 2
     else:
         if predictions.get("star_baker") and predictions.get("star_baker") == actuals.get("star_baker"):
             score += 5
             
         if predictions.get("in_line_sb") and predictions.get("in_line_sb") == actuals.get("in_line_sb"):
             score += 2
-            
+        
         act_elim = actuals.get("eliminated")
         pred_elim = predictions.get("eliminated")
         if isinstance(act_elim, list):
@@ -219,8 +210,6 @@ def calculate_weekly_score(predictions, actuals, week=2):
                     score += 10
                 else:
                     if pred_top3[0] == act_top3[0] and pred_top3[0] != "--Select Baker--": score += 3
-                    if len(pred_top3) > 1 and len(act_top3) > 1 and pred_top3[1] == act_top3[1] and pred_top3[1] != "--Select Baker--": score += 2
-                    if len(pred_top3) > 2 and len(act_top3) > 2 and pred_top3[2] == act_top3[2] and pred_top3[2] != "--Select Baker--": score += 2
                     for idx, baker in enumerate(pred_top3):
                         if baker in act_top3 and baker != "--Select Baker--" and baker != act_top3[idx]:
                             score += 1
@@ -232,8 +221,6 @@ def calculate_weekly_score(predictions, actuals, week=2):
                     score += 10
                 else:
                     if pred_bot3[2] == act_bot3[2] and pred_bot3[2] != "--Select Baker--": score += 3
-                    if len(pred_bot3) > 1 and len(act_bot3) > 1 and pred_bot3[1] == act_bot3[1] and pred_bot3[1] != "--Select Baker--": score += 2
-                    if len(pred_bot3) > 0 and len(act_bot3) > 0 and pred_bot3[0] == act_bot3[0] and pred_bot3[0] != "--Select Baker--": score += 2
                     for idx, baker in enumerate(pred_bot3):
                         if baker in act_bot3 and baker != "--Select Baker--" and baker != act_bot3[idx]:
                             score += 1
@@ -316,3 +303,37 @@ def load_ai_brian_avatar():
     return None
 
 def get_eliminated_bakers_by_week():
+    elim_map = {}
+    elim_list = []
+    for w in sorted(st.session_state.get("weekly_results", {}).keys(), key=lambda x: int(x)):
+        res = st.session_state.weekly_results[w]
+        act_el = res.get("eliminated")
+        if isinstance(act_el, list):
+            for b in act_el:
+                if b and b != "None" and b not in elim_list: elim_list.append(b)
+        elif isinstance(act_el, str) and act_el and act_el != "None":
+            if act_el not in elim_list: elim_list.append(act_el)
+        elim_map[int(w) + 1] = list(elim_list)
+    return elim_map
+
+def get_baker_stats(baker_name, current_week=1):
+    sb_count = 0
+    inline_count = 0
+    trouble_count = 0
+    handshake_count = 0
+    tech_placements = {}
+    tech_ranks_list = []
+    
+    weekly_res = st.session_state.get("weekly_results", {})
+    for w_num, w_res in weekly_res.items():
+        if w_res.get("star_baker") == baker_name:
+            sb_count += 1
+            
+        inl = w_res.get("in_line_sb", [])
+        if isinstance(inl, list) and baker_name in inl:
+            inline_count += 1
+        elif isinstance(inl, str) and inl == baker_name:
+            inline_count += 1
+            
+        trb = w_res.get("in_trouble", [])
+        if isinstance(trb, list)
