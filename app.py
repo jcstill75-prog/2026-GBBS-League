@@ -293,6 +293,15 @@ def load_baker_image(baker_name):
         pass
     return None
 
+def load_ai_brian_avatar():
+    path = "assets/aibrian.jpg"
+    if os.path.exists(path):
+        try:
+            return Image.open(path)
+        except Exception:
+            pass
+    return None
+
 def get_eliminated_bakers_by_week():
     elim_map = {}
     elim_list = []
@@ -610,113 +619,3 @@ if tab_lead:
         </table>
         """, unsafe_allow_html=True)
 
-### ==============================================================================
-### TAB 3: SHOW RESULTS (Visual Baker Profiles with Handshakes)
-### ==============================================================================
-if tab_results:
-    st.header("📺 Official Broadcast Results & Visual Baker Gallery")
-    
-    curr_elim_all_res = eliminated_bakers_by_week.get(active_prediction_week, [])
-    remaining_gallery_bakers_res = [b for b in ALL_BAKERS if b not in curr_elim_all_res]
-    
-    with st.expander(f"📸 Visual Baker Profiles & Season Statistics (Active Bakers - Week {active_prediction_week})", expanded=True):
-        card_cols = st.columns(2)
-        for idx, baker in enumerate(remaining_gallery_bakers_res):
-            sb_c, inl_c, trb_c, hs_c, tech_stat = get_baker_stats(baker, active_prediction_week)
-            
-            b_img = load_baker_image(baker)
-            img_b64 = image_to_base64(b_img) if b_img else ""
-            
-            if img_b64:
-                img_tag = f'<img src="data:image/jpeg;base64,{img_b64}" style="width: 100%; max-width: 95px; height: 110px; object-fit: cover; border-radius: 6px; border: 1px solid #8D6E63;">'
-            else:
-                img_tag = '<div style="width: 100%; max-width: 95px; height: 110px; background-color: #EFEBE9; border-radius: 6px; display: flex; align-items: center; justify-content: center; font-size: 0.75rem; color: #5D4037;">[Photo]</div>'
-                
-            if active_prediction_week <= 5:
-                if isinstance(tech_stat, dict) and tech_stat:
-                    tech_str = ", ".join([f"W{w}: #{p}" for w, p in sorted(tech_stat.items())])
-                else:
-                    tech_str = "None yet"
-                tech_line = f"Technicals: <b>{tech_str}</b>"
-            else:
-                tech_line = f"Technicals: <b>{tech_stat}</b>"
-
-            card_html = f"""
-            <div style="border: 2px solid #5D4037; border-radius: 10px; padding: 12px; background-color: #FFF9F5; color: #2D1B18; box-shadow: 0 3px 6px rgba(0,0,0,0.1); margin-bottom: 15px;">
-                <div style="background-color: #5D4037; color: #FFFFFF; padding: 6px 10px; border-radius: 6px; font-weight: bold; text-align: center; margin-bottom: 10px; font-size: 1.05rem;">
-                    {baker}
-                </div>
-                <div style="display: flex; gap: 12px; align-items: center;">
-                    <div style="flex: 0 0 95px; text-align: center;">
-                        {img_tag}
-                    </div>
-                    <div style="flex: 1; font-size: 0.85rem; color: #2D1B18; line-height: 1.5; background-color: #FFFFFF; padding: 8px; border-radius: 6px; border: 1px solid #D7CCC8;">
-                        <div style="color: #2D1B18; margin-bottom: 3px;">Star Baker: <b style="color: #5D4037;">{sb_c}</b></div>
-                        <div style="color: #2D1B18; margin-bottom: 3px;">In Line SB: <b style="color: #5D4037;">{inl_c}</b></div>
-                        <div style="color: #2D1B18; margin-bottom: 3px;">In Trouble: <b style="color: #5D4037;">{trb_c}</b></div>
-                        <div style="color: #2D1B18; margin-bottom: 3px;">Handshakes: <b style="color: #5D4037;">{hs_c}</b></div>
-                        <div style="color: #2D1B18;">{tech_line}</div>
-                    </div>
-                </div>
-            </div>
-            """
-            with card_cols[idx % 2]:
-                st.markdown(card_html, unsafe_allow_html=True)
-
-### ==============================================================================
-### TAB 4: ADMIN PANEL
-### ==============================================================================
-if tab_admin:
-    st.header("👑 League Administrator Console")
-    
-    if not st.session_state.admin_authenticated:
-        admin_pin = st.text_input("Enter Administrator PIN:", type="password")
-        if st.button("Unlock Admin Panel"):
-            if admin_pin == "6284":
-                st.session_state.admin_authenticated = True
-                st.success("Admin Unlocked!")
-                st.rerun()
-            else:
-                st.error("Incorrect Admin PIN.")
-    else:
-        st.success("🔓 Authenticated as Administrator")
-        if st.button("🔒 Lock Admin Console"):
-            st.session_state.admin_authenticated = False
-            st.rerun()
-            
-        st.markdown("---")
-        st.subheader("💾 Database Backup & Restore")
-        col_bk1, col_bk2 = st.columns(2)
-        with col_bk1:
-            try:
-                current_payload = {
-                    "league_members": st.session_state.get("league_members", {}),
-                    "weekly_results": st.session_state.get("weekly_results", {}),
-                    "season_results": st.session_state.get("season_results", {}),
-                    "disputes": st.session_state.get("disputes", [])
-                }
-                json_bytes = json.dumps(current_payload, indent=2).encode('utf-8')
-                st.download_button(
-                    label="📥 Download League JSON Backup",
-                    data=json_bytes,
-                    file_name="gbbs_league_backup.json",
-                    mime="application/json"
-                )
-            except Exception:
-                pass
-        with col_bk2:
-            uploaded_backup = st.file_uploader("📤 Upload / Restore League JSON Backup", type=["json"])
-            if uploaded_backup is not None:
-                if st.button("📥 Confirm & Restore Backup"):
-                    try:
-                        restored_data = json.load(uploaded_backup)
-                        if isinstance(restored_data, dict):
-                            st.session_state.league_members = restored_data.get("league_members", restored_data.get("league_members", {}))
-                            st.session_state.weekly_results = restored_data.get("weekly_results", {})
-                            st.session_state.season_results = restored_data.get("season_results", {})
-                            st.session_state.disputes = restored_data.get("disputes", [])
-                            save_league_data()
-                            st.success("✅ League backup successfully restored!")
-                            st.rerun()
-                    except Exception as e:
-                        st.error(f"❌ Failed to parse backup file: {e}")
