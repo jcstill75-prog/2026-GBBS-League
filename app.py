@@ -118,6 +118,23 @@ def save_league_data():
     except Exception:
         pass
 
+saved_state = load_league_data()
+
+if "league_members" not in st.session_state:
+    st.session_state.league_members = saved_state.get("league_members", {})
+if "weekly_results" not in st.session_state:
+    st.session_state.weekly_results = saved_state.get("weekly_results", {})
+if "season_results" not in st.session_state:
+    st.session_state.season_results = saved_state.get("season_results", {})
+if "disputes" not in st.session_state:
+    st.session_state.disputes = saved_state.get("disputes", [])
+if "admin_authenticated" not in st.session_state:
+    st.session_state.admin_authenticated = False
+if "admin_deadline_override" not in st.session_state:
+    st.session_state.admin_deadline_override = saved_state.get("admin_deadline_override", False)
+if "week_publication_timestamps" not in st.session_state:
+    st.session_state.week_publication_timestamps = saved_state.get("week_publication_timestamps", {})
+
 ### --- 3. DEADLINE & SCORING ENGINE ---
 def is_weekly_voting_closed(active_week):
     if st.session_state.get("admin_deadline_override", False):
@@ -450,7 +467,6 @@ ROSTER_HUMANS = [
 ]
 ROSTER_ALPHABETICAL = sorted(["AI Brian"] + ROSTER_HUMANS)
 
-saved_state = load_league_data()
 if "league_members" not in st.session_state:
     st.session_state.league_members = saved_state.get("league_members", {})
 
@@ -465,33 +481,6 @@ for m in ROSTER_ALPHABETICAL:
         st.session_state.league_members[m].setdefault("season_score", 0)
         st.session_state.league_members[m].setdefault("weekly_picks", {})
         st.session_state.league_members[m].setdefault("season_picks", {})
-
-if "weekly_results" not in st.session_state:
-    st.session_state.weekly_results = saved_state.get("weekly_results", {})
-if "season_results" not in st.session_state:
-    st.session_state.season_results = saved_state.get("season_results", {})
-if "disputes" not in st.session_state:
-    st.session_state.disputes = saved_state.get("disputes", [])
-if "admin_authenticated" not in st.session_state:
-    st.session_state.admin_authenticated = False
-if "admin_deadline_override" not in st.session_state:
-    st.session_state.admin_deadline_override = saved_state.get("admin_deadline_override", False)
-if "week_publication_timestamps" not in st.session_state:
-    st.session_state.week_publication_timestamps = saved_state.get("week_publication_timestamps", {})
-
-def generate_ai_brian_season_picks():
-    winner = random.choice(ALL_BAKERS)
-    remaining_pool = [b for b in ALL_BAKERS if b != winner]
-    semis = random.sample(remaining_pool, 3)
-    return {
-        "winner": winner, "semifinalists": semis,
-        "handshakes": random.randint(1, 10),
-        "crying": random.randint(5, 25),
-        "innuendos": random.randint(20, 65)
-    }
-
-if not st.session_state.league_members["AI Brian"]["season_picks"]:
-    st.session_state.league_members["AI Brian"]["season_picks"] = generate_ai_brian_season_picks()
 
 eliminated_bakers_by_week = get_eliminated_bakers_by_week()
 all_scored_weeks = sorted([int(k) for k in st.session_state.weekly_results.keys()])
@@ -619,3 +608,54 @@ if tab_lead:
         </table>
         """, unsafe_allow_html=True)
 
+    st.markdown("---")
+    st.subheader("📋 Individual Player Scorecards & Projections")
+    selected_card_player = st.selectbox("Select Player to View Scorecard:", ROSTER_ALPHABETICAL, key="lb_player_card_sel")
+    if selected_card_player in st.session_state.league_members:
+        p_data = st.session_state.league_members[selected_card_player]
+        p_season = p_data.get("season_picks", {})
+        p_weekly = p_data.get("weekly_picks", {})
+        
+        if selected_card_player == "AI Brian":
+            avatar = load_ai_brian_avatar()
+            col_av, col_desc = st.columns([1, 6])
+            with col_av:
+                if avatar:
+                    st.image(avatar, width=70)
+                else:
+                    st.markdown("### 🤖")
+            with col_desc:
+                st.write("AI Brian is an automated simulator. His picks are auto-generated according to league rules.")
+
+        st.markdown(f"### **{selected_card_player}'s Weekly Predictions Log**")
+        if p_weekly:
+            for w_num in sorted(p_weekly.keys(), key=lambda x: int(x)):
+                w_picks = p_weekly[w_num]
+                w_pts = p_data.get("weekly_breakdown", {}).get(w_num, 0)
+                with st.expander(f"Week {w_num} Ballot (Earned: {w_pts} pts)"):
+                    sb = w_picks.get("star_baker", w_picks.get("show_champion", "N/A"))
+                    inl = w_picks.get("in_line_sb", "N/A")
+                    
+                    elim = w_picks.get("eliminated", "N/A")
+                    if isinstance(elim, list):
+                        elim_str = ", ".join([str(b) for b in elim if b])
+                    else:
+                        elim_str = str(elim)
+                        
+                    trb = w_picks.get("in_trouble", "N/A")
+                    
+                    tech_top = w_picks.get("tech_top_3", [])
+                    tech_bot = w_picks.get("tech_bottom_3", [])
+                    tech_rank = w_picks.get("tech_rank", [])
+                    
+                    st.write(f"🌟 **Star Baker / Champion:** {sb}")
+                    st.write(f"⭐ **In Line SB:** {inl}")
+                    st.write(f"🚪 **Eliminated:** {elim_str}")
+                    st.write(f"⚠️ **In Trouble:** {trb}")
+                    
+                    st.markdown("📊 **Technical Challenge Predictions:**")
+                    if tech_top:
+                        st.markdown("**Top 3 Technical:**")
+                        st.write(f"• **1st Place:** {tech_top[0] if len(tech_top) > 0 else 'N/A'}")
+                        st.write(f"• **2nd Place:** {tech_top[1] if len(tech_top) > 1 else 'N/A'}")
+                        st.write(f"• **3
