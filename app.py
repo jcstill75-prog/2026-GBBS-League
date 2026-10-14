@@ -114,9 +114,12 @@ def save_league_data():
     except Exception:
         pass
 
-# --- EMAIL NOTIFICATION BACKUP ---
+# --- ADMIN EMAIL NOTIFICATION ENGINE ---
 def send_admin_email(player_name, week_num, predictions):
+    """Sends an email backup to the admin when a player submits a ballot."""
     try:
+        if "email" not in st.secrets:
+            return
         config = st.secrets["email"]
         sender_email = config["sender_email"]
         sender_password = config["sender_password"]
@@ -132,7 +135,6 @@ def send_admin_email(player_name, week_num, predictions):
             server.login(sender_email, sender_password)
             server.sendmail(sender_email, admin_email, msg.as_string())
     except Exception as e:
-        # Fails silently so app flow is never interrupted if secrets aren't configured yet
         print(f"Email notification failed: {e}")
 
 # --- 3. DEADLINE & SCORING ENGINE ---
@@ -176,7 +178,108 @@ def format_baker_list_display(val):
         return ", ".join([str(b) for b in val if b and b != "--Select Baker--"])
     return str(val) if val and val != "--Select Baker--" else "None"
 
-def load_baker_image(baker_name):
+def calculate_weekly_score(predictions, actuals, week=2):
+    try:
+        week = int(week)
+    except Exception:
+        week = 2
+
+    score = 0
+    if not predictions or not actuals:
+        return score
+    
+    if week == 10:
+        if predictions.get("show_champion") and predictions.get("show_champion") == actuals.get("show_champion"):
+            score += 15
+        pred_rank = predictions.get("tech_rank", [])
+        act_tech_rank = actuals.get("tech_rank", [])
+        if isinstance(pred_rank, list) and isinstance(act_tech_rank, list) and pred_rank and act_tech_rank:
+            if pred_rank == act_tech_rank:
+                score += 15
+            else:
+                for idx, b in enumerate(pred_rank):
+                    if idx < len(act_tech_rank) and act_tech_rank[idx] == b and b != "--Select Baker--":
+                        score += 3 if idx == 0 else 2
+    else:
+        if predictions.get("star_baker") and predictions.get("star_baker") == actuals.get("star_baker"):
+            score += 5
+        
+        act_elim = actuals.get("eliminated")
+        pred_elim = predictions.get("eliminated")
+        if isinstance(act_elim, list):
+            if isinstance(pred_elim, list):
+                for p in pred_elim:
+                    if p in act_elim: score += 5
+            elif isinstance(pred_elim, str) and pred_elim in act_elim:
+                score += 5
+        elif act_elim == "None":
+            pass
+        else:
+            if isinstance(pred_elim, list):
+                if act_elim in pred_elim: score += 5
+            elif pred_elim == act_elim:
+                score += 5
+
+        inl_pred = predictions.get("in_line_sb")
+        inl_act = actuals.get("in_line_sb", [])
+        if not isinstance(inl_act, list): inl_act = [inl_act]
+        if inl_pred and inl_pred in inl_act:
+            score += 2
+
+        trb_pred = predictions.get("in_trouble")
+        trb_act = actuals.get("in_trouble", [])
+        if not isinstance(trb_act, list): trb_act = [trb_act]
+        if trb_pred and trb_pred in trb_act:
+            score += 2
+
+        act_tech_rank = actuals.get("tech_rank", [])
+        if not isinstance(act_tech_rank, list): act_tech_rank = []
+
+        if week >= 8:
+            pred_rank = predictions.get("tech_rank", [])
+            if not isinstance(pred_rank, list): pred_rank = []
+            if pred_rank and act_tech_rank:
+                if pred_rank == act_tech_rank:
+                    score += 25 if week == 8 else 20
+                else:
+                    for idx, b in enumerate(pred_rank):
+                        if idx < len(act_tech_rank) and act_tech_rank[idx] == b and b != "--Select Baker--":
+                            if week == 8:
+                                score += 3 if idx in [0, 4] else 2
+                            elif week == 9:
+                                score += 3 if idx in [0, 3] else 2
+        else:
+            act_top3 = act_tech_rank[:3] if len(act_tech_rank) >= 3 else act_tech_rank
+            act_bot3 = act_tech_rank[-3:] if len(act_tech_rank) >= 3 else act_tech_rank
+            
+            pred_top3 = predictions.get("tech_top_3", [])
+            if not isinstance(pred_top3, list): pred_top3 = []
+            if len(pred_top3) == 3 and len(act_top3) == 3:
+                if pred_top3 == act_top3:
+                    score += 10
+                else:
+                    for t_idx, actual_baker in enumerate(act_top3):
+                        pred_at_pos = pred_top3[t_idx] if t_idx < len(pred_top3) else "--Select Baker--"
+                        if pred_at_pos == actual_baker and pred_at_pos != "--Select Baker--":
+                            score += 3 if t_idx == 0 else 2
+                        elif pred_at_pos in act_top3 and pred_at_pos != "--Select Baker--":
+                            score += 1
+                            
+            pred_bot3 = predictions.get("tech_bottom_3", [])
+            if not isinstance(pred_bot3, list): pred_bot3 = []
+            if len(pred_bot3) == 3 and len(act_bot3) == 3:
+                if pred_bot3 == act_bot3:
+                    score += 10
+                else:
+                    for b_idx, actual_baker in enumerate(act_bot3):
+                        pred_at_pos = pred_bot3[b_idx] if b_idx < len(pred_bot3) else "--Select Baker--"
+                        if pred_at_pos == actual_baker and pred_at_pos != "--Select Baker--":
+                            score += 3 if b_idx == 2 else 2
+                        elif pred_at_pos in act_bot3 and pred_at_pos != "--Select Baker--":
+                            score += 1
+
+    return score
+    def load_baker_image(baker_name):
     if not os.path.exists("assets"):
         return None
     target = baker_name.lower().strip()
@@ -232,3 +335,68 @@ if "disputes" not in st.session_state:
     st.session_state.disputes = saved_state.get("disputes", []) if saved_state else {}
 if "admin_authenticated" not in st.session_state:
     st.session_state.admin_authenticated = False
+if "admin_verification_msg" not in st.session_state:
+    st.session_state.admin_verification_msg = ""
+if "admin_deadline_override" not in st.session_state:
+    st.session_state.admin_deadline_override = saved_state.get("admin_deadline_override", False) if saved_state else False
+if "week_publication_timestamps" not in st.session_state:
+    st.session_state.week_publication_timestamps = saved_state.get("week_publication_timestamps", {}) if saved_state else {}
+
+def get_eliminated_bakers_by_week():
+    elim_map = {}
+    elim_list = []
+    for w in sorted(st.session_state.weekly_results.keys(), key=lambda x: int(x)):
+        res = st.session_state.weekly_results[w]
+        act_el = res.get("eliminated")
+        if isinstance(act_el, list):
+            for b in act_el:
+                if b and b != "None" and b not in elim_list: elim_list.append(b)
+        elif isinstance(act_el, str) and act_el and act_el != "None":
+            if act_el not in elim_list: elim_list.append(act_el)
+        elim_map[int(w) + 1] = list(elim_list)
+    return elim_map
+
+eliminated_bakers_by_week = get_eliminated_bakers_by_week()
+all_scored_weeks = sorted([int(k) for k in st.session_state.weekly_results.keys()])
+active_prediction_week = max(all_scored_weeks) + 1 if all_scored_weeks else 1
+if active_prediction_week > 10: active_prediction_week = 10
+
+# --- 5. SIDEBAR ---
+with st.sidebar:
+    st.title("🧁 GBBS League")
+    st.markdown("---")
+    st.subheader("📌 Competition Progress")
+    if not st.session_state.weekly_results:
+        st.info("🟢 **Active Status: Week 1 Scouting Phase**\n\nSeason-wide predictions & Week 2 ballots unlock together once Week 1 results are posted!")
+    else:
+        latest_w = max([int(k) for k in st.session_state.weekly_results.keys()])
+        st.success(f"🟢 **Active Competition Week: Week {latest_w + 1}**\n\n(Week {latest_w} Results Published)")
+    st.markdown("---")
+    st.header("🎯 Points Reference Guide")
+    st.warning("⏰ **Weekly voting window ends on Tuesdays at 2:00 PM Houston time.**")
+    with st.expander("🌟 Season-Long Projections", expanded=False):
+        st.markdown("""
+        * **Season Winner:** 40 pts
+        * **Finalist Consolation:** 15 pts *(Top 3)*
+        * **Other 3 Semifinalists:** 10 pts each
+        * **Handshakes Count:** 20 pts *(spot-on)* / 10 pts *(+/- 1)*
+        * **Crying Events:** 20 pts *(spot-on)* / 10 pts *(+/- 5)*
+        * **Innuendos Count:** 20 pts *(spot-on)* / 10 pts *(+/- 5)*
+        """)
+    with st.expander("📅 Weekly Predictions", expanded=False):
+        st.markdown("""
+        * **Star Baker:** 5 pts
+        * **Eliminated Baker:** 5 pts
+        * **In Line / In Trouble:** 2 pts each
+        * **Technical Exact Positions:** 3 pts (1st/Last), 2 pts (middle)
+        * **Star Member Bonus:** +5 pts to weekly high scorer
+        """)
+
+# --- 6. MAIN NAVIGATION TABS ---
+st.title("🧁 Great British Baking Show Fantasy League 2026")
+tab_lead, tab_submit, tab_results, tab_admin = st.tabs([
+    "📊 Leaderboard & Standings", 
+    "📝 Submit Predictions", 
+    "📺 Show Results", 
+    "👑 Admin Panel"
+])
