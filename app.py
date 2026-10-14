@@ -8,6 +8,8 @@ import datetime
 from zoneinfo import ZoneInfo
 from PIL import Image
 import io
+import smtplib
+from email.mime.text import MIMEText
 
 # --- 1. SETUP & PAGE CONFIG ---
 st.set_page_config(
@@ -112,6 +114,27 @@ def save_league_data():
     except Exception:
         pass
 
+# --- EMAIL NOTIFICATION BACKUP ---
+def send_admin_email(player_name, week_num, predictions):
+    try:
+        config = st.secrets["email"]
+        sender_email = config["sender_email"]
+        sender_password = config["sender_password"]
+        admin_email = config["admin_email"]
+        
+        msg_body = f"New ballot submitted by {player_name} for Week {week_num}:\n\n{json.dumps(predictions, indent=2)}"
+        msg = MIMEText(msg_body)
+        msg['Subject'] = f"[GBBS League] New Ballot: {player_name} (Week {week_num})"
+        msg['From'] = sender_email
+        msg['To'] = admin_email
+        
+        with smtplib.SMTP_SSL('smtp.gmail.com', 465) as server:
+            server.login(sender_email, sender_password)
+            server.sendmail(sender_email, admin_email, msg.as_string())
+    except Exception as e:
+        # Fails silently so app flow is never interrupted if secrets aren't configured yet
+        print(f"Email notification failed: {e}")
+
 # --- 3. DEADLINE & SCORING ENGINE ---
 def is_weekly_voting_closed(active_week):
     if st.session_state.get("admin_deadline_override", False):
@@ -209,13 +232,3 @@ if "disputes" not in st.session_state:
     st.session_state.disputes = saved_state.get("disputes", []) if saved_state else {}
 if "admin_authenticated" not in st.session_state:
     st.session_state.admin_authenticated = False
-
-st.sidebar.title("🧁 GBBS Fantasy League 2026")
-st.sidebar.markdown("---")
-st.sidebar.markdown("### Scoring Guide")
-st.sidebar.markdown("""
-- **Star Baker:** +5 pts
-- **Eliminated:** +5 pts
-- **In-Line / In Trouble:** +2 pts
-- **Technical Sweep:** Up to +20-25 pts
-""")
