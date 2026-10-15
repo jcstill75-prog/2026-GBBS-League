@@ -304,8 +304,7 @@ def is_week_published(w_num, weekly_results_map):
 
 def get_week_results(w_num, weekly_results_map):
     return weekly_results_map.get(int(w_num), weekly_results_map.get(str(w_num), {}))
-
-# --- 4. ROSTER & STATE INITIALIZATION ---
+    # --- 4. ROSTER & STATE INITIALIZATION ---
 ALL_BAKERS = [
     "Clara", "Connie", "Danni", "Gabe", "Gary", "Mo", 
     "Molly", "Moyin", "Nikki", "Shannon", "Tom", "Yannis"
