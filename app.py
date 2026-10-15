@@ -171,13 +171,13 @@ def save_league_data():
 # --- 3. DEADLINE & SCORING ENGINE ---
 
 def is_weekly_voting_closed(active_week):
+    if st.session_state.get("admin_deadline_override", False):
+        return False
 
-if st.session_state.get("admin_deadline_override", False):
-
-return False
-
-pub_timestamps = st.session_state.get("week_publication_timestamps", {})
-
+    pub_timestamps = st.session_state.get("week_publication_timestamps", {})
+    prev_week = int(active_week) - 1
+    if prev_week not in pub_timestamps and str(prev_week) not in pub_timestamps:
+        return False
 prev_week = int(active_week) - 1
 
 if prev_week not in pub_timestamps and str(prev_week) not in pub_timestamps:
