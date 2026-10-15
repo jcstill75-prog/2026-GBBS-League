@@ -8,8 +8,6 @@ import datetime
 from zoneinfo import ZoneInfo
 from PIL import Image
 import io
-import smtplib
-from email.mime.text import MIMEText
 
 # --- 1. SETUP & PAGE CONFIG ---
 st.set_page_config(
@@ -113,29 +111,6 @@ def save_league_data():
             json.dump(payload, f, indent=2)
     except Exception:
         pass
-
-# --- ADMIN EMAIL NOTIFICATION ENGINE ---
-def send_admin_email(player_name, week_num, predictions):
-    """Sends an email backup to the admin when a player submits a ballot."""
-    try:
-        if "email" not in st.secrets:
-            return
-        config = st.secrets["email"]
-        sender_email = config["sender_email"]
-        sender_password = config["sender_password"]
-        admin_email = config["admin_email"]
-        
-        msg_body = f"New ballot submitted by {player_name} for Week {week_num}:\n\n{json.dumps(predictions, indent=2)}"
-        msg = MIMEText(msg_body)
-        msg['Subject'] = f"[GBBS League] New Ballot: {player_name} (Week {week_num})"
-        msg['From'] = sender_email
-        msg['To'] = admin_email
-        
-        with smtplib.SMTP_SSL('smtp.gmail.com', 465) as server:
-            server.login(sender_email, sender_password)
-            server.sendmail(sender_email, admin_email, msg.as_string())
-    except Exception as e:
-        print(f"Email notification failed: {e}")
 
 # --- 3. DEADLINE & SCORING ENGINE ---
 def is_weekly_voting_closed(active_week):
@@ -279,7 +254,117 @@ def calculate_weekly_score(predictions, actuals, week=2):
                             score += 1
 
     return score
-    def load_baker_image(baker_name):
+
+def is_week_published(w_num, results_map):
+    try:
+        w_int = int(w_num)
+    except Exception:
+        w_int = w_num
+    if w_int in results_map: return True
+    if str(w_int) in results_map: return True
+    return False
+
+def get_week_results(w_num, results_map):
+    try:
+        w_int = int(w_num)
+    except Exception:
+        w_int = w_num
+    if w_int in results_map: return results_map[w_int]
+    if str(w_int) in results_map: return results_map[str(w_int)]
+    return {}
+
+def calculate_season_score(predictions, actuals):
+    if not is_week_published(10, st.session_state.get("weekly_results", {})):
+        return 0
+
+    score = 0
+    if not predictions or not actuals:
+        return score
+    
+    act_winner = actuals.get("winner")
+    act_semis = actuals.get("semifinalists", [])
+    act_finalists = actuals.get("finalists", act_semis)
+    
+    pred_winner = predictions.get("winner")
+    if pred_winner and act_winner and pred_winner == act_winner:
+        score += 40
+    elif pred_winner and act_finalists and pred_winner in act_finalists:
+        score += 15
+        
+    for baker in predictions.get("semifinalists", []):
+        if act_semis and baker in act_semis and baker != pred_winner:
+            score += 10
+            
+    for key, exact_pts, buffer_pts, buf in [("handshakes", 20, 10, 1), ("crying", 20, 10, 5), ("innuendos", 20, 10, 5)]:
+        p_val = predictions.get(key)
+        a_val = actuals.get(key)
+        if p_val is not None and a_val is not None:
+            if p_val == a_val: score += exact_pts
+            elif abs(p_val - a_val) <= buf: score += buffer_pts
+            
+    return score
+
+def get_detailed_season_score_breakdown(predictions, actuals):
+    breakdown = []
+    if not predictions:
+        return breakdown
+        
+    season_published = is_week_published(10, st.session_state.get("weekly_results", {}))
+    
+    w_pred = predictions.get("winner")
+    w_act = actuals.get("winner") if season_published else None
+    w_pts = 0
+    max_w = 40
+    if season_published and w_pred and w_act and w_pred == w_act:
+        w_pts = 40
+    elif season_published and w_pred and actuals.get("finalists") and w_pred in actuals.get("finalists"):
+        w_pts = 15
+        max_w = 15
+    breakdown.append(("Season Winner", w_pred, w_act if (season_published and w_act) else "Pending W10", w_pts if season_published else 0, max_w))
+    
+    semis_pred = predictions.get("semifinalists", [])
+    semis_act = actuals.get("semifinalists", []) if season_published else []
+    semis_pts = 0
+    if season_published:
+        for b in semis_pred:
+            if semis_act and b in semis_act and b != w_pred:
+                semis_pts += 10
+    breakdown.append(("Semifinalists", ", ".join(semis_pred) if semis_pred else "None", ", ".join(semis_act) if (season_published and semis_act) else "Pending W10", semis_pts if season_published else 0, 30))
+    
+    hs_pred = predictions.get("handshakes")
+    hs_act = actuals.get("handshakes") if season_published else None
+    hs_pts = 0
+    if season_published and hs_pred is not None and hs_act is not None:
+        if hs_pred == hs_act: hs_pts = 20
+        elif abs(hs_pred - hs_act) <= 1: hs_pts = 10
+    breakdown.append(("Hollywood Handshakes", hs_pred, hs_act if season_published else "Pending W10", hs_pts if season_published else 0, 20))
+    
+    cry_pred = predictions.get("crying")
+    cry_act = actuals.get("crying") if season_published else None
+    cry_pts = 0
+    if season_published and cry_pred is not None and cry_act is not None:
+        if cry_pred == cry_act: cry_pts = 20
+        elif abs(cry_pred - cry_act) <= 5: cry_pts = 10
+    breakdown.append(("Crying Incidents", cry_pred, cry_act if season_published else "Pending W10", cry_pts if season_published else 0, 20))
+    
+    inn_pred = predictions.get("innuendos")
+    inn_act = actuals.get("innuendos") if season_published else None
+    inn_pts = 0
+    if season_published and inn_pred is not None and inn_act is not None:
+        if inn_pred == inn_act: inn_pts = 20
+        elif abs(inn_pred - inn_act) <= 5: inn_pts = 10
+    breakdown.append(("Sexual Innuendos", inn_pred, inn_act if season_published else "Pending W10", inn_pts if season_published else 0, 20))
+    
+    return breakdown
+
+def image_to_base64(img):
+    if img is None:
+        return ""
+    buffered = io.BytesIO()
+    img.save(buffered, format="JPEG")
+    return base64.b64encode(buffered.getvalue()).decode()
+
+def load_baker_image(baker_name):
     if not os.path.exists("assets"):
         return None
     target = baker_name.lower().strip()
@@ -295,6 +380,76 @@ def calculate_weekly_score(predictions, actuals, week=2):
     except Exception:
         pass
     return None
+
+def get_baker_stats(baker_name, current_week=1):
+    sb_count = 0
+    inline_count = 0
+    trouble_count = 0
+    tech_placements = {}
+    tech_ranks_list = []
+    
+    weekly_res = st.session_state.get("weekly_results", {})
+    for w_num, w_res in weekly_res.items():
+        if w_res.get("star_baker") == baker_name:
+            sb_count += 1
+            
+        inl = w_res.get("in_line_sb", [])
+        if isinstance(inl, list) and baker_name in inl:
+            inline_count += 1
+        elif isinstance(inl, str) and inl == baker_name:
+            inline_count += 1
+            
+        trb = w_res.get("in_trouble", [])
+        if isinstance(trb, list) and baker_name in trb:
+            trouble_count += 1
+        elif isinstance(trb, str) and trb == baker_name:
+            trouble_count += 1
+            
+        tech_r = w_res.get("tech_rank", [])
+        if isinstance(tech_r, list) and baker_name in tech_r:
+            rank = tech_r.index(baker_name) + 1
+            tech_placements[w_num] = rank
+            tech_ranks_list.append(rank)
+        else:
+            t_top = w_res.get("tech_top_3", [])
+            t_bot = w_res.get("tech_bottom_3", [])
+            if baker_name in t_top:
+                rank = t_top.index(baker_name) + 1
+                tech_placements[w_num] = rank
+                tech_ranks_list.append(rank)
+                
+    if current_week <= 5:
+        tech_display = tech_placements if tech_placements else "None yet"
+    else:
+        tech_display = round(sum(tech_ranks_list) / len(tech_ranks_list), 1) if tech_ranks_list else "N/A"
+        
+    return sb_count, inline_count, trouble_count, tech_display
+
+def get_star_member_wins_count(member_name):
+    count = 0
+    weekly_res_map = st.session_state.get("weekly_results", {})
+    if not weekly_res_map:
+        return count
+    
+    all_weeks = sorted([int(k) for k in weekly_res_map.keys()])
+    for w in all_weeks:
+        act_w = get_week_results(w, weekly_res_map)
+        if not act_w:
+            continue
+            
+        scores = {}
+        for m_name, m_data in st.session_state.league_members.items():
+            pred = m_data["weekly_picks"].get(w, m_data["weekly_picks"].get(str(w), {}))
+            scores[m_name] = calculate_weekly_score(pred, act_w, w)
+            
+        if not scores:
+            continue
+            
+        max_score = max(scores.values())
+        if max_score > 0 and scores.get(member_name, 0) == max_score:
+            count += 1
+            
+    return count
 
 # --- 4. ROSTER & STATE INITIALIZATION ---
 ALL_BAKERS = [
@@ -337,6 +492,8 @@ if "admin_authenticated" not in st.session_state:
     st.session_state.admin_authenticated = False
 if "admin_verification_msg" not in st.session_state:
     st.session_state.admin_verification_msg = ""
+if "admin_pin_reset_msg" not in st.session_state:
+    st.session_state.admin_pin_reset_msg = ""
 if "admin_deadline_override" not in st.session_state:
     st.session_state.admin_deadline_override = saved_state.get("admin_deadline_override", False) if saved_state else False
 if "week_publication_timestamps" not in st.session_state:
@@ -347,56 +504,3 @@ def get_eliminated_bakers_by_week():
     elim_list = []
     for w in sorted(st.session_state.weekly_results.keys(), key=lambda x: int(x)):
         res = st.session_state.weekly_results[w]
-        act_el = res.get("eliminated")
-        if isinstance(act_el, list):
-            for b in act_el:
-                if b and b != "None" and b not in elim_list: elim_list.append(b)
-        elif isinstance(act_el, str) and act_el and act_el != "None":
-            if act_el not in elim_list: elim_list.append(act_el)
-        elim_map[int(w) + 1] = list(elim_list)
-    return elim_map
-
-eliminated_bakers_by_week = get_eliminated_bakers_by_week()
-all_scored_weeks = sorted([int(k) for k in st.session_state.weekly_results.keys()])
-active_prediction_week = max(all_scored_weeks) + 1 if all_scored_weeks else 1
-if active_prediction_week > 10: active_prediction_week = 10
-
-# --- 5. SIDEBAR ---
-with st.sidebar:
-    st.title("🧁 GBBS League")
-    st.markdown("---")
-    st.subheader("📌 Competition Progress")
-    if not st.session_state.weekly_results:
-        st.info("🟢 **Active Status: Week 1 Scouting Phase**\n\nSeason-wide predictions & Week 2 ballots unlock together once Week 1 results are posted!")
-    else:
-        latest_w = max([int(k) for k in st.session_state.weekly_results.keys()])
-        st.success(f"🟢 **Active Competition Week: Week {latest_w + 1}**\n\n(Week {latest_w} Results Published)")
-    st.markdown("---")
-    st.header("🎯 Points Reference Guide")
-    st.warning("⏰ **Weekly voting window ends on Tuesdays at 2:00 PM Houston time.**")
-    with st.expander("🌟 Season-Long Projections", expanded=False):
-        st.markdown("""
-        * **Season Winner:** 40 pts
-        * **Finalist Consolation:** 15 pts *(Top 3)*
-        * **Other 3 Semifinalists:** 10 pts each
-        * **Handshakes Count:** 20 pts *(spot-on)* / 10 pts *(+/- 1)*
-        * **Crying Events:** 20 pts *(spot-on)* / 10 pts *(+/- 5)*
-        * **Innuendos Count:** 20 pts *(spot-on)* / 10 pts *(+/- 5)*
-        """)
-    with st.expander("📅 Weekly Predictions", expanded=False):
-        st.markdown("""
-        * **Star Baker:** 5 pts
-        * **Eliminated Baker:** 5 pts
-        * **In Line / In Trouble:** 2 pts each
-        * **Technical Exact Positions:** 3 pts (1st/Last), 2 pts (middle)
-        * **Star Member Bonus:** +5 pts to weekly high scorer
-        """)
-
-# --- 6. MAIN NAVIGATION TABS ---
-st.title("🧁 Great British Baking Show Fantasy League 2026")
-tab_lead, tab_submit, tab_results, tab_admin = st.tabs([
-    "📊 Leaderboard & Standings", 
-    "📝 Submit Predictions", 
-    "📺 Show Results", 
-    "👑 Admin Panel"
-])
