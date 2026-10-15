@@ -182,7 +182,7 @@ prev_week = int(active_week) - 1
 
 if prev_week not in pub_timestamps and str(prev_week) not in pub_timestamps:
 
-return False
+    return False
 
 try:
 
