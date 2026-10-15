@@ -27,92 +27,77 @@ import requests  # <--- Added for sending email requests to Google Apps Script
 st.set_page_config(
 
 page_title="GBBS Fantasy League 2026",
-
-page_icon="🧁",
-
-layout="wide",
-
-initial_sidebar_state="expanded"
-
-)
-
-# Custom Styling for cozy baking theme & uniform card typography
-
-st.markdown("""
-
-<style>
-
-.stButton>button {
-
-background-color: #D36B5F;
-
-color: white;
-
-border-radius: 8px;
-
-border: none;
-
-padding: 8px 16px;
-
-font-weight: bold;
-
-}
-
-.stButton>button:hover {
-
-background-color: #B54E43;
-
-color: white;
-
-}
-
-h1, h2, h3 {
-
-color: #5D4037;
-
-}
-
-</style>
-
-""", unsafe_allow_html=True)
-
-# --- EMAIL NOTIFICATION HELPER ---
-def send_ballot_email(player_name, week_num, weekly_picks, season_picks=None):
-    """Sends ballot details to the Google Apps Script Web App configured in st.secrets."""
-    script_url = st.secrets.get("GOOGLE_APPS_SCRIPT_URL", "")
-    if not script_url:
-        return  # Silently return if URL is not configured yet
-    
-    payload = {
-        "player": player_name,
-        "week": week_num,
-        "weekly_picks": weekly_picks,
-        "season_picks": season_picks if season_picks else {}
-    }
-    
-    try:
-        requests.post(script_url, json=payload, timeout=5)
-    except Exception:
-        pass  # Prevent app errors if email dispatch fails
-
-
 # --- 2. PERSISTENCE & NORMALIZATION ENGINE ---
 
 DATA_FILE = "league_data.json"
 
 def load_league_data():
+    if os.path.exists(DATA_FILE):
+        try:
+            with open(DATA_FILE, "r") as f:
+                data = json.load(f)
+                if isinstance(data, dict):
+                    w_res = {}
+                    for k, v in data.get("weekly_results", {}).items():
+                        try:
+                            w_res[int(k)] = v
+                        except Exception:
+                            w_res[k] = v
+                    data["weekly_results"] = w_res
+                    for m_name, m_data in data.get("league_members", {}).items():
+                        if isinstance(m_data, dict):
+                            if "weekly_picks" in m_data:
+                                norm_picks = {}
+                                for wk_k, wk_v in m_data["weekly_picks"].items():
+                                    try:
+                                        norm_picks[int(wk_k)] = wk_v
+                                    except Exception:
+                                        norm_picks[wk_k] = wk_v
+                                m_data["weekly_picks"] = norm_picks
+                            else:
+                                m_data["weekly_picks"] = {}
+                            m_data.setdefault("season_picks", {})
+                            m_data.setdefault("pin", None)
+                            m_data.setdefault("season_score", 0)
+                    return data
+        except Exception:
+            pass
+    return {}
 
-if os.path.exists(DATA_FILE):
-
-try:
-
-with open(DATA_FILE, "r") as f:
-
-data = json.load(f)
-
-if isinstance(data, dict):
-
-w_res = {}
+def save_league_data():
+    try:
+        clean_members = st.session_state.get("league_members", {})
+        for m_name, m_data in clean_members.items():
+            if isinstance(m_data, dict):
+                norm_picks = {}
+                for wk_k, wk_v in m_data.get("weekly_picks", {}).items():
+                    try:
+                        norm_picks[int(wk_k)] = wk_v
+                    except Exception:
+                        norm_picks[wk_k] = wk_v
+                m_data["weekly_picks"] = norm_picks
+                m_data.setdefault("season_picks", {})
+                m_data.setdefault("pin", None)
+        
+        clean_w_res = {}
+        for wk_k, wk_v in st.session_state.get("weekly_results", {}).items():
+            try:
+                clean_w_res[int(wk_k)] = wk_v
+            except Exception:
+                clean_w_res[wk_k] = wk_v
+                
+        payload = {
+            "league_members": clean_members,
+            "weekly_results": clean_w_res,
+            "season_results": st.session_state.get("season_results", {}),
+            "disputes": st.session_state.get("disputes", []),
+            "admin_deadline_override": st.session_state.get("admin_deadline_override", False),
+            "week_publication_timestamps": st.session_state.get("week_publication_timestamps", {})
+        }
+        with open(DATA_FILE, "w") as f:
+            json.dump(payload, f, indent=2)
+    except Exception:
+        pass
 
 for k, v in data.get("weekly_results", {}).items():
 
