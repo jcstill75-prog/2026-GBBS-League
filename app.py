@@ -10,7 +10,9 @@ import datetime
 from zoneinfo import ZoneInfo
 from PIL import Image
 import io
-import requests  # <--- Added for sending email requests to Google Apps Script
+import smtplib
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
 
 # --- 1. SETUP & PAGE CONFIG ---
 
@@ -61,24 +63,37 @@ color: #5D4037;
 
 """, unsafe_allow_html=True)
 
-# --- EMAIL NOTIFICATION HELPER ---
+# --- EMAIL NOTIFICATION HELPER (SMTP) ---
 def send_ballot_email(player_name, week_num, weekly_picks, season_picks=None):
-    """Sends ballot details to the Google Apps Script Web App configured in st.secrets."""
-    script_url = st.secrets.get("GOOGLE_APPS_SCRIPT_URL", "")
-    if not script_url:
-        return  # Silently return if URL is not configured yet
-    
-    payload = {
-        "player": player_name,
-        "week": week_num,
-        "weekly_picks": weekly_picks,
-        "season_picks": season_picks if season_picks else {}
-    }
-    
+    """Sends ballot details directly via Gmail SMTP using credentials from st.secrets."""
     try:
-        requests.post(script_url, json=payload, timeout=5)
+        email_config = st.secrets.get("email", {})
+        sender_email = email_config.get("sender_email")
+        sender_password = email_config.get("sender_password")
+        receiver_email = email_config.get("admin_email")
+        
+        if not sender_email or not sender_password or not receiver_email:
+            return  # Exit silently if email credentials aren't fully configured
+        
+        subject = f"GBBS Ballot Submitted: {player_name} (Week {week_num})"
+        
+        body = f"Player: {player_name}\nWeek: {week_num}\n\nWeekly Picks:\n{json.dumps(weekly_picks, indent=2)}"
+        if season_picks:
+            body += f"\n\nSeason Projections:\n{json.dumps(season_picks, indent=2)}"
+            
+        message = MIMEMultipart()
+        message["From"] = sender_email
+        message["To"] = receiver_email
+        message["Subject"] = subject
+        message.attach(MIMEText(body, "plain"))
+        
+        # Connect to Gmail SMTP server
+        with smtplib.SMTP("smtp.gmail.com", 587) as server:
+            server.starttls()
+            server.login(sender_email, sender_password)
+            server.sendmail(sender_email, receiver_email, message.as_string())
     except Exception:
-        pass  # Prevent app errors if email dispatch fails
+        pass  # Prevents app errors if dispatch fails
 
 
 # --- 2. PERSISTENCE & NORMALIZATION ENGINE ---
