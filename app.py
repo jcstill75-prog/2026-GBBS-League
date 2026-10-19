@@ -48,7 +48,7 @@ def send_ballot_email(player_name, week_num, weekly_picks, season_picks=None):
     try:
         email_config = st.secrets.get("email", {})
         sender_email = email_config.get("sender_email")
-        sender_password = email_config.get("sender_password")
+        sender_password = email_config.get("sender_password", "").replace(" ", "")
         receiver_email = email_config.get("admin_email")
         
         if not sender_email or not sender_password or not receiver_email:
