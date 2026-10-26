@@ -1671,7 +1671,7 @@ if tab_admin:
                             st.session_state.week_publication_timestamps = imported_data["week_publication_timestamps"]
                         save_league_data()
                         recalculate_all_scores()
-                        st.success("✅ League data successfully restored from uploaded JSON backup!")
+                        st.success("✅ League data successfully restored from uploaded JSON backup and pushed to Google Sheets!")
                         st.rerun()
                     else:
                         st.error("❌ Invalid JSON format: Root element must be a dictionary.")
