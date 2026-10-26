@@ -11,6 +11,8 @@ import io
 import smtplib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
+import gspread
+from google.oauth2.service_account import Credentials
 
 # --- 1. SETUP & PAGE CONFIG ---
 
@@ -75,15 +77,32 @@ def send_ballot_email(player_name, week_num, weekly_picks, season_picks=None):
         pass  # Prevents app errors if dispatch fails
 
 
-# --- 2. PERSISTENCE & NORMALIZATION ENGINE ---
+# --- 2. GOOGLE SHEETS PERSISTENCE & NORMALIZATION ENGINE ---
 
-DATA_FILE = "league_data.json"
+def get_gspread_client():
+    """Initializes and returns an authorized gspread client using st.secrets."""
+    try:
+        secrets_dict = dict(st.secrets["gcp_service_account"])
+        scopes = [
+            "https://www.googleapis.com/auth/spreadsheets",
+            "https://www.googleapis.com/auth/drive"
+        ]
+        credentials = Credentials.from_service_account_info(secrets_dict, scopes=scopes)
+        return gspread.authorize(credentials)
+    except Exception:
+        return None
 
 def load_league_data():
-    if os.path.exists(DATA_FILE):
-        try:
-            with open(DATA_FILE, "r") as f:
-                data = json.load(f)
+    """Fetches and parses league data JSON stored in cell A1 of the Google Sheet."""
+    try:
+        client = get_gspread_client()
+        if client:
+            sheet_name = st.secrets["gcp_service_account"].get("sheet_name", "2026_GBBS_League_Storage")
+            sheet = client.open(sheet_name).sheet1
+            json_str = sheet.cell(1, 1).value
+            
+            if json_str:
+                data = json.loads(json_str)
                 if isinstance(data, dict):
                     w_res = {}
                     for k, v in data.get("weekly_results", {}).items():
@@ -108,11 +127,12 @@ def load_league_data():
                             m_data.setdefault("pin", None)
                             m_data.setdefault("season_score", 0)
                     return data
-        except Exception:
-            pass
+    except Exception:
+        pass
     return {}
 
 def save_league_data():
+    """Serializes league data state and saves it into cell A1 of the Google Sheet."""
     try:
         clean_members = st.session_state.get("league_members", {})
         for m_name, m_data in clean_members.items():
@@ -142,8 +162,12 @@ def save_league_data():
             "admin_deadline_override": st.session_state.get("admin_deadline_override", False),
             "week_publication_timestamps": st.session_state.get("week_publication_timestamps", {})
         }
-        with open(DATA_FILE, "w") as f:
-            json.dump(payload, f, indent=2)
+        
+        client = get_gspread_client()
+        if client:
+            sheet_name = st.secrets["gcp_service_account"].get("sheet_name", "2026_GBBS_League_Storage")
+            sheet = client.open(sheet_name).sheet1
+            sheet.update_cell(1, 1, json.dumps(payload, indent=2))
     except Exception:
         pass
 
@@ -1680,11 +1704,6 @@ if tab_admin:
         confirm_erase = st.checkbox("I understand this will permanently erase all player prediction ballots, PINs, and published broadcast results.", key="confirm_erase_check")
         if st.button("🗑️ Erase All Competition Data", type="primary"):
             if confirm_erase:
-                if os.path.exists(DATA_FILE):
-                    try:
-                        os.remove(DATA_FILE)
-                    except Exception:
-                        pass
                 for key in list(st.session_state.keys()):
                     del st.session_state[key]
                 st.success("All competition data successfully erased!")
