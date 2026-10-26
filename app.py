@@ -11,8 +11,7 @@ import io
 import smtplib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
-import gspread
-from google.oauth2.service_account import Credentials
+from streamlit_gsheets import GSheetsConnection
 
 # --- 1. SETUP & PAGE CONFIG ---
 
@@ -23,7 +22,6 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# Custom Styling for cozy baking theme & uniform card typography
 st.markdown("""
 <style>
 .stButton>button {
@@ -54,10 +52,9 @@ def send_ballot_email(player_name, week_num, weekly_picks, season_picks=None):
         receiver_email = email_config.get("admin_email")
         
         if not sender_email or not sender_password or not receiver_email:
-            return  # Exit silently if email credentials aren't fully configured
+            return  
         
         subject = f"GBBS Ballot Submitted: {player_name} (Week {week_num})"
-        
         body = f"Player: {player_name}\nWeek: {week_num}\n\nWeekly Picks:\n{json.dumps(weekly_picks, indent=2)}"
         if season_picks:
             body += f"\n\nSeason Projections:\n{json.dumps(season_picks, indent=2)}"
@@ -68,40 +65,24 @@ def send_ballot_email(player_name, week_num, weekly_picks, season_picks=None):
         message["Subject"] = subject
         message.attach(MIMEText(body, "plain"))
         
-        # Connect to Gmail SMTP server
         with smtplib.SMTP("smtp.gmail.com", 587) as server:
             server.starttls()
             server.login(sender_email, sender_password)
             server.sendmail(sender_email, receiver_email, message.as_string())
     except Exception:
-        pass  # Prevents app errors if dispatch fails
+        pass
 
 
 # --- 2. GOOGLE SHEETS PERSISTENCE & NORMALIZATION ENGINE ---
 
-def get_gspread_client():
-    """Initializes and returns an authorized gspread client using st.secrets."""
-    try:
-        secrets_dict = dict(st.secrets["gcp_service_account"])
-        scopes = [
-            "https://www.googleapis.com/auth/spreadsheets",
-            "https://www.googleapis.com/auth/drive"
-        ]
-        credentials = Credentials.from_service_account_info(secrets_dict, scopes=scopes)
-        return gspread.authorize(credentials)
-    except Exception:
-        return None
-
 def load_league_data():
-    """Fetches and parses league data JSON stored in cell A1 of the Google Sheet."""
+    """Fetches league data stored in the Google Sheet via GSheetsConnection."""
     try:
-        client = get_gspread_client()
-        if client:
-            sheet_name = st.secrets["gcp_service_account"].get("sheet_name", "2026_GBBS_League_Storage")
-            sheet = client.open(sheet_name).sheet1
-            json_str = sheet.cell(1, 1).value
-            
-            if json_str:
+        conn = st.connection("gsheets", type=GSheetsConnection)
+        df = conn.read(worksheet="Sheet1", ttl=0)
+        if not df.empty and "payload" in df.columns:
+            json_str = df.iloc[0]["payload"]
+            if json_str and isinstance(json_str, str):
                 data = json.loads(json_str)
                 if isinstance(data, dict):
                     w_res = {}
@@ -132,7 +113,7 @@ def load_league_data():
     return {}
 
 def save_league_data():
-    """Serializes league data state and saves it into cell A1 of the Google Sheet."""
+    """Serializes and saves league state to the Google Sheet via GSheetsConnection."""
     try:
         clean_members = st.session_state.get("league_members", {})
         for m_name, m_data in clean_members.items():
@@ -154,7 +135,7 @@ def save_league_data():
             except Exception:
                 clean_w_res[wk_k] = wk_v
                 
-        payload = {
+        payload_dict = {
             "league_members": clean_members,
             "weekly_results": clean_w_res,
             "season_results": st.session_state.get("season_results", {}),
@@ -163,11 +144,10 @@ def save_league_data():
             "week_publication_timestamps": st.session_state.get("week_publication_timestamps", {})
         }
         
-        client = get_gspread_client()
-        if client:
-            sheet_name = st.secrets["gcp_service_account"].get("sheet_name", "2026_GBBS_League_Storage")
-            sheet = client.open(sheet_name).sheet1
-            sheet.update_cell(1, 1, json.dumps(payload, indent=2))
+        df_to_save = pd.DataFrame([{"payload": json.dumps(payload_dict, indent=2)}])
+        conn = st.connection("gsheets", type=GSheetsConnection)
+        conn.update(worksheet="Sheet1", data=df_to_save)
+        st.cache_data.clear()
     except Exception:
         pass
 
@@ -548,7 +528,6 @@ def get_eliminated_bakers_by_week():
             if act_el not in elim_list: elim_list.append(act_el)
         elim_map[int(w) + 1] = list(elim_list)
     
-    # Account for Nikki's withdrawal in Week 4 onwards
     for wk in range(4, 11):
         if wk not in elim_map:
             elim_map[wk] = list(elim_list)
