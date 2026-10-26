@@ -11,7 +11,6 @@ import io
 import smtplib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
-from streamlit_gsheets import GSheetsConnection
 
 # --- 1. SETUP & PAGE CONFIG ---
 
@@ -22,6 +21,7 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
+# Custom Styling for cozy baking theme & uniform card typography
 st.markdown("""
 <style>
 .stButton>button {
@@ -52,9 +52,10 @@ def send_ballot_email(player_name, week_num, weekly_picks, season_picks=None):
         receiver_email = email_config.get("admin_email")
         
         if not sender_email or not sender_password or not receiver_email:
-            return  
+            return  # Exit silently if email credentials aren't fully configured
         
         subject = f"GBBS Ballot Submitted: {player_name} (Week {week_num})"
+        
         body = f"Player: {player_name}\nWeek: {week_num}\n\nWeekly Picks:\n{json.dumps(weekly_picks, indent=2)}"
         if season_picks:
             body += f"\n\nSeason Projections:\n{json.dumps(season_picks, indent=2)}"
@@ -65,25 +66,24 @@ def send_ballot_email(player_name, week_num, weekly_picks, season_picks=None):
         message["Subject"] = subject
         message.attach(MIMEText(body, "plain"))
         
+        # Connect to Gmail SMTP server
         with smtplib.SMTP("smtp.gmail.com", 587) as server:
             server.starttls()
             server.login(sender_email, sender_password)
             server.sendmail(sender_email, receiver_email, message.as_string())
     except Exception:
-        pass
+        pass  # Prevents app errors if dispatch fails
 
 
-# --- 2. GOOGLE SHEETS PERSISTENCE & NORMALIZATION ENGINE ---
+# --- 2. PERSISTENCE & NORMALIZATION ENGINE ---
+
+DATA_FILE = "league_data.json"
 
 def load_league_data():
-    """Fetches league data stored in the Google Sheet via GSheetsConnection."""
-    try:
-        conn = st.connection("gsheets", type=GSheetsConnection)
-        df = conn.read(worksheet="Sheet1", ttl=0)
-        if not df.empty and "payload" in df.columns:
-            json_str = df.iloc[0]["payload"]
-            if json_str and isinstance(json_str, str):
-                data = json.loads(json_str)
+    if os.path.exists(DATA_FILE):
+        try:
+            with open(DATA_FILE, "r") as f:
+                data = json.load(f)
                 if isinstance(data, dict):
                     w_res = {}
                     for k, v in data.get("weekly_results", {}).items():
@@ -108,12 +108,11 @@ def load_league_data():
                             m_data.setdefault("pin", None)
                             m_data.setdefault("season_score", 0)
                     return data
-    except Exception:
-        pass
+        except Exception:
+            pass
     return {}
 
 def save_league_data():
-    """Serializes and saves league state to the Google Sheet via GSheetsConnection."""
     try:
         clean_members = st.session_state.get("league_members", {})
         for m_name, m_data in clean_members.items():
@@ -135,7 +134,7 @@ def save_league_data():
             except Exception:
                 clean_w_res[wk_k] = wk_v
                 
-        payload_dict = {
+        payload = {
             "league_members": clean_members,
             "weekly_results": clean_w_res,
             "season_results": st.session_state.get("season_results", {}),
@@ -143,11 +142,8 @@ def save_league_data():
             "admin_deadline_override": st.session_state.get("admin_deadline_override", False),
             "week_publication_timestamps": st.session_state.get("week_publication_timestamps", {})
         }
-        
-        df_to_save = pd.DataFrame([{"payload": json.dumps(payload_dict, indent=2)}])
-        conn = st.connection("gsheets", type=GSheetsConnection)
-        conn.update(worksheet="Sheet1", data=df_to_save)
-        st.cache_data.clear()
+        with open(DATA_FILE, "w") as f:
+            json.dump(payload, f, indent=2)
     except Exception:
         pass
 
@@ -528,6 +524,7 @@ def get_eliminated_bakers_by_week():
             if act_el not in elim_list: elim_list.append(act_el)
         elim_map[int(w) + 1] = list(elim_list)
     
+    # Account for Nikki's withdrawal in Week 4 onwards
     for wk in range(4, 11):
         if wk not in elim_map:
             elim_map[wk] = list(elim_list)
@@ -1671,7 +1668,7 @@ if tab_admin:
                             st.session_state.week_publication_timestamps = imported_data["week_publication_timestamps"]
                         save_league_data()
                         recalculate_all_scores()
-                        st.success("✅ League data successfully restored from uploaded JSON backup and pushed to Google Sheets!")
+                        st.success("✅ League data successfully restored from uploaded JSON backup!")
                         st.rerun()
                     else:
                         st.error("❌ Invalid JSON format: Root element must be a dictionary.")
@@ -1683,6 +1680,11 @@ if tab_admin:
         confirm_erase = st.checkbox("I understand this will permanently erase all player prediction ballots, PINs, and published broadcast results.", key="confirm_erase_check")
         if st.button("🗑️ Erase All Competition Data", type="primary"):
             if confirm_erase:
+                if os.path.exists(DATA_FILE):
+                    try:
+                        os.remove(DATA_FILE)
+                    except Exception:
+                        pass
                 for key in list(st.session_state.keys()):
                     del st.session_state[key]
                 st.success("All competition data successfully erased!")
