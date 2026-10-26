@@ -1,3 +1,6 @@
 streamlit
 pandas
-Pillow
+pillow
+requests
+gspread
+google-auth
