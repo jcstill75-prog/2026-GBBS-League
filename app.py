@@ -54,7 +54,7 @@ def send_ballot_email(player_name, week_num, weekly_picks, season_picks=None):
         receiver_email = email_config.get("admin_email")
 
         if not sender_email or not sender_password or not receiver_email:
-            return  # Exit silently if email credentials aren't fully configured
+            return
 
         subject = f"GBBS Ballot Submitted: {player_name} (Week {week_num})"
 
@@ -68,13 +68,12 @@ def send_ballot_email(player_name, week_num, weekly_picks, season_picks=None):
         message["Subject"] = subject
         message.attach(MIMEText(body, "plain"))
 
-        # Connect to Gmail SMTP server
         with smtplib.SMTP("smtp.gmail.com", 587) as server:
             server.starttls()
             server.login(sender_email, sender_password)
             server.sendmail(sender_email, receiver_email, message.as_string())
     except Exception:
-        pass  # Prevents app errors if dispatch fails
+        pass
 
 
 # --- 2. SUPABASE PERSISTENCE & NORMALIZATION ENGINE ---
@@ -90,7 +89,8 @@ def get_supabase_client():
         if not url or not key:
             return None
         return create_client(url, key)
-    except Exception:
+    except Exception as e:
+        st.error(f"Supabase client initialization error: {e}")
         return None
 
 def _normalize_league_dict(data):
@@ -137,8 +137,8 @@ def load_league_data():
                 normalized = _normalize_league_dict(data)
                 if normalized:
                     return normalized
-    except Exception:
-        pass
+    except Exception as e:
+        st.warning(f"Supabase load warning: {e}")
 
     if os.path.exists(DATA_FILE):
         try:
@@ -182,10 +182,15 @@ def save_league_data():
         }
 
         supabase = get_supabase_client()
-        if supabase:
-            supabase.table("league_storage").update({"payload": payload}).eq("id", 1).execute()
+        if not supabase:
+            st.error("Supabase save skipped: missing [supabase] url or key in st.secrets.")
+            return
+
+        res = supabase.table("league_storage").update({"payload": payload}).eq("id", 1).execute()
+        if not res.data:
+            st.warning("Supabase update returned 0 rows for id=1. Check table row id=1 and RLS policies.")
     except Exception as e:
-        st.warning(f"Supabase write failed: {e}")
+        st.error(f"Supabase save error: {e}")
 
 
 # --- 3. DEADLINE & SCORING ENGINE ---
@@ -821,7 +826,6 @@ if tab_lead:
         df_lb = df_lb.sort_values(by=["points", "star_wins", "chaos_var"], ascending=[False, False, True]).reset_index(drop=True)
         df_lb.index = df_lb.index + 1
 
-    # --- SPECIAL WINNER BANNER (SEASON FINISHED) ---
     season_published = is_week_published(10, all_w_res_global)
     if season_published and not df_lb.empty:
         winner_row = df_lb.iloc[0]
