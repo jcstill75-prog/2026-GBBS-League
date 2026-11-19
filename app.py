@@ -184,8 +184,8 @@ def save_league_data():
         supabase = get_supabase_client()
         if supabase:
             supabase.table("league_storage").update({"payload": payload}).eq("id", 1).execute()
-    except Exception:
-        pass
+    except Exception as e:
+        st.warning(f"Supabase write failed: {e}")
 
 
 # --- 3. DEADLINE & SCORING ENGINE ---
